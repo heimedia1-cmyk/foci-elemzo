@@ -23,6 +23,11 @@ const server = http.createServer(async (req, res) => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(q.date || '')) return json(res, 400, { error: 'Hibás dátum' });
       return json(res, 200, await analysis.quickForDate(q.date));
     }
+    if (u.pathname === '/api/tippmix') {
+      const ms = await analysis.quickForDate(q.date);
+      const nums = new Set(ms.filter(m => m.tm).map(m => m.tm.num));
+      return json(res, 200, await analysis.tippmixOnly(q.date, nums));
+    }
     if (u.pathname === '/api/analysis') {
       return json(res, 200, await analysis.analyze(q.league, q.date, q.home, q.away));
     }

@@ -122,7 +122,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const iso = d => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
 const fmtP = p => (Math.round(p*10)/10).toFixed(1) + '%';
-let ALL = [];
+let ALL = [], TMO = [];
 
 function setDate(d){ $('#date').value = d; load(); }
 $('#date').value = iso(new Date());
@@ -144,6 +144,7 @@ async function load(){
   $('#main').innerHTML = '<div class="spin"></div><div class="empty">Adatok letöltése és modellek számítása…<br><span class="small">Az első betöltés 10–30 mp is lehet.</span></div>';
   try {
     ALL = await api('/api/matches?date=' + $('#date').value);
+    TMO = await api('/api/tippmix?date=' + $('#date').value).catch(() => []);
     const lgs = [...new Map(ALL.map(m => [m.league, `${m.country} – ${m.leagueName}`])).entries()];
     const cur = $('#lgf').value;
     $('#lgf').innerHTML = '<option value="">Minden liga</option>' + lgs.map(([k,v]) => `<option value="${k}">${esc(v)}</option>`).join('');
@@ -155,7 +156,7 @@ async function load(){
 function render(){
   const lf = $('#lgf').value, sort = $('#sort').value;
   let ms = ALL.filter(m => !lf || m.league === lf);
-  if (!ms.length){
+  if (!ms.length && !TMO.length){
     $('#main').innerHTML = `<div class="empty">Erre a napra nincs meccs az adatbázisban.<br><span class="small">A jövőbeli meccsek kb. egy héttel előre jelennek meg (a forrás hetente kétszer frissül).</span></div>`;
     return;
   }
@@ -197,6 +198,24 @@ function render(){
       const k = m.league;
       if (k !== last){ html += `<div class="lg">${esc(m.country)} – ${esc(m.leagueName)}</div>`; last = k; }
       html += card(m);
+    }
+  }
+  // csak Tippmix-szorzó alapú meccsek
+  const tmo = TMO.filter(m => !lf);
+  if (tmo.length){
+    html += `<h2>Egyéb Tippmix meccsek – csak szorzó alapján (${tmo.length})</h2><div class="note" style="margin:0 4px 8px">Ezekről nincs statisztikai adat: az esélyek a Tippmix szorzóiból számoltak (marzs nélkül). A gólszám, BTTS és pontos eredmény becslés így is használható, de azt, hogy megéri-e, ezeknél nem lehet megmondani.</div>`;
+    let last = '';
+    for (const m of tmo){
+      if (m.league !== last){ html += `<div class="lg">${esc(m.league)}</div>`; last = m.league; }
+      html += `<div class="m" style="cursor:default"><div class="mh"><div class="tm">${esc(m.time)}</div><div class="teams"><div>${esc(m.home)}</div><div>${esc(m.away)}</div></div><div class="small mut">${esc(m.num)}</div></div>
+        <div class="x12"><div class="c1" style="width:${m.p.h}%">${Math.round(m.p.h)}</div><div class="cx" style="width:${m.p.d}%">${Math.round(m.p.d)}</div><div class="c2" style="width:${m.p.a}%">${Math.round(m.p.a)}</div></div>
+        <div class="chips"><span class="chip">Szorzók ${m.odds.h} / ${m.odds.d} / ${m.odds.a}</span>
+        <span class="chip">BTTS ${m.p.btts >= 50 ? 'Igen' : 'Nem'} ${Math.round(Math.max(m.p.btts, 100-m.p.btts))}%</span>
+        <span class="chip">${m.p.o25 >= 50 ? '2,5 felett' : '2,5 alatt'} ${Math.round(Math.max(m.p.o25, 100-m.p.o25))}%</span>
+        <span class="chip">1,5 felett ${Math.round(m.p.o15)}%</span><span class="chip">3,5 alatt ${Math.round(m.p.u35)}%</span>
+        <span class="chip">${m.score}${m.cond && m.cond.score !== m.score ? ` · ha ${m.cond.out}: ${m.cond.score}` : ''}</span>
+        <span class="chip">xG ${m.xg[0]}–${m.xg[1]}</span></div>
+        <div class="note" style="margin-top:6px">Pontos eredmény: ${m.top.join(', ')} · Tippmix marzs: ${m.margin}%</div></div>`;
     }
   }
   $('#main').innerHTML = html;
