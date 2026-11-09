@@ -43,4 +43,28 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => console.log(`Foci elemző fut: http://localhost:${PORT}`));
+server.listen(PORT, () => {
+  console.log(`Foci elemző fut: http://localhost:${PORT}`);
+  warmup();
+});
+
+// Indulás után és 3 óránként előtölti a mai/holnapi meccseket (gyors első megnyitás) + napló
+async function warmup() {
+  const d = new Date();
+  const days = [-1, 0, 1].map(k => new Date(d.getTime() + k * 86400000).toISOString().slice(0, 10));
+  for (const day of days) {
+    try {
+      const t = Date.now();
+      const ms = await analysis.quickForDate(day);
+      const ok = ms.filter(m => m.p);
+      const leagues = new Set(ms.map(m => m.league));
+      const hits = ok.filter(m => m.hits);
+      const hr = hits.length ? Math.round(hits.filter(m => m.hits.x12).length / hits.length * 100) : null;
+      console.log(`[warmup] ${day}: ${ms.length} meccs, ${leagues.size} liga, ${ok.length} elemezve, ${Date.now() - t} ms` + (hr !== null ? `, 1X2 találat ${hr}% (${hits.length} lejátszott)` : ''));
+      if (ok[0]) console.log(`[warmup] minta: ${ok[0].home} - ${ok[0].away} | 1:${ok[0].p.h}% X:${ok[0].p.d}% 2:${ok[0].p.a}% | BTTS ${ok[0].p.btts}% | 2.5+ ${ok[0].p.o25}% | ${ok[0].score}`);
+    } catch (e) {
+      console.log(`[warmup] ${day} hiba: ${e.message}`);
+    }
+  }
+}
+setInterval(warmup, 3 * 60 * 60 * 1000);
