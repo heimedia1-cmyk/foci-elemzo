@@ -46,6 +46,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`Foci elemző fut: http://localhost:${PORT}`);
   warmup().then(() => {
+    if (process.env.PROBE === '1') probe();
     if (process.env.STUDY === '1') require('./lib/study').runStudy().catch(e => console.log('[study] hiba', e));
   });
 });
@@ -68,5 +69,17 @@ async function warmup() {
       console.log(`[warmup] ${day} hiba: ${e.message}`);
     }
   }
+}
+async function probe() {
+  try {
+    const d = new Date().toISOString().slice(0, 10);
+    const r = await fetch(`https://www.tipplap.hu/kalkulator/labdarugas/${d}`, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const t = await r.text();
+    console.log(`[probe] status ${r.status}, ${t.length} byte`);
+    const i = t.indexOf('Sabadell');
+    const j = t.indexOf('<table');
+    console.log('[probe] TABLE ' + JSON.stringify(t.slice(j, j + 3500)));
+    console.log('[probe] SABADELL ' + JSON.stringify(t.slice(Math.max(0, i - 1500), i + 1500)));
+  } catch (e) { console.log('[probe] hiba ' + e.message); }
 }
 setInterval(warmup, 3 * 60 * 60 * 1000);
