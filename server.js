@@ -70,6 +70,12 @@ async function warmup() {
       console.log(`[warmup] ${day}: ${ms.length} meccs, ${leagues.size} liga, ${ok.length} elemezve, ${Date.now() - t} ms` + (hr !== null ? `, 1X2 találat ${hr}% (${hits.length} lejátszott)` : ''));
       const tms = ms.filter(m => m.tm);
       console.log(`[warmup] ${day}: Tippmix párosítva ${tms.length}/${ms.length}` + tms.slice(0, 6).map(m => ` | ${m.home}-${m.away} = ${m.tm.name} ${m.tm.best.pick}@${m.tm.best.odds} ${m.tm.best.ev}%`).join(''));
+      const nums = new Set(tms.map(m => m.tm.num));
+      const only = await analysis.tippmixOnly(day, nums);
+      const leagues2 = [...new Set(only.map(o => o.league))];
+      console.log(`[warmup] ${day}: csak Tippmix ${only.length} meccs, ligák: ${leagues2.join(', ')}`);
+      const it = only.filter(o => /olasz/i.test(o.league)).slice(0, 4);
+      if (it.length) console.log('[warmup] olasz: ' + it.map(o => `${o.league}: ${o.home}-${o.away} ${o.p.h}/${o.p.d}/${o.p.a} BTTS ${o.p.btts}% 2.5+ ${o.p.o25}% ${o.score}`).join(' | '));
       if (ok[0]) console.log(`[warmup] minta: ${ok[0].home} - ${ok[0].away} | 1:${ok[0].p.h}% X:${ok[0].p.d}% 2:${ok[0].p.a}% | BTTS ${ok[0].p.btts}% | 2.5+ ${ok[0].p.o25}% | ${ok[0].score}`);
     } catch (e) {
       console.log(`[warmup] ${day} hiba: ${e.message}`);
