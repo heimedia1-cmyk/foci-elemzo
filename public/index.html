@@ -43,6 +43,8 @@ h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut);
 .chip.g{border-color:var(--acc2);color:var(--acc)}
 .chip.w{border-color:#7a5d1c;color:var(--warn)}
 .chip.ok{background:#123522;border-color:var(--acc2)}
+.chip.tmg{background:#123522;border-color:var(--acc);color:var(--acc);font-weight:700}
+.chip.tmr{color:var(--mut)}
 .chip.no{background:#3a1717;border-color:#6b2a2a;color:#ffb3b3}
 .empty{color:var(--mut);text-align:center;padding:40px 10px}
 .spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:s 1s linear infinite;margin:30px auto}
@@ -101,7 +103,8 @@ th{color:var(--mut);font-weight:600;font-size:12px}
     <select id="sort">
       <option value="time">Liga / idő</option>
       <option value="conf">Legbiztosabb elöl</option>
-      <option value="value">Value elöl</option>
+      <option value="tm">Tippmix value elöl</option>
+      <option value="value">Value (külföldi szorzók) elöl</option>
       <option value="btts">BTTS elöl</option>
       <option value="o25">Sok gól elöl</option>
     </select>
@@ -171,7 +174,14 @@ function render(){
   } else {
     html += `<div class="sum"><div class="kpi"><div class="v">${ok.length}</div><div class="l">elemzett meccs</div></div>
       <div class="kpi"><div class="v">${ok.filter(m => m.tip1x2 && m.tip1x2.p >= .6).length}</div><div class="l">erős 1X2 tipp (60%+)</div></div>
-      <div class="kpi"><div class="v">${ok.filter(m => m.value).length}</div><div class="l">value lehetőség</div></div></div>`;
+      <div class="kpi"><div class="v">${ok.filter(m => m.tm).length}</div><div class="l">meccs Tippmix-szorzóval</div></div>
+      <div class="kpi"><div class="v" style="color:var(--acc)">${ok.filter(m => m.tm && m.tm.best.ev > 0).length}</div><div class="l">Tippmix value (megéri)</div></div></div>`;
+  }
+  // Tippmix value lista
+  if (!lf && sort === 'time'){
+    const tv = ok.filter(m => !m.played && m.tm && m.tm.best.ev > 0).sort((a,b) => b.tm.best.ev - a.tm.best.ev);
+    if (tv.length){ html += '<h2>💰 Megéri a Tippmixen (pozitív várható hozam)</h2>' + tv.map(card).join(''); }
+    else if (ok.some(m => m.tm && !m.played)) html += '<div class="kpi" style="margin-bottom:12px"><div class="l">Ma egyik Tippmix-szorzó sem jobb a modell szerinti korrekt szorzónál – a modell szerint ma nem éri meg fogadni.</div></div>';
   }
   // nap legjobb tippjei
   if (!lf && sort === 'time' && ok.length > 3){
@@ -179,7 +189,7 @@ function render(){
     if (top.length){ html += '<h2>🔥 A nap legbiztosabb tippjei</h2>' + top.map(card).join(''); html += '<h2>Összes meccs</h2>'; }
   }
   const val = m => m.value ? m.value.ev : -99;
-  const sorters = { conf: (a,b) => (b.tip1x2?.p||0) - (a.tip1x2?.p||0), value: (a,b) => val(b) - val(a), btts: (a,b) => (b.p?.btts||0) - (a.p?.btts||0), o25: (a,b) => (b.p?.o25||0) - (a.p?.o25||0) };
+  const sorters = { conf: (a,b) => (b.tip1x2?.p||0) - (a.tip1x2?.p||0), value: (a,b) => val(b) - val(a), tm: (a,b) => (b.tm ? b.tm.best.ev : -99) - (a.tm ? a.tm.best.ev : -99), btts: (a,b) => (b.p?.btts||0) - (a.p?.btts||0), o25: (a,b) => (b.p?.o25||0) - (a.p?.o25||0) };
   if (sort !== 'time'){ html += [...ms].sort(sorters[sort]).map(card).join(''); }
   else {
     let last = '';
@@ -209,6 +219,7 @@ function card(m){
       <span class="chip${mark(h?.o25)}">${m.p.o25 >= 50 ? '2,5 felett' : '2,5 alatt'} ${Math.round(Math.max(m.p.o25, 100-m.p.o25))}%</span>
       <span class="chip${mark(h?.score)}" title="Legvalószínűbb pontos eredmény">${m.score}${m.cond && m.cond.score !== m.score ? ` · ha ${m.cond.out}: ${m.cond.score}` : ''}</span>
       <span class="chip">xG ${m.xg[0]}–${m.xg[1]}</span>
+      ${m.tm ? `<span class="chip ${m.tm.best.ev > 0 ? 'tmg' : 'tmr'}">Tippmix ${esc(m.tm.num)}: ${m.tm.best.pick} @${m.tm.best.odds.toFixed(2)} (${m.tm.best.ev > 0 ? '+' : ''}${m.tm.best.ev}%)</span>` : ''}
       ${m.value ? `<span class="chip w">Value: ${esc(m.value.label)} @${m.value.odds} (+${m.value.ev}%)</span>` : ''}
     </div></div>`;
 }
@@ -269,6 +280,11 @@ function detail(a){
   h += `<div class="grid2"><div class="card"><h3>Pontos végeredmény – hőtérkép (%)</h3>${heat(f.matrix, m.home, m.away)}<div class="note" style="margin-top:6px">Sor: ${esc(m.home)} góljai · Oszlop: ${esc(m.away)} góljai</div></div>
     <div class="card"><h3>Legvalószínűbb eredmények</h3><table><tr><th>Eredmény</th><th>Esély</th><th>Fair szorzó</th></tr>${f.topScores.map(s => `<tr><td><b>${s.score}</b></td><td>${pc(s.p)}</td><td class="mut">${(1/s.p).toFixed(1)}</td></tr>`).join('')}</table>
     <div class="note" style="margin-top:6px">Képlet: bivariáns Poisson + empirikus kalibráció – 14 328 régi meccsen visszatesztelve ez találta el legtöbbször a pontos eredményt (13,2%, top3: 33,4%).</div></div></div>`;
+  // Tippmix
+  if (a.tm){
+    h += `<div class="card"><h3>Tippmix szorzók (tipplap.hu) · ${esc(a.tm.num)}</h3><table><tr><th>Tipp</th><th>Modell</th><th>Tippmix</th><th>Min. szorzó</th><th>Várható hozam</th><th>Tét (¼ Kelly)</th></tr>${a.tm.rows.map(r => `<tr><td><b>${r.pick}</b></td><td>${fmtP(r.p)}</td><td><b>${r.odds.toFixed(2)}</b></td><td class="mut">${r.min.toFixed(2)}</td><td class="${r.ev>0?'pos':'neg'}">${r.ev>0?'+':''}${r.ev}%</td><td>${r.kelly ? r.kelly+'% bankroll' : '–'}</td></tr>`).join('')}</table>
+    <div class="note" style="margin-top:6px">${a.tm.best.ev > 0 ? `✅ A modell szerint a(z) <b>${a.tm.best.pick}</b> megéri: a Tippmix szorzója magasabb, mint a korrekt szorzó.` : '❌ Egyik kimenet sem éri meg: a Tippmix szorzói a korrekt szorzó alatt vannak.'} Min. szorzó = ennél kevesebbért nem éri meg.</div></div>`;
+  }
   // value
   if (a.value.length){
     h += `<div class="card"><h3>Value elemzés (szorzó vs. modell)</h3><table><tr><th>Kimenet</th><th>Modell</th><th>Szorzó</th><th>Fair</th><th>EV</th><th>Kelly ¼</th></tr>${a.value.map(v => `<tr><td>${esc(v.label)}</td><td>${fmtP(v.p)}</td><td>${v.odds}</td><td class="mut">${v.fair}</td><td class="${v.ev>0?'pos':'neg'}">${v.ev>0?'+':''}${v.ev}%</td><td>${v.kelly ? v.kelly+'%' : '–'}</td></tr>`).join('')}</table>
