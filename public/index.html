@@ -207,7 +207,7 @@ function card(m){
       <span class="chip g${mark(h?.x12)}">Tipp: ${tipLbl}</span>
       <span class="chip${mark(h?.btts)}">BTTS ${m.p.btts >= 50 ? 'Igen' : 'Nem'} ${Math.round(Math.max(m.p.btts, 100-m.p.btts))}%</span>
       <span class="chip${mark(h?.o25)}">${m.p.o25 >= 50 ? '2,5 felett' : '2,5 alatt'} ${Math.round(Math.max(m.p.o25, 100-m.p.o25))}%</span>
-      <span class="chip${mark(h?.score)}">${m.score}</span>
+      <span class="chip${mark(h?.score)}" title="Legvalószínűbb pontos eredmény">${m.score}${m.cond && m.cond.score !== m.score ? ` · ha ${m.cond.out}: ${m.cond.score}` : ''}</span>
       <span class="chip">xG ${m.xg[0]}–${m.xg[1]}</span>
       ${m.value ? `<span class="chip w">Value: ${esc(m.value.label)} @${m.value.odds} (+${m.value.ev}%)</span>` : ''}
     </div></div>`;
