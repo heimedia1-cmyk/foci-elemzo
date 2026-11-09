@@ -45,7 +45,9 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Foci elemző fut: http://localhost:${PORT}`);
-  warmup();
+  warmup().then(() => {
+    if (process.env.STUDY === '1') require('./lib/study').runStudy().catch(e => console.log('[study] hiba', e));
+  });
 });
 
 // Indulás után és 3 óránként előtölti a mai/holnapi meccseket (gyors első megnyitás) + napló
