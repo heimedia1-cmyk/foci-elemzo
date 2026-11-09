@@ -1,0 +1,14 @@
+{
+  "name": "foci-elemzo",
+  "version": "1.0.0",
+  "description": "Focimeccs-elemző: Dixon–Coles + xG-proxy + piaci ensemble modell",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}

@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Foci Elemző</title>
+<meta name="theme-color" content="#0b1210">
+<style>
+:root{--bg:#0b1210;--card:#121c19;--card2:#18251f;--line:#23332c;--txt:#e6efe9;--mut:#8aa197;--acc:#3ddc84;--acc2:#1fa463;--warn:#f5b942;--bad:#ef5b5b;--blue:#5aa9ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+button,select,input{font:inherit;color:inherit}
+header{position:sticky;top:0;z-index:5;background:rgba(11,18,16,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:10px 14px calc(10px)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:18px;letter-spacing:.3px}
+.brand b{color:var(--acc)}
+.bar{display:flex;gap:6px;align-items:center;margin-top:8px}
+.bar select{flex:1;min-width:0}
+header .btn{padding:7px 10px}
+#date{flex:1;min-width:0}
+.btn{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:7px 11px;cursor:pointer}
+.btn.on,.btn:active{background:var(--acc2);border-color:var(--acc2);color:#04140b;font-weight:700}
+input[type=date],select{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:7px 9px;color-scheme:dark}
+main{max-width:980px;margin:0 auto;padding:12px 12px 80px}
+.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:12px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+.kpi .v{font-size:22px;font-weight:800}
+.kpi .l{color:var(--mut);font-size:12px}
+h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut);margin:18px 4px 8px}
+.lg{margin:16px 2px 6px;font-weight:700;color:var(--acc);font-size:13px;display:flex;justify-content:space-between;align-items:center}
+.lg span{color:var(--mut);font-weight:500}
+.m{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:border-color .15s}
+.m:hover{border-color:var(--acc2)}
+.mh{display:flex;align-items:center;gap:8px}
+.tm{color:var(--mut);font-size:12px;min-width:38px}
+.teams{flex:1;font-weight:600;min-width:0}
+.teams div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.res{font-weight:800;font-size:16px;text-align:right}
+.x12{display:flex;height:22px;border-radius:7px;overflow:hidden;margin-top:8px;font-size:11px;font-weight:700}
+.x12 div{display:flex;align-items:center;justify-content:center;color:#04140b;min-width:22px}
+.c1{background:var(--acc)}.cx{background:#9fb3aa}.c2{background:var(--blue)}
+.chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.chip{font-size:12px;border-radius:999px;padding:3px 8px;background:var(--card2);border:1px solid var(--line);white-space:nowrap}
+.chip.g{border-color:var(--acc2);color:var(--acc)}
+.chip.w{border-color:#7a5d1c;color:var(--warn)}
+.chip.ok{background:#123522;border-color:var(--acc2)}
+.chip.no{background:#3a1717;border-color:#6b2a2a;color:#ffb3b3}
+.empty{color:var(--mut);text-align:center;padding:40px 10px}
+.spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:s 1s linear infinite;margin:30px auto}
+@keyframes s{to{transform:rotate(360deg)}}
+/* részletek */
+#det{position:fixed;inset:0;background:var(--bg);z-index:10;overflow:auto;display:none}
+#det.open{display:block}
+.dh{position:sticky;top:0;background:rgba(11,18,16,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:10px 14px;display:flex;align-items:center;gap:10px;z-index:2}
+.dwrap{max-width:980px;margin:0 auto;padding:14px 12px 60px}
+.vs{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;text-align:center;margin:6px 0 14px}
+.vs .t{font-weight:800;font-size:18px}
+.vs .xg{color:var(--mut);font-size:13px}
+.vs .mid{font-size:28px;font-weight:900}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin-bottom:12px;min-width:0;overflow-x:auto}
+.card h3{margin:0 0 10px;font-size:14px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.6px}
+.tips{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px}
+.tip{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px}
+.tip .mk{font-size:12px;color:var(--mut)}
+.tip .pk{font-size:17px;font-weight:800;margin:2px 0}
+.tip .pp{font-weight:800;color:var(--acc)}
+.tip .cf{font-size:12px;color:var(--mut)}
+.tip .nt{font-size:12px;color:var(--warn);margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:6px 4px;border-bottom:1px solid var(--line);text-align:right}
+td:first-child,th:first-child{text-align:left}
+th{color:var(--mut);font-weight:600;font-size:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:700px){.grid2{grid-template-columns:1fr}}
+.hm{display:grid;gap:3px;font-size:12px}
+.hm div{aspect-ratio:1.5;display:flex;align-items:center;justify-content:center;border-radius:5px}
+.hm .ax{color:var(--mut);font-weight:700}
+.form{display:flex;gap:4px}
+.f{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#04140b}
+.fW{background:var(--acc)}.fD{background:#9fb3aa}.fL{background:var(--bad)}
+.mut{color:var(--mut)}
+.small{font-size:12px}
+.pos{color:var(--acc);font-weight:700}.neg{color:var(--mut)}
+.note{font-size:12px;color:var(--mut);line-height:1.5}
+.pbar{height:6px;background:var(--card2);border-radius:4px;overflow:hidden;margin-top:3px}
+.pbar i{display:block;height:100%;background:var(--acc)}
+.row{display:flex;justify-content:space-between;gap:8px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">⚽ Foci <b>Elemző</b></div>
+  <div class="bar">
+    <button class="btn" id="prev">◀</button>
+    <input type="date" id="date">
+    <button class="btn" id="next">▶</button>
+    <button class="btn" id="today">Ma</button>
+    <button class="btn" id="tomorrow">Holnap</button>
+  </div>
+  <div class="bar">
+    <select id="lgf"><option value="">Minden liga</option></select>
+    <select id="sort">
+      <option value="time">Liga / idő</option>
+      <option value="conf">Legbiztosabb elöl</option>
+      <option value="value">Value elöl</option>
+      <option value="btts">BTTS elöl</option>
+      <option value="o25">Sok gól elöl</option>
+    </select>
+  </div>
+</header>
+<main id="main"></main>
+
+<div id="det">
+  <div class="dh"><button class="btn" id="back">← Vissza</button><div id="dtitle" class="small mut"></div></div>
+  <div class="dwrap" id="dbody"></div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const iso = d => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+const fmtP = p => (Math.round(p*10)/10).toFixed(1) + '%';
+let ALL = [];
+
+function setDate(d){ $('#date').value = d; load(); }
+$('#date').value = iso(new Date());
+$('#date').onchange = () => load();
+$('#prev').onclick = () => { const d = new Date($('#date').value); d.setDate(d.getDate()-1); setDate(iso(d)); };
+$('#next').onclick = () => { const d = new Date($('#date').value); d.setDate(d.getDate()+1); setDate(iso(d)); };
+$('#today').onclick = () => setDate(iso(new Date()));
+$('#tomorrow').onclick = () => { const d = new Date(); d.setDate(d.getDate()+1); setDate(iso(d)); };
+$('#lgf').onchange = render; $('#sort').onchange = render;
+$('#back').onclick = () => { history.back(); };
+window.onpopstate = () => $('#det').classList.remove('open');
+
+async function api(path){
+  const r = await fetch(path); const j = await r.json();
+  if (!r.ok) throw new Error(j.error || 'Hiba'); return j;
+}
+
+async function load(){
+  $('#main').innerHTML = '<div class="spin"></div><div class="empty">Adatok letöltése és modellek számítása…<br><span class="small">Az első betöltés 10–30 mp is lehet.</span></div>';
+  try {
+    ALL = await api('/api/matches?date=' + $('#date').value);
+    const lgs = [...new Map(ALL.map(m => [m.league, `${m.country} – ${m.leagueName}`])).entries()];
+    const cur = $('#lgf').value;
+    $('#lgf').innerHTML = '<option value="">Minden liga</option>' + lgs.map(([k,v]) => `<option value="${k}">${esc(v)}</option>`).join('');
+    if (lgs.some(l => l[0] === cur)) $('#lgf').value = cur;
+    render();
+  } catch(e){ $('#main').innerHTML = `<div class="empty">Hiba: ${esc(e.message)}</div>`; }
+}
+
+function render(){
+  const lf = $('#lgf').value, sort = $('#sort').value;
+  let ms = ALL.filter(m => !lf || m.league === lf);
+  if (!ms.length){
+    $('#main').innerHTML = `<div class="empty">Erre a napra nincs meccs az adatbázisban.<br><span class="small">A jövőbeli meccsek kb. egy héttel előre jelennek meg (a forrás hetente kétszer frissül).</span></div>`;
+    return;
+  }
+  const ok = ms.filter(m => m.p);
+  let html = '';
+  // összesítő
+  const played = ok.filter(m => m.hits);
+  if (played.length){
+    const r = k => Math.round(played.filter(m => m.hits[k]).length / played.length * 100);
+    html += `<div class="sum">
+      <div class="kpi"><div class="v">${played.length}</div><div class="l">lejátszott meccs</div></div>
+      <div class="kpi"><div class="v">${r('x12')}%</div><div class="l">1X2 talált</div></div>
+      <div class="kpi"><div class="v">${r('btts')}%</div><div class="l">BTTS talált</div></div>
+      <div class="kpi"><div class="v">${r('o25')}%</div><div class="l">2,5 gól talált</div></div>
+      <div class="kpi"><div class="v">${r('score')}%</div><div class="l">pontos eredmény</div></div></div>`;
+  } else {
+    html += `<div class="sum"><div class="kpi"><div class="v">${ok.length}</div><div class="l">elemzett meccs</div></div>
+      <div class="kpi"><div class="v">${ok.filter(m => m.tip1x2 && m.tip1x2.p >= .6).length}</div><div class="l">erős 1X2 tipp (60%+)</div></div>
+      <div class="kpi"><div class="v">${ok.filter(m => m.value).length}</div><div class="l">value lehetőség</div></div></div>`;
+  }
+  // nap legjobb tippjei
+  if (!lf && sort === 'time' && ok.length > 3){
+    const top = [...ok].filter(m => !m.played).sort((a,b) => b.tip1x2.p - a.tip1x2.p).slice(0,5);
+    if (top.length){ html += '<h2>🔥 A nap legbiztosabb tippjei</h2>' + top.map(card).join(''); html += '<h2>Összes meccs</h2>'; }
+  }
+  const val = m => m.value ? m.value.ev : -99;
+  const sorters = { conf: (a,b) => (b.tip1x2?.p||0) - (a.tip1x2?.p||0), value: (a,b) => val(b) - val(a), btts: (a,b) => (b.p?.btts||0) - (a.p?.btts||0), o25: (a,b) => (b.p?.o25||0) - (a.p?.o25||0) };
+  if (sort !== 'time'){ html += [...ms].sort(sorters[sort]).map(card).join(''); }
+  else {
+    let last = '';
+    for (const m of ms){
+      const k = m.league;
+      if (k !== last){ html += `<div class="lg">${esc(m.country)} – ${esc(m.leagueName)}</div>`; last = k; }
+      html += card(m);
+    }
+  }
+  $('#main').innerHTML = html;
+  document.querySelectorAll('.m').forEach(el => el.onclick = () => openDet(JSON.parse(decodeURIComponent(el.dataset.k))));
+}
+
+function card(m){
+  const k = encodeURIComponent(JSON.stringify({league:m.league, date:m.date, home:m.home, away:m.away}));
+  const res = m.played ? `<div class="res">${m.hg}–${m.ag}</div>` : '';
+  if (!m.p) return `<div class="m" data-k="${k}"><div class="mh"><div class="tm">${esc(m.time)}</div><div class="teams"><div>${esc(m.home)}</div><div>${esc(m.away)}</div></div>${res}</div><div class="chips"><span class="chip">${esc(m.error)}</span></div></div>`;
+  const t = m.tip1x2, h = m.hits;
+  const mark = (ok) => h ? (ok ? ' ok' : ' no') : '';
+  const tipLbl = t.p >= .5 ? `${t.pick} · ${fmtP(t.pct)}` : `${t.alt.pick} · ${fmtP(t.alt.p*100)}`;
+  return `<div class="m" data-k="${k}">
+    <div class="mh"><div class="tm">${esc(m.time)}</div><div class="teams"><div>${esc(m.home)}</div><div>${esc(m.away)}</div></div>${res}</div>
+    <div class="x12"><div class="c1" style="width:${m.p.h}%">${Math.round(m.p.h)}</div><div class="cx" style="width:${m.p.d}%">${Math.round(m.p.d)}</div><div class="c2" style="width:${m.p.a}%">${Math.round(m.p.a)}</div></div>
+    <div class="chips">
+      <span class="chip g${mark(h?.x12)}">Tipp: ${tipLbl}</span>
+      <span class="chip${mark(h?.btts)}">BTTS ${m.p.btts >= 50 ? 'Igen' : 'Nem'} ${Math.round(Math.max(m.p.btts, 100-m.p.btts))}%</span>
+      <span class="chip${mark(h?.o25)}">${m.p.o25 >= 50 ? '2,5 felett' : '2,5 alatt'} ${Math.round(Math.max(m.p.o25, 100-m.p.o25))}%</span>
+      <span class="chip${mark(h?.score)}">${m.score}</span>
+      <span class="chip">xG ${m.xg[0]}–${m.xg[1]}</span>
+      ${m.value ? `<span class="chip w">Value: ${esc(m.value.label)} @${m.value.odds} (+${m.value.ev}%)</span>` : ''}
+    </div></div>`;
+}
+
+async function openDet(k){
+  history.pushState({d:1}, '');
+  $('#det').classList.add('open'); $('#det').scrollTop = 0;
+  $('#dtitle').textContent = '';
+  $('#dbody').innerHTML = '<div class="spin"></div>';
+  try {
+    const a = await api(`/api/analysis?league=${encodeURIComponent(k.league)}&date=${k.date}&home=${encodeURIComponent(k.home)}&away=${encodeURIComponent(k.away)}`);
+    $('#dbody').innerHTML = detail(a);
+    const bt = $('#btbtn'); if (bt) bt.onclick = () => runBacktest(k.league, k.date);
+    const tn = $('#tunebtn'); if (tn) tn.onclick = () => runTune(k);
+  } catch(e){ $('#dbody').innerHTML = `<div class="empty">Hiba: ${esc(e.message)}</div>`; }
+}
+
+function heat(M, hName, aName){
+  let mx = 0; M.forEach(r => r.forEach(p => mx = Math.max(mx, p)));
+  let h = `<div class="hm" style="grid-template-columns:repeat(${M[0].length+1},1fr)"><div class="ax small">${esc(hName.slice(0,3))}↓</div>`;
+  for (let j=0;j<M[0].length;j++) h += `<div class="ax">${j}</div>`;
+  M.forEach((r,i) => { h += `<div class="ax">${i}</div>`; r.forEach(p => { const a = p/mx; h += `<div style="background:rgba(61,220,132,${(a*0.85).toFixed(2)});color:${a>.55?'#04140b':'var(--txt)'}">${(p*100).toFixed(1)}</div>`; }); });
+  return h + '</div>';
+}
+
+function detail(a){
+  const m = a.match, f = a.final, L = a.lambdas.final;
+  $('#dtitle').textContent = `${m.country} – ${m.leagueName} · ${m.date} ${m.time || ''}`;
+  const pc = x => fmtP(x*100);
+  let h = `<div class="vs"><div><div class="t">${esc(m.home)}</div><div class="xg">várható gól: ${L.l}</div></div>
+    <div class="mid">${a.result ? `${a.result.hg}–${a.result.ag}` : 'vs'}</div>
+    <div><div class="t">${esc(m.away)}</div><div class="xg">várható gól: ${L.m}</div></div></div>`;
+  h += `<div class="x12" style="height:30px;font-size:13px"><div class="c1" style="width:${f.x12.h*100}%">1 · ${pc(f.x12.h)}</div><div class="cx" style="width:${f.x12.d*100}%">X · ${pc(f.x12.d)}</div><div class="c2" style="width:${f.x12.a*100}%">2 · ${pc(f.x12.a)}</div></div><br>`;
+  if (a.result){
+    const hh = a.result.hits;
+    h += `<div class="chips" style="margin-bottom:12px"><span class="chip ${hh.x12?'ok':'no'}">1X2 ${hh.x12?'✓':'✗'}</span><span class="chip ${hh.btts?'ok':'no'}">BTTS ${hh.btts?'✓':'✗'}</span><span class="chip ${hh.o25?'ok':'no'}">2,5 gól ${hh.o25?'✓':'✗'}</span><span class="chip ${hh.score?'ok':'no'}">Pontos ${hh.score?'✓':'✗'}</span><span class="chip mut">a tipp csak a meccs előtti adatokból készült</span></div>`;
+  }
+  // tippek
+  h += `<div class="card"><h3>Tippek</h3><div class="tips">` + a.tips.map(t => `<div class="tip"><div class="mk">${esc(t.market)}</div><div class="pk">${esc(t.label || t.pick)}</div><div><span class="pp">${fmtP(t.pct)}</span> <span class="cf">· ${esc(t.conf)}</span></div><div class="pbar"><i style="width:${t.pct}%"></i></div>${t.note ? `<div class="nt">${esc(t.note)}</div>` : ''}</div>`).join('') + `</div></div>`;
+  // piacok
+  const ouRows = Object.entries(f.ou).map(([ln, v]) => `<tr><td>${String(ln).replace('.',',')}</td><td>${pc(v.over)}</td><td>${pc(v.under)}</td><td class="mut">${(1/v.over).toFixed(2)} / ${(1/v.under).toFixed(2)}</td></tr>`).join('');
+  h += `<div class="grid2"><div class="card"><h3>Gólszám (over / under)</h3><table><tr><th>Vonal</th><th>Felett</th><th>Alatt</th><th>Fair szorzó</th></tr>${ouRows}</table>
+    <div class="row small" style="margin-top:8px"><span class="mut">Várható összgól</span><b>${f.expGoals.toFixed(2)}</b></div>
+    <div class="row small"><span class="mut">Gólsávok</span><span>${Object.entries(f.bands).map(([k,v]) => `${k}: <b>${pc(v)}</b>`).join(' · ')}</span></div></div>
+    <div class="card"><h3>További piacok</h3><table>
+    <tr><td>Mindkét csapat lő gólt – Igen</td><td><b>${pc(f.btts.yes)}</b></td></tr>
+    <tr><td>Mindkét csapat lő gólt – Nem</td><td>${pc(f.btts.no)}</td></tr>
+    <tr><td>Dupla esély 1X</td><td>${pc(f.dc['1X'])}</td></tr>
+    <tr><td>Dupla esély X2</td><td>${pc(f.dc['X2'])}</td></tr>
+    <tr><td>Dupla esély 12</td><td>${pc(f.dc['12'])}</td></tr>
+    <tr><td>${esc(m.home)} lő gólt</td><td>${pc(f.homeOver['0.5'])}</td></tr>
+    <tr><td>${esc(m.home)} 2+ gól</td><td>${pc(f.homeOver['1.5'])}</td></tr>
+    <tr><td>${esc(m.away)} lő gólt</td><td>${pc(f.awayOver['0.5'])}</td></tr>
+    <tr><td>${esc(m.away)} 2+ gól</td><td>${pc(f.awayOver['1.5'])}</td></tr>
+    <tr><td>${esc(m.home)} kapott gól nélkül</td><td>${pc(f.cleanSheet.home)}</td></tr>
+    <tr><td>${esc(m.away)} kapott gól nélkül</td><td>${pc(f.cleanSheet.away)}</td></tr></table></div></div>`;
+  // pontos eredmény
+  h += `<div class="grid2"><div class="card"><h3>Pontos végeredmény – hőtérkép (%)</h3>${heat(f.matrix, m.home, m.away)}<div class="note" style="margin-top:6px">Sor: ${esc(m.home)} góljai · Oszlop: ${esc(m.away)} góljai</div></div>
+    <div class="card"><h3>Legvalószínűbb eredmények</h3><table><tr><th>Eredmény</th><th>Esély</th><th>Fair szorzó</th></tr>${f.topScores.map(s => `<tr><td><b>${s.score}</b></td><td>${pc(s.p)}</td><td class="mut">${(1/s.p).toFixed(1)}</td></tr>`).join('')}</table></div></div>`;
+  // value
+  if (a.value.length){
+    h += `<div class="card"><h3>Value elemzés (szorzó vs. modell)</h3><table><tr><th>Kimenet</th><th>Modell</th><th>Szorzó</th><th>Fair</th><th>EV</th><th>Kelly ¼</th></tr>${a.value.map(v => `<tr><td>${esc(v.label)}</td><td>${fmtP(v.p)}</td><td>${v.odds}</td><td class="mut">${v.fair}</td><td class="${v.ev>0?'pos':'neg'}">${v.ev>0?'+':''}${v.ev}%</td><td>${v.kelly ? v.kelly+'%' : '–'}</td></tr>`).join('')}</table>
+    <div class="note" style="margin-top:6px">EV = várható hozam tétenként. Pozitív EV-nél a szorzó magasabb, mint amit a modell szerint az esély indokol. A Kelly ¼ a bankroll javasolt százaléka (negyed-Kelly, óvatos). ${a.compare.marketMargin != null ? `Iroda marzsa: ${a.compare.marketMargin}%.` : ''}</div></div>`;
+  }
+  // modellek összevetése
+  const cmpRow = (n, c) => c ? `<tr><td>${n}</td><td>${fmtP(c.x12.h)}</td><td>${fmtP(c.x12.d)}</td><td>${fmtP(c.x12.a)}</td><td>${fmtP(c.btts)}</td><td>${fmtP(c.o25)}</td></tr>` : '';
+  const lm = a.lambdas;
+  h += `<div class="card"><h3>Modellek összevetése</h3><table><tr><th>Forrás</th><th>1</th><th>X</th><th>2</th><th>BTTS</th><th>2,5+</th></tr>
+    ${cmpRow('Statisztikai modell', a.compare.model)}${cmpRow('Piac (szorzók, marzs nélkül)', a.compare.market)}${cmpRow('<b>Végső (ensemble)</b>', a.compare.final)}</table>
+    <table style="margin-top:8px"><tr><th>Várható gól</th><th>Hazai</th><th>Vendég</th></tr>
+    <tr><td>Dixon–Coles (gólok)</td><td>${lm.goals.l}</td><td>${lm.goals.m}</td></tr>
+    ${lm.sot ? `<tr><td>Kapura lövés modell (xG-proxy)</td><td>${lm.sot.l}</td><td>${lm.sot.m}</td></tr>` : ''}
+    ${lm.market ? `<tr><td>Piacból visszaszámolva</td><td>${lm.market.l}</td><td>${lm.market.m}</td></tr>` : ''}
+    <tr><td><b>Végső</b></td><td><b>${lm.final.l}</b></td><td><b>${lm.final.m}</b></td></tr></table>
+    <div class="note" style="margin-top:6px">Súlyok: gól ${Math.round(a.cfg.wGoals*100)}% / lövés ${Math.round((1-a.cfg.wGoals)*100)}%, piac ${Math.round(a.cfg.wMarket*100)}% ${a.tuned ? '(erre a ligára hangolva)' : '(alapértelmezett)'} · hazai pálya szorzó ×${a.homeAdv} · Dixon–Coles ρ = ${a.rho} · ${a.nMatches} meccs időben súlyozva</div></div>`;
+  // csapatok
+  const st = (s) => `<div class="form">${s.form.map(x => `<div class="f f${x.r}" title="${esc(x.date)} ${x.home?'H':'V'} ${esc(x.opp)} ${x.gf}-${x.ga}">${{W:'GY',D:'D',L:'V'}[x.r]}</div>`).join('')}</div>`;
+  const n2 = x => x == null ? '–' : x.toFixed(2), p0 = x => x == null ? '–' : Math.round(x*100)+'%';
+  const H = a.home, A = a.away;
+  h += `<div class="card"><h3>Csapatok (utolsó ${Math.max(H.played, A.played)} meccs)</h3>
+    <div class="grid2"><div><b>${esc(m.home)}</b>${st(H)}</div><div><b>${esc(m.away)}</b>${st(A)}</div></div><br>
+    <table><tr><th></th><th>${esc(m.home)}</th><th>${esc(m.away)}</th></tr>
+    <tr><td>Lőtt gól / meccs</td><td>${n2(H.gf)}</td><td>${n2(A.gf)}</td></tr>
+    <tr><td>Kapott gól / meccs</td><td>${n2(H.ga)}</td><td>${n2(A.ga)}</td></tr>
+    <tr><td>Hazai: lőtt / kapott</td><td>${n2(H.homeGf)} / ${n2(H.homeGa)}</td><td>${n2(A.homeGf)} / ${n2(A.homeGa)}</td></tr>
+    <tr><td>Idegenben: lőtt / kapott</td><td>${n2(H.awayGf)} / ${n2(H.awayGa)}</td><td>${n2(A.awayGf)} / ${n2(A.awayGa)}</td></tr>
+    <tr><td>Kapura lövés / meccs</td><td>${n2(H.sotFor)}</td><td>${n2(A.sotFor)}</td></tr>
+    <tr><td>Kapura lövés ellene</td><td>${n2(H.sotAgainst)}</td><td>${n2(A.sotAgainst)}</td></tr>
+    <tr><td>BTTS arány</td><td>${p0(H.btts)}</td><td>${p0(A.btts)}</td></tr>
+    <tr><td>2,5 gól feletti arány</td><td>${p0(H.over25)}</td><td>${p0(A.over25)}</td></tr>
+    <tr><td>Kapott gól nélküli meccsek</td><td>${p0(H.cleanSheets)}</td><td>${p0(A.cleanSheets)}</td></tr></table></div>`;
+  if (a.h2h.length) h += `<div class="card"><h3>Egymás elleni meccsek</h3><table>${a.h2h.map(x => `<tr><td class="mut small">${x.date}</td><td>${esc(x.home)}</td><td><b>${x.hg}–${x.ag}</b></td><td style="text-align:left">${esc(x.away)}</td></tr>`).join('')}</table></div>`;
+  // erőrangsor
+  h += `<div class="card"><h3>Liga erőrangsor (modell)</h3><table><tr><th>#</th><th style="text-align:left">Csapat</th><th>Támadás</th><th>Védekezés</th><th>Erő</th></tr>${a.table.map((t,i) => `<tr${t.team===m.home||t.team===m.away?' style="background:#16301f"':''}><td>${i+1}</td><td style="text-align:left">${esc(t.team)}</td><td>×${t.att}</td><td>×${t.def}</td><td><b>${t.rating>0?'+':''}${t.rating}</b></td></tr>`).join('')}</table>
+    <div class="note" style="margin-top:6px">Támadás: hányszorosát lövi az átlagnak · Védekezés: hányszorosát kapja az átlagnak (kisebb = jobb).</div></div>`;
+  // visszamérés
+  h += `<div class="card"><h3>Mennyire pontos a modell ebben a ligában?</h3>
+    <div class="note">Visszamérés: az elmúlt hetek minden meccsére a modell csak a meccs előtti adatokból tippel, majd összevetjük a valós eredménnyel. Az auto-hangolás a súlyokat erre a ligára optimalizálja.</div>
+    <div class="bar"><button class="btn" id="btbtn">Visszamérés (12 hét)</button><button class="btn" id="tunebtn">Auto-hangolás erre a ligára</button></div><div id="btout"></div></div>`;
+  h += `<div class="note">A valószínűségek statisztikai becslések, nem garanciák. A foci erősen véletlenszerű: egy 70%-os tipp is minden harmadik alkalommal bukik.</div>`;
+  return h;
+}
+
+async function runBacktest(league, date){
+  $('#btout').innerHTML = '<div class="spin"></div>';
+  try {
+    const r = await api(`/api/backtest?league=${league}&weeks=12&end=${date}`);
+    const row = (n, s) => s ? `<tr><td>${n}</td><td>${s.n}</td><td>${s.hit1x2}%</td><td>${s.btts}%</td><td>${s.o25}%</td><td>${s.score}%</td><td>${s.logLoss}</td></tr>` : '';
+    $('#btout').innerHTML = `<table style="margin-top:10px"><tr><th>Modell</th><th>Meccs</th><th>1X2</th><th>BTTS</th><th>2,5</th><th>Pontos</th><th>Log-loss</th></tr>
+      ${row('Statisztikai', r.model)}${row('Piac', r.market)}${row('<b>Végső</b>', r.final)}</table>
+      <div class="note" style="margin-top:6px">Log-loss: minél kisebb, annál jobb (a valószínűségek pontosságát méri, nem csak a találatot). ${r.value.bets ? `Value-stratégia (EV ≥ 5%, 1 egység): ${r.value.bets} fogadás, hozam ${r.value.roi > 0 ? '+' : ''}${r.value.roi}%.` : ''}</div>`;
+  } catch(e){ $('#btout').innerHTML = `<div class="note">Hiba: ${esc(e.message)}</div>`; }
+}
+async function runTune(k){
+  $('#btout').innerHTML = '<div class="spin"></div><div class="note">Hangolás… (fél perc is lehet)</div>';
+  try {
+    const r = await api(`/api/tune?league=${k.league}&weeks=20&end=${k.date}`);
+    $('#btout').innerHTML = `<div class="note" style="margin-top:8px">Kész (${r.samples} meccs alapján): gól-súly ${Math.round(r.wGoals*100)}%, piac-súly ${Math.round(r.wMarket*100)}%. Hiba ${r.before} → ${r.after}. Az új súlyok már érvényesek.</div>`;
+    setTimeout(() => { history.back(); setTimeout(() => { load(); }, 100); }, 1800);
+  } catch(e){ $('#btout').innerHTML = `<div class="note">Hiba: ${esc(e.message)}</div>`; }
+}
+
+load();
+</script>
+</body>
+</html>
