@@ -56,7 +56,14 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Foci elemző fut: http://localhost:${PORT}`);
-  warmup().then(() => {
+  warmup().then(async () => {
+    for (const t of [3, 10]) {
+      try {
+        const r = await require('./lib/slip').buildSlip({ target: t, days: 2, maxLegs: 6, stake: 1000 });
+        if (r.error) console.log(`[slip] cél ${t}: ${r.error} (${r.candidates} jelölt)`);
+        else console.log(`[slip] cél ${t}: ${r.candidates} jelölt (${r.modelCandidates} modell) -> odds ${r.totalOdds.toFixed(2)}, esély ${(r.winP * 100).toFixed(1)}%, hozam ${(r.ev * 100).toFixed(1)}% | ` + r.legs.map(l => `${l.num} ${l.name} ${l.pick}@${l.odds} ${(l.p * 100).toFixed(0)}% [${l.src}]`).join(' ; '));
+      } catch (e) { console.log('[slip] hiba ' + e.message); }
+    }
     if (process.env.CALIB === '1') require('./lib/calib').runCalib().catch(e => console.log('[calib] hiba', e));
     if (process.env.STUDY === '1') require('./lib/study').runStudy().catch(e => console.log('[study] hiba', e));
   });
