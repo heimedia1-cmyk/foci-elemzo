@@ -356,12 +356,14 @@ function detail(a){
     <tr><td>Kapott gól nélküli meccsek</td><td>${p0(H.cleanSheets)}</td><td>${p0(A.cleanSheets)}</td></tr></table></div>`;
   if (a.h2h.length) h += `<div class="card"><h3>Egymás elleni meccsek</h3><table>${a.h2h.map(x => `<tr><td class="mut small">${x.date}</td><td>${esc(x.home)}</td><td><b>${x.hg}–${x.ag}</b></td><td style="text-align:left">${esc(x.away)}</td></tr>`).join('')}</table></div>`;
   // erőrangsor
-  h += `<div class="card"><h3>Liga erőrangsor (modell)</h3><table><tr><th>#</th><th style="text-align:left">Csapat</th><th>Támadás</th><th>Védekezés</th><th>Erő</th></tr>${a.table.map((t,i) => `<tr${t.team===m.home||t.team===m.away?' style="background:#16301f"':''}><td>${i+1}</td><td style="text-align:left">${esc(t.team)}</td><td>×${t.att}</td><td>×${t.def}</td><td><b>${t.rating>0?'+':''}${t.rating}</b></td></tr>`).join('')}</table>
+  h += `<div class="card"><h3>Liga erőrangsor (modell)</h3><table><tr><th>#</th><th style="text-align:left">Csapat</th><th>Támadás</th><th>Védekezés</th><th>Erő</th></tr>${a.table.map((t,i) => `<tr${t.hl||t.team===m.home||t.team===m.away?' style="background:#16301f"':''}><td>${a.nat?'':i+1}</td><td style="text-align:left">${esc(t.team)}</td><td>×${t.att}</td><td>×${t.def}</td><td><b>${t.rating>0?'+':''}${t.rating}</b></td></tr>`).join('')}</table>
     <div class="note" style="margin-top:6px">Támadás: hányszorosát lövi az átlagnak · Védekezés: hányszorosát kapja az átlagnak (kisebb = jobb).</div></div>`;
   // visszamérés
   h += `<div class="card"><h3>Mennyire pontos a modell ebben a ligában?</h3>
     <div class="note">Visszamérés: az elmúlt hetek minden meccsére a modell csak a meccs előtti adatokból tippel, majd összevetjük a valós eredménnyel. Az auto-hangolás a súlyokat erre a ligára optimalizálja.</div>
     <div class="bar"><button class="btn" id="btbtn">Visszamérés (12 hét)</button><button class="btn" id="tunebtn">Auto-hangolás erre a ligára</button></div><div id="btout"></div></div>`;
+  if (a.nat) h = h.replace('<div class="card"><h3>Mennyire pontos a modell ebben a ligában?</h3>', '<div class="card" style="display:none"><h3>');
+  if (a.natInfo) h += `<div class="card"><div class="note">${esc(a.natInfo)}</div></div>`;
   h += `<div class="note">A valószínűségek statisztikai becslések, nem garanciák. A foci erősen véletlenszerű: egy 70%-os tipp is minden harmadik alkalommal bukik.</div>`;
   return h;
 }
