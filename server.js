@@ -98,14 +98,17 @@ async function warmup() {
   }
 }
 async function probe2() {
-  const get = async u => { const r = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0' } }); return [r.status, await r.text()]; };
   try {
-    const [, j] = await get('https://www.tipplap.hu/js/app.js?id=4fd511a635a3c4b4668e');
-    let k = -1; const out = [];
-    while ((k = j.indexOf('showMarkets', k + 1)) >= 0 && out.length < 6) out.push(j.slice(k - 100, k + 700));
-    console.log('[probe] SM ' + JSON.stringify(out));
-    const urls = [...new Set([...j.matchAll(/["'`](\/?(?:kalkulator|api|ajax|markets?|event)[^"'`]{0,80})["'`]/g)].map(m => m[1]))];
-    console.log('[probe] URLS ' + JSON.stringify(urls.slice(0, 60)));
+    const d = new Date().toISOString().slice(0, 10);
+    const t = await (await fetch(`https://www.tipplap.hu/kalkulator/labdarugas/${d}`, { headers: { 'User-Agent': 'Mozilla/5.0' } })).text();
+    const ev = (/<tr data-event="(\d+)"[^>]*>[\s\S]*?Olaszország/.exec(t) || /<tr data-event="(\d+)"/.exec(t))[1];
+    const r = await fetch(`https://www.tipplap.hu/kalkulator/markets/${ev}`, { headers: { 'User-Agent': 'Mozilla/5.0', 'X-Requested-With': 'XMLHttpRequest' } });
+    const body = await r.text();
+    console.log(`[probe] markets ${ev} ${r.status} ${body.length}`);
+    let html = body; try { html = JSON.parse(body).desktop; } catch (e) {}
+    const names = [...html.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map(m => m[1].replace(/<[^>]+>/g, '').trim()).filter(Boolean);
+    console.log('[probe] piacnevek ' + JSON.stringify(names.slice(0, 80)));
+    console.log('[probe] minta ' + JSON.stringify(html.slice(0, 3500)));
   } catch (e) { console.log('[probe] hiba ' + e.message); }
 }
 setInterval(warmup, 3 * 60 * 60 * 1000);
