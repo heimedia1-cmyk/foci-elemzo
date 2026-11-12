@@ -26,7 +26,7 @@ const server = http.createServer(async (req, res) => {
     if (u.pathname === '/api/slip') {
       return json(res, 200, await require('./lib/slip').buildSlip({
         target: parseFloat(q.target) || 5, days: parseInt(q.days, 10) || 1, maxLegs: parseInt(q.maxLegs, 10) || 6,
-        onlyModel: q.onlyModel === '1', exclude: (q.exclude || '').split(',').filter(Boolean), stake: parseInt(q.stake, 10) || 1000,
+        onlyModel: q.onlyModel === '1', allMarkets: q.allMarkets !== '0', exclude: (q.exclude || '').split(',').filter(Boolean), stake: parseInt(q.stake, 10) || 1000,
       }));
     }
     if (u.pathname === '/api/tippmix') {
@@ -61,7 +61,7 @@ server.listen(PORT, () => {
       try {
         const r = await require('./lib/slip').buildSlip({ target: t, days: 2, maxLegs: 6, stake: 1000 });
         if (r.error) console.log(`[slip] cél ${t}: ${r.error} (${r.candidates} jelölt)`);
-        else console.log(`[slip] cél ${t}: ${r.candidates} jelölt (${r.modelCandidates} modell) -> odds ${r.totalOdds.toFixed(2)}, esély ${(r.winP * 100).toFixed(1)}%, hozam ${(r.ev * 100).toFixed(1)}% | ` + r.legs.map(l => `${l.num} ${l.name} ${l.pick}@${l.odds} ${(l.p * 100).toFixed(0)}% [${l.src}]`).join(' ; '));
+        else console.log(`[slip] cél ${t} (minden piac): ${r.candidates} jelölt (${r.modelCandidates} modell) -> odds ${r.totalOdds.toFixed(2)}, esély ${(r.winP * 100).toFixed(1)}%, hozam ${(r.ev * 100).toFixed(1)}% | ` + r.legs.map(l => `${l.num} ${l.name} [${l.market}] ${l.label} ${l.pick}@${l.odds} ${(l.p * 100).toFixed(0)}% [${l.src}]`).join(' ; '));
       } catch (e) { console.log('[slip] hiba ' + e.message); }
     }
     if (process.env.PROBE === '1') probe2();
@@ -84,6 +84,15 @@ async function warmup() {
       const hr = hits.length ? Math.round(hits.filter(m => m.hits.x12).length / hits.length * 100) : null;
       console.log(`[warmup] ${day}: ${ms.length} meccs, ${leagues.size} liga, ${ok.length} elemezve, ${Date.now() - t} ms` + (hr !== null ? `, 1X2 találat ${hr}% (${hits.length} lejátszott)` : ''));
       const tms = ms.filter(m => m.tm);
+      if (day >= new Date().toISOString().slice(0, 10)) {
+        let nEx = 0, nRows = 0; const mkNames = new Map();
+        for (const m of ms.filter(x => x.tm && x.lam && !x.played)) {
+          const [h, a] = m.tm.name.split(' - ');
+          const ex = await analysis.extraMarkets(m.tm, m.lam, h, a).catch(() => null);
+          if (ex && ex.length) { nEx++; nRows += ex.length; ex.forEach(r => mkNames.set(r.market, (mkNames.get(r.market) || 0) + 1)); }
+        }
+        console.log(`[markets] ${day}: ${nEx} meccs további piacokkal, ${nRows} kimenet; piacok: ${[...mkNames.keys()].join(' | ')}`);
+      }
       console.log(`[warmup] ${day}: Tippmix párosítva ${tms.length}/${ms.length}` + tms.slice(0, 6).map(m => ` | ${m.home}-${m.away} = ${m.tm.name} ${m.tm.best.pick}@${m.tm.best.odds} ${m.tm.best.ev}%`).join(''));
       const nums = new Set(tms.map(m => m.tm.num));
       const only = await analysis.tippmixOnly(day, nums);
