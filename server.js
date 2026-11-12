@@ -23,6 +23,12 @@ const server = http.createServer(async (req, res) => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(q.date || '')) return json(res, 400, { error: 'Hibás dátum' });
       return json(res, 200, await analysis.quickForDate(q.date));
     }
+    if (u.pathname === '/api/slip') {
+      return json(res, 200, await require('./lib/slip').buildSlip({
+        target: parseFloat(q.target) || 5, days: parseInt(q.days, 10) || 1, maxLegs: parseInt(q.maxLegs, 10) || 6,
+        onlyModel: q.onlyModel === '1', exclude: (q.exclude || '').split(',').filter(Boolean), stake: parseInt(q.stake, 10) || 1000,
+      }));
+    }
     if (u.pathname === '/api/tippmix') {
       const ms = await analysis.quickForDate(q.date);
       const nums = new Set(ms.filter(m => m.tm).map(m => m.tm.num));

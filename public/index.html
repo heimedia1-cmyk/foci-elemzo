@@ -13,6 +13,8 @@ button,select,input{font:inherit;color:inherit}
 header{position:sticky;top:0;z-index:5;background:rgba(11,18,16,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:10px 14px calc(10px)}
 .brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:18px;letter-spacing:.3px}
 .brand b{color:var(--acc)}
+.brand{white-space:nowrap}
+.tabb{font-size:13px;padding:6px 10px;margin-left:6px}
 .bar{display:flex;gap:6px;align-items:center;margin-top:8px}
 .bar select{flex:1;min-width:0}
 header .btn{padding:7px 10px}
@@ -90,7 +92,7 @@ th{color:var(--mut);font-weight:600;font-size:12px}
 </head>
 <body>
 <header>
-  <div class="brand">⚽ Foci <b>Elemző</b></div>
+  <div class="brand">⚽ Foci <b>Elemző</b><span style="flex:1"></span><button class="btn on tabb" id="tabA">Meccsek</button><button class="btn tabb" id="tabS">🎫 Szelvény</button></div>
   <div class="bar">
     <button class="btn" id="prev">◀</button>
     <input type="date" id="date">
@@ -111,6 +113,22 @@ th{color:var(--mut);font-weight:600;font-size:12px}
   </div>
 </header>
 <main id="main"></main>
+<main id="slipv" style="display:none">
+  <div class="card">
+    <h3>Szelvénykészítő</h3>
+    <div class="note" style="margin-bottom:10px">Megadod, mekkora eredő oddsot szeretnél, és a program a Tippmix aktuális szorzóiból (tipplap.hu) összerakja azt a kombinációt, aminek a <b>legnagyobb az esélye</b> bejönni. A Tippmix minimum kötés szabályát is figyeli.</div>
+    <div class="grid2">
+      <label class="small mut">Cél odds<br><input id="sTarget" type="number" min="1.2" step="0.1" value="5" style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px"></label>
+      <label class="small mut">Tét (Ft)<br><input id="sStake" type="number" min="100" step="100" value="1000" style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:8px"></label>
+      <label class="small mut">Meccsek ideje<br><select id="sDays" style="width:100%"><option value="1">Csak ma</option><option value="2">Ma + holnap</option><option value="3">3 nap</option><option value="4">4 nap</option></select></label>
+      <label class="small mut">Legfeljebb ennyi meccs<br><select id="sMax" style="width:100%"><option>2</option><option>3</option><option>4</option><option>5</option><option selected>6</option><option>7</option><option>8</option><option>10</option><option>12</option></select></label>
+    </div>
+    <label class="small" style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="sOnly"> Csak statisztikával elemzett meccsek (megbízhatóbb, kevesebb meccs)</label>
+    <div class="bar"><button class="btn on" id="sGo" style="flex:1">Összeállít</button></div>
+    <div class="chips" id="sQuick"></div>
+  </div>
+  <div id="sOut"></div>
+</main>
 
 <div id="det">
   <div class="dh"><button class="btn" id="back">← Vissza</button><div id="dtitle" class="small mut"></div></div>
@@ -365,6 +383,47 @@ async function runTune(k){
     $('#btout').innerHTML = `<div class="note" style="margin-top:8px">Kész (${r.samples} meccs alapján): gól-súly ${Math.round(r.wGoals*100)}%, piac-súly ${Math.round(r.wMarket*100)}%. Hiba ${r.before} → ${r.after}. Az új súlyok már érvényesek.</div>`;
     setTimeout(() => { history.back(); setTimeout(() => { load(); }, 100); }, 1800);
   } catch(e){ $('#btout').innerHTML = `<div class="note">Hiba: ${esc(e.message)}</div>`; }
+}
+
+// ---------- Szelvénykészítő ----------
+let EXCL = [];
+function tab(which){
+  const s = which === 'S';
+  $('#main').style.display = s ? 'none' : ''; $('#slipv').style.display = s ? '' : 'none';
+  document.querySelectorAll('header .bar').forEach(b => b.style.display = s ? 'none' : '');
+  $('#tabA').classList.toggle('on', !s); $('#tabS').classList.toggle('on', s);
+}
+$('#tabA').onclick = () => tab('A'); $('#tabS').onclick = () => tab('S');
+$('#sQuick').innerHTML = [2,3,5,10,20,50].map(t => `<span class="chip" style="cursor:pointer" data-t="${t}">${t}-es odds</span>`).join('');
+$('#sQuick').onclick = e => { const t = e.target.dataset.t; if (t){ $('#sTarget').value = t; EXCL = []; buildSlip(); } };
+$('#sGo').onclick = () => { EXCL = []; buildSlip(); };
+const fmtFt = n => Math.round(n).toLocaleString('hu-HU') + ' Ft';
+async function buildSlip(){
+  $('#sOut').innerHTML = '<div class="spin"></div><div class="empty">Szorzók letöltése és a legjobb kombináció keresése…</div>';
+  const q = new URLSearchParams({ target: $('#sTarget').value, stake: $('#sStake').value, days: $('#sDays').value, maxLegs: $('#sMax').value, onlyModel: $('#sOnly').checked ? '1' : '0', exclude: EXCL.join(',') });
+  try {
+    const r = await api('/api/slip?' + q);
+    if (r.error){ $('#sOut').innerHTML = `<div class="card"><div class="note">${esc(r.error)} (${r.candidates} elérhető meccs)</div></div>`; return; }
+    const evc = x => x > 0 ? 'pos' : 'neg';
+    let h = `<div class="card"><h3>A legnagyobb esélyű szelvény · ${r.legs.length} meccs</h3>
+      <div class="sum" style="margin-bottom:6px">
+        <div class="kpi"><div class="v">${r.totalOdds.toFixed(2)}</div><div class="l">eredő odds</div></div>
+        <div class="kpi"><div class="v" style="color:var(--acc)">${(r.winP*100).toFixed(1)}%</div><div class="l">nyerési esély (kb. ${Math.max(1, Math.round(1/r.winP))}-ből 1×)</div></div>
+        <div class="kpi"><div class="v">${fmtFt(r.payout)}</div><div class="l">nyeremény ${fmtFt(r.stake)} tétre</div></div>
+        <div class="kpi"><div class="v ${evc(r.ev)}">${r.ev>0?'+':''}${(r.ev*100).toFixed(1)}%</div><div class="l">várható hozam</div></div>
+      </div>
+      <table><tr><th>Sorszám</th><th style="text-align:left">Meccs</th><th>Tipp</th><th>Odds</th><th>Esély</th><th></th></tr>
+      ${r.legs.map(l => `<tr><td><b>${esc(l.num)}</b></td><td style="text-align:left">${esc(l.name)}<div class="small mut">${esc(l.league)} · ${esc(l.date.slice(5).replace('-','.'))}. ${esc(l.time)}${l.minCombi>1?` · min. ${l.minCombi}-es kötés`:''}${l.src==='szorzó'?' · csak szorzó alapján':''}</div></td><td><b>${l.pick}</b><div class="small mut">${esc(l.label)}</div></td><td>${l.odds.toFixed(2)}</td><td>${(l.p*100).toFixed(0)}%</td><td><button class="btn small" data-x="${esc(l.num)}" title="Kihagyás és újraszámolás">✕</button></td></tr>`).join('')}</table>
+      <div class="note" style="margin-top:8px">✕ = a meccs kihagyása, a program helyette a következő legjobbat választja. A nyerési esély a tippek esélyeinek szorzata. ${r.ev < 0 ? 'Negatív várható hozam: hosszú távon ez veszteséges, a Tippmix marzsa miatt.' : ''} ${EXCL.length ? `Kihagyva: ${EXCL.length} meccs. <a href="#" id="sReset" style="color:var(--acc)">Visszaállít</a>` : ''}</div>
+      <div class="bar"><button class="btn" id="sCopy" style="flex:1">📋 Sorszámok másolása</button></div></div>`;
+    h += `<div class="card"><h3>Legbiztosabb egyedi tippek (szimplában is játszható)</h3><table><tr><th>Sorszám</th><th style="text-align:left">Meccs</th><th>Tipp</th><th>Odds</th><th>Esély</th><th>Hozam</th></tr>
+      ${r.singles.map(x => `<tr><td>${esc(x.num)}</td><td style="text-align:left">${esc(x.name)}<div class="small mut">${esc(x.date.slice(5).replace('-','.'))}. ${esc(x.time)}</div></td><td><b>${x.pick}</b></td><td>${x.odds.toFixed(2)}</td><td>${(x.p*100).toFixed(0)}%</td><td class="${evc(x.ev)}">${x.ev>0?'+':''}${(x.ev*100).toFixed(1)}%</td></tr>`).join('')}</table>
+      <div class="note" style="margin-top:6px">${r.candidates} meccs közül választva (${r.modelCandidates} statisztikai modellel elemezve).</div></div>`;
+    $('#sOut').innerHTML = h;
+    document.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { EXCL.push(b.dataset.x); buildSlip(); });
+    const rs = $('#sReset'); if (rs) rs.onclick = e => { e.preventDefault(); EXCL = []; buildSlip(); };
+    $('#sCopy').onclick = () => { const t = r.legs.map(l => `${l.num} ${l.pick}`).join('\n'); navigator.clipboard?.writeText(t); $('#sCopy').textContent = '✓ Másolva'; };
+  } catch(e){ $('#sOut').innerHTML = `<div class="empty">Hiba: ${esc(e.message)}</div>`; }
 }
 
 load();
