@@ -208,6 +208,16 @@ function render(){
     if (tv.length){ html += '<h2>💰 Megéri a Tippmixen (pozitív várható hozam)</h2>' + tv.map(card).join(''); }
     else if (ok.some(m => m.tm && !m.played)) html += '<div class="kpi" style="margin-bottom:12px"><div class="l">Ma egyik Tippmix-szorzó sem jobb a modell szerinti korrekt szorzónál – a modell szerint ma nem éri meg fogadni.</div></div>';
   }
+  // legesélyesebb döntetlenek
+  if (!lf && sort === 'time'){
+    const dr = ok.filter(m => !m.played && m.p.d >= 28).sort((a,b) => b.p.d - a.p.d).slice(0, 6);
+    if (dr.length){
+      html += '<h2>🤝 Legesélyesebb döntetlenek</h2><div class="note" style="margin:0 4px 8px">A döntetlen ritkán a legvalószínűbb kimenet, de ezeken a meccseken a legnagyobb az esélye. A szorzója 3 körüli, ezért itt gyakran van value.</div>';
+      html += dr.map(m => { const xr = m.tm && m.tm.rows.find(r => r.pick === 'X'); const k = encodeURIComponent(JSON.stringify({league:m.league, date:m.date, home:m.home, away:m.away}));
+        return `<div class="m" data-k="${k}"><div class="mh"><div class="tm">${esc(m.time)}</div><div class="teams"><div>${esc(m.home)}</div><div>${esc(m.away)}</div></div><div style="text-align:right"><b style="font-size:18px">${m.p.d.toFixed(0)}%</b><div class="small mut">döntetlen</div></div></div>
+        <div class="chips">${xr ? `<span class="chip ${xr.ev > 0 ? 'tmg' : 'tmr'}">Tippmix ${esc(m.tm.num)}: X @${xr.odds.toFixed(2)} (${xr.ev > 0 ? '+' : ''}${xr.ev}%)</span><span class="chip">min. odds ${xr.min.toFixed(2)}</span>` : ''}<span class="chip">${esc(m.leagueName)}</span></div></div>`; }).join('');
+    }
+  }
   // nap legjobb tippjei
   if (!lf && sort === 'time' && ok.length > 3){
     const top = [...ok].filter(m => !m.played).sort((a,b) => b.tip1x2.p - a.tip1x2.p).slice(0,5);
