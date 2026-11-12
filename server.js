@@ -64,6 +64,7 @@ server.listen(PORT, () => {
         else console.log(`[slip] cél ${t}: ${r.candidates} jelölt (${r.modelCandidates} modell) -> odds ${r.totalOdds.toFixed(2)}, esély ${(r.winP * 100).toFixed(1)}%, hozam ${(r.ev * 100).toFixed(1)}% | ` + r.legs.map(l => `${l.num} ${l.name} ${l.pick}@${l.odds} ${(l.p * 100).toFixed(0)}% [${l.src}]`).join(' ; '));
       } catch (e) { console.log('[slip] hiba ' + e.message); }
     }
+    if (process.env.PROBE === '1') probe2();
     if (process.env.CALIB === '1') require('./lib/calib').runCalib().catch(e => console.log('[calib] hiba', e));
     if (process.env.STUDY === '1') require('./lib/study').runStudy().catch(e => console.log('[study] hiba', e));
   });
@@ -95,5 +96,23 @@ async function warmup() {
       console.log(`[warmup] ${day} hiba: ${e.message}`);
     }
   }
+}
+async function probe2() {
+  const get = async u => { const r = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0' } }); return [r.status, await r.text()]; };
+  try {
+    const d = new Date().toISOString().slice(0, 10);
+    const [st, t] = await get(`https://www.tipplap.hu/kalkulator/labdarugas/${d}`);
+    console.log('[probe] scripts ' + JSON.stringify([...t.matchAll(/<script[^>]*src="([^"]+)"/g)].map(m => m[1])));
+    const idx = []; let k = -1; while ((k = t.indexOf('ajax', k + 1)) >= 0 && idx.length < 8) idx.push(JSON.stringify(t.slice(k - 150, k + 200)));
+    console.log('[probe] ajax ' + idx.join(' || '));
+    const inl = [...t.matchAll(/<script(?![^>]*src)[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]).filter(x => /market|odds|event/i.test(x)).map(x => x.slice(0, 1500));
+    console.log('[probe] inline ' + JSON.stringify(inl));
+    const js = [...t.matchAll(/<script[^>]*src="([^"]+)"/g)].map(m => m[1]).filter(u => /calc|kalk|main|app|tipp/i.test(u));
+    for (const u of js.slice(0, 4)) {
+      const [s2, j] = await get(u.startsWith('http') ? u : 'https://www.tipplap.hu' + u);
+      const pos = j.indexOf('showMarkets');
+      console.log(`[probe] js ${u} ${s2} ${j.length} ` + JSON.stringify(pos >= 0 ? j.slice(pos - 300, pos + 1500) : j.slice(0, 300)));
+    }
+  } catch (e) { console.log('[probe] hiba ' + e.message); }
 }
 setInterval(warmup, 3 * 60 * 60 * 1000);
