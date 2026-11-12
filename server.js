@@ -100,19 +100,12 @@ async function warmup() {
 async function probe2() {
   const get = async u => { const r = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0' } }); return [r.status, await r.text()]; };
   try {
-    const d = new Date().toISOString().slice(0, 10);
-    const [st, t] = await get(`https://www.tipplap.hu/kalkulator/labdarugas/${d}`);
-    console.log('[probe] scripts ' + JSON.stringify([...t.matchAll(/<script[^>]*src="([^"]+)"/g)].map(m => m[1])));
-    const idx = []; let k = -1; while ((k = t.indexOf('ajax', k + 1)) >= 0 && idx.length < 8) idx.push(JSON.stringify(t.slice(k - 150, k + 200)));
-    console.log('[probe] ajax ' + idx.join(' || '));
-    const inl = [...t.matchAll(/<script(?![^>]*src)[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]).filter(x => /market|odds|event/i.test(x)).map(x => x.slice(0, 1500));
-    console.log('[probe] inline ' + JSON.stringify(inl));
-    const js = [...t.matchAll(/<script[^>]*src="([^"]+)"/g)].map(m => m[1]).filter(u => /calc|kalk|main|app|tipp/i.test(u));
-    for (const u of js.slice(0, 4)) {
-      const [s2, j] = await get(u.startsWith('http') ? u : 'https://www.tipplap.hu' + u);
-      const pos = j.indexOf('showMarkets');
-      console.log(`[probe] js ${u} ${s2} ${j.length} ` + JSON.stringify(pos >= 0 ? j.slice(pos - 300, pos + 1500) : j.slice(0, 300)));
-    }
+    const [, j] = await get('https://www.tipplap.hu/js/app.js?id=4fd511a635a3c4b4668e');
+    let k = -1; const out = [];
+    while ((k = j.indexOf('showMarkets', k + 1)) >= 0 && out.length < 6) out.push(j.slice(k - 100, k + 700));
+    console.log('[probe] SM ' + JSON.stringify(out));
+    const urls = [...new Set([...j.matchAll(/["'`](\/?(?:kalkulator|api|ajax|markets?|event)[^"'`]{0,80})["'`]/g)].map(m => m[1]))];
+    console.log('[probe] URLS ' + JSON.stringify(urls.slice(0, 60)));
   } catch (e) { console.log('[probe] hiba ' + e.message); }
 }
 setInterval(warmup, 3 * 60 * 60 * 1000);
