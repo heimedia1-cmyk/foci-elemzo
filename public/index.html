@@ -154,6 +154,7 @@ th{color:var(--mut);font-weight:600;font-size:12px}
       <label><input type="checkbox" class="pT" value="ht" checked> 1. félidős gól</label><label><input type="checkbox" class="pT" value="more" checked> Lesz még gól</label>
       <label><input type="checkbox" class="pT" value="team" checked> Csapat gól / köv. gól</label><label><input type="checkbox" class="pT" value="line"> Gólszám vonal</label>
       <label><input type="checkbox" class="pT" value="win"> Győzelem / döntetlen</label><label><input type="checkbox" class="pT" value="btts"> Mindkét csapat gól</label>
+      <label style="grid-column:1/3"><input type="checkbox" id="pVal" checked> Csak ha a várható TippmixPro-szorzó eléri vagy megközelíti (5%-on belül) a megérő szorzót</label>
       <label style="grid-column:1/3"><input type="checkbox" id="pHot"> Csak 🔥 (ahol a statok erősen felfelé húzzák az esélyt)</label>
     </div>
     <div class="bar"><button class="btn on" id="pSub" style="flex:1">Értesítések bekapcsolása</button><button class="btn" id="pTest">Teszt</button><button class="btn" id="pOff">Ki</button></div>
@@ -486,7 +487,7 @@ $('#pSub').onclick = async () => {
     const reg = await swReg(); await navigator.serviceWorker.ready;
     const { key } = await api('/api/push/key');
     let sub = await reg.pushManager.getSubscription(); if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(key) });
-    const prefs = { minP: $('#pMinP').value, minOdds: $('#pMinO').value, types: [...document.querySelectorAll('.pT:checked')].map(x => x.value), onlyHot: $('#pHot').checked };
+    const prefs = { minP: $('#pMinP').value, minOdds: $('#pMinO').value, types: [...document.querySelectorAll('.pT:checked')].map(x => x.value), onlyHot: $('#pHot').checked, onlyValue: $('#pVal').checked };
     await postJSON('/api/push/sub', { sub, prefs });
     $('#pMsg').innerHTML = '✅ Bekapcsolva. A beállítások módosításához nyomd meg újra a gombot.';
   } catch(e){ $('#pMsg').textContent = '❌ ' + e.message; }
@@ -512,9 +513,9 @@ async function loadOpps(){
   try {
     const r = await api('/api/live/opps?minP=0.45&minOdds=1.35');
     if (!r.opps.length){ $('#lOut').innerHTML = `<div class="empty">${r.live ? `${r.live} élő meccs fut, de most nincs olyan kimenet, ami 45–85% közötti eséllyel és legalább 1,35-ös korrekt szorzóval járna.` : 'Most nincs élő meccs.'}</div>`; return; }
-    $('#lOut').innerHTML = `<div class="note" style="margin:0 4px 8px">${r.opps.length} lehetőség ${r.live} élő meccsből. 🔥 = a lövés-statisztika jelentősen megemelte az esélyt. ✅ = ebben a percsávban az ilyen tippek a mérések szerint beváltak. Általános (adat nélküli) meccsek és a bizonyítottan gyenge helyzetek kiszűrve. „Megéri, ha” = a TippmixPro élő szorzója legalább ennyi legyen.</div>` + r.opps.slice(0, 25).map(o => `<div class="m" style="cursor:default"><div class="row"><b>${o.hot ? '🔥 ' : ''}${esc(o.label)}</b><b style="color:var(--acc);font-size:18px">${Math.round(o.p*100)}%</b></div>
+    $('#lOut').innerHTML = `<div class="note" style="margin:0 4px 8px">${r.opps.length} lehetőség ${r.live} élő meccsből. 🔥 = a lövés-statisztika jelentősen megemelte az esélyt. ✅ = ebben a percsávban az ilyen tippek a mérések szerint beváltak. Általános (adat nélküli) meccsek és a bizonyítottan gyenge helyzetek kiszűrve. „Megéri, ha” = a TippmixPro élő szorzója legalább ennyi legyen. „Várható élő szorzó” = becslés arra, mit ad most az iroda (állás + idő + marzs, a lövés-statok nélkül) – ahol ez eléri a megérő szorzót, ott valószínű a value.</div>` + r.opps.slice(0, 25).map(o => `<div class="m" style="cursor:default"><div class="row"><b>${o.hot ? '🔥 ' : ''}${esc(o.label)}</b><b style="color:var(--acc);font-size:18px">${Math.round(o.p*100)}%</b></div>
       <div class="small mut">${esc(o.match)} · <b style="color:var(--txt)">${esc(o.score)}</b> · ${esc(o.clock)}${o.stats ? ' · ' + esc(o.stats) : ''}</div>
-      <div class="chips"><span class="chip">korrekt szorzó ${o.fair.toFixed(2)}</span><span class="chip tmg">megéri, ha ≥ ${o.need.toFixed(2)}</span>${o.verdict === 'jó' ? '<span class="chip ok">✅ bizonyított percsáv</span>' : ''}${o.boost >= 0.02 ? `<span class="chip w">statok: +${Math.round(o.boost*100)} pont</span>` : ''}<span class="chip">${esc(o.typeName)}</span></div></div>`).join('');
+      <div class="chips"><span class="chip tmg">megéri, ha ≥ ${o.need.toFixed(2)}</span><span class="chip ${o.value ? 'ok' : o.near ? 'w' : ''}">várható élő szorzó ~${o.est.toFixed(2)}${o.value ? ' ✅ valószínűleg megéri' : o.near ? ' · nagyon közel' : ''}</span>${o.verdict === 'jó' ? '<span class="chip ok">✅ bizonyított percsáv</span>' : ''}${o.boost >= 0.02 ? `<span class="chip w">statok: +${Math.round(o.boost*100)} pont</span>` : ''}<span class="chip">${esc(o.typeName)}</span></div></div>`).join('');
   } catch(e){ $('#lOut').innerHTML = `<div class="empty">Hiba: ${esc(e.message)}</div>`; }
 }
 async function loadLive(){
