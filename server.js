@@ -137,21 +137,10 @@ async function settleAll() {
 }
 setInterval(settleAll, 60 * 60 * 1000);
 setTimeout(settleAll, 30 * 1000);
-if (process.env.PROBE === '1') setTimeout(async () => {
-  try {
-    const sb = await (await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard')).json();
-    const ev = (sb.events || []).find(e => e.status && e.status.type && e.status.type.state === 'in') || sb.events[0];
-    console.log('[probe] ev keys ' + Object.keys(ev).join(',') + ' | uid ' + ev.uid + ' | links ' + JSON.stringify((ev.links || []).slice(0, 2).map(l => l.href)) + ' | season ' + JSON.stringify(ev.season));
-    for (const u of [`https://site.api.espn.com/apis/site/v2/sports/soccer/all/summary?event=${ev.id}`, `https://site.web.api.espn.com/apis/site/v2/sports/soccer/all/summary?event=${ev.id}`]) {
-      const r = await fetch(u); const t = await r.text();
-      let st = null; try { const j = JSON.parse(t); st = j.boxscore && j.boxscore.teams && j.boxscore.teams.map(x => ({ team: x.team && x.team.displayName, stats: (x.statistics || []).map(s => `${s.name}=${s.displayValue}`) })); } catch (e) {}
-      console.log(`[probe] summary ${u.slice(8, 40)} ${r.status} ${t.length} ` + JSON.stringify(st).slice(0, 1500));
-    }
-  } catch (e) { console.log('[probe] hiba ' + e.message); }
-}, 20000);
+
 setTimeout(async () => {
   try {
     const L = await require('./lib/live').liveList(d => analysis.quickForDate(d));
-    console.log(`[live] ${L.length} meccs (${L.filter(e => e.state === 'in').length} élő)` + L.filter(e => e.state === 'in').slice(0, 4).map(e => ` | ${e.home}-${e.away} ${e.clock} ${e.hs}-${e.as} -> 1:${Math.round(e.mk.x12.h * 100)} X:${Math.round(e.mk.x12.d * 100)} 2:${Math.round(e.mk.x12.a * 100)} [${e.pre.src}]`).join(''));
+    console.log(`[live] ${L.length} meccs (${L.filter(e => e.state === 'in').length} élő)` + L.filter(e => e.state === 'in').slice(0, 4).map(e => ` | ${e.home}-${e.away} ${e.clock} ${e.hs}-${e.as}${e.stats ? ` (lövés ${e.stats.h.shots}/${e.stats.h.sot}–${e.stats.a.shots}/${e.stats.a.sot}, xG ${e.xg[0].toFixed(1)}-${e.xg[1].toFixed(1)})` : ''} -> 1:${Math.round(e.mk.x12.h * 100)} X:${Math.round(e.mk.x12.d * 100)} 2:${Math.round(e.mk.x12.a * 100)} [${e.pre.src}]`).join(''));
   } catch (e) { console.log('[live] hiba ' + e.message); }
 }, 45 * 1000);

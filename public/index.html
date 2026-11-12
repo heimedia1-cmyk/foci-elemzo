@@ -134,7 +134,7 @@ th{color:var(--mut);font-weight:600;font-size:12px}
   <div id="sOut"></div>
 </main>
 <main id="naplov" style="display:none"><div id="nOut"></div></main>
-<main id="livev" style="display:none"><div class="note" style="margin:0 4px 10px">Élő meccsek (ESPN, percenként frissül). Az esélyek a meccs előtti elemzésből, a hátralévő időből, az eddigi gólokból, a piros lapokból és az állásból számolódnak. Koppints egy meccsre, és írd be a TippmixPro élő szorzóját: azonnal látod, megéri-e.</div><div id="lOut"></div></main>
+<main id="livev" style="display:none"><div class="note" style="margin:0 4px 10px">Élő meccsek (ESPN, percenként frissül). Az esélyek a meccs előtti elemzésből, a hátralévő időből, az élő statisztikából (lövések, kapura lövések), a gólokból, a piros lapokból és az állásból számolódnak. Koppints egy meccsre, és írd be a TippmixPro élő szorzóját: azonnal látod, megéri-e.</div><div id="lOut"></div></main>
 
 <div id="det">
   <div class="dh"><button class="btn" id="back">← Vissza</button><div id="dtitle" class="small mut"></div></div>
@@ -451,6 +451,7 @@ async function loadLive(){
       const red = n => n ? ' ' + '🟥'.repeat(n) : '';
       const nextLine = k.ou.find(o => o.line > e.hs + e.as);
       h += `<div class="m" data-live="${e.id}"><div class="mh"><div class="tm" style="min-width:52px">${st}</div><div class="teams"><div>${esc(e.home)}${red(e.reds.h)}</div><div>${esc(e.away)}${red(e.reds.a)}</div></div><div class="res">${e.state==='pre'?'':`${e.hs}–${e.as}`}</div></div>
+        ${e.stats ? `<div class="small mut" style="display:flex;justify-content:space-between;margin-top:6px"><span>Lövés ${e.stats.h.shots} (${e.stats.h.sot} kapura)${e.stats.h.poss!=null?` · ${Math.round(e.stats.h.poss)}%`:''} · szöglet ${e.stats.h.corners}</span><span>xG≈ <b style="color:var(--txt)">${e.xg[0].toFixed(1)}–${e.xg[1].toFixed(1)}</b></span><span>${e.stats.a.shots} (${e.stats.a.sot})${e.stats.a.poss!=null?` · ${Math.round(e.stats.a.poss)}%`:''} · ${e.stats.a.corners}</span></div>` : ''}
         <div class="x12"><div class="c1" style="width:${k.x12.h*100}%">${Math.round(k.x12.h*100)}</div><div class="cx" style="width:${k.x12.d*100}%">${Math.round(k.x12.d*100)}</div><div class="c2" style="width:${k.x12.a*100}%">${Math.round(k.x12.a*100)}</div></div>
         <div class="chips"><span class="chip">Következő gól: H ${P(k.next.home)} · nincs ${P(k.next.none)} · V ${P(k.next.away)}</span>${nextLine?`<span class="chip">${String(nextLine.line).replace('.',',')} felett ${P(nextLine.over)}</span>`:''}${k.ht && !k.ht.settled ? `<span class="chip">1. fh 0,5 felett ${P(k.ht.o05)}</span>` : ''}<span class="chip">BTTS ${P(k.btts)}</span><span class="chip">${esc(k.top[0].score)} (${P(k.top[0].p)})</span><span class="chip ${e.pre.generic?'w':''}">${esc(e.pre.src)}</span></div>`;
       if (open){
