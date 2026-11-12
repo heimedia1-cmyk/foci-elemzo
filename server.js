@@ -51,6 +51,7 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`Foci elemző fut: http://localhost:${PORT}`);
   warmup().then(() => {
+    if (process.env.CALIB === '1') require('./lib/calib').runCalib().catch(e => console.log('[calib] hiba', e));
     if (process.env.STUDY === '1') require('./lib/study').runStudy().catch(e => console.log('[study] hiba', e));
   });
 });
