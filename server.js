@@ -37,6 +37,7 @@ const server = http.createServer(async (req, res) => {
       const db = await naplo.settle();
       return json(res, 200, { slips: db.slips.slice(0, 300), stats: naplo.stats(db) });
     }
+    if (u.pathname === '/api/live') return json(res, 200, await require('./lib/live').liveList(d => analysis.quickForDate(d)));
     if (u.pathname === '/api/learn') return json(res, 200, require('./lib/learn').stats());
     if (u.pathname === '/api/naplo/leg' && req.method === 'POST') {
       const b = await readBody(req); naplo.setLeg(b.id, b.idx, b.status); return json(res, 200, { ok: true });
@@ -83,7 +84,6 @@ server.listen(PORT, () => {
         if (r.error) {} else console.log(`[slip] cél ${t} (minden piac): ${r.candidates} jelölt (${r.modelCandidates} modell) -> odds ${r.totalOdds.toFixed(2)}, esély ${(r.winP * 100).toFixed(1)}%, hozam ${(r.ev * 100).toFixed(1)}% | ` + r.legs.map(l => `${l.num} ${l.name} [${l.market}] ${l.label} ${l.pick}@${l.odds} ${(l.p * 100).toFixed(0)}% [${l.src}]`).join(' ; '));
       } catch (e) { console.log('[slip] hiba ' + e.message); }
     }
-    if (process.env.PROBE === '1') probe2();
     if (process.env.CALIB === '1') require('./lib/calib').runCalib().catch(e => console.log('[calib] hiba', e));
     if (process.env.STUDY === '1') require('./lib/study').runStudy().catch(e => console.log('[study] hiba', e));
   });
@@ -124,22 +124,6 @@ async function warmup() {
     } catch (e) {
       console.log(`[warmup] ${day} hiba: ${e.message}`);
     }
-  }
-}
-async function probe2() {
-  const slugs = ['all', 'eng.1', 'esp.1', 'uefa.nations', 'fifa.friendly', 'caf.nations_qual', 'fifa.worldq.uefa', 'uefa.euro_u21_qual', 'conmebol.libertadores', 'concacaf.nations.league', 'hun.1', 'ita.3'];
-  for (const sl of slugs) {
-    try {
-      const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${sl}/scoreboard`, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-      const j = r.ok ? await r.json() : null;
-      const ev = j && j.events || [];
-      console.log(`[probe] espn ${sl} ${r.status} ${ev.length} esemény` + ev.slice(0, 3).map(e => ` | ${e.name} ${e.status && e.status.type && e.status.type.state} ${e.status && e.status.displayClock}`).join(''));
-      const live = ev.find(e => e.status && e.status.type && e.status.type.state === 'in') || ev[0];
-      if (live && (sl === 'all' || sl === 'caf.nations_qual' || sl === 'uefa.nations')) {
-        const c = live.competitions && live.competitions[0];
-        console.log('[probe] minta ' + JSON.stringify({ status: live.status, competitors: c && c.competitors.map(x => ({ name: x.team && x.team.displayName, abbr: x.team && x.team.abbreviation, homeAway: x.homeAway, score: x.score })), details: c && (c.details || []).slice(0, 6), league: live.league || (j.leagues && j.leagues[0] && j.leagues[0].slug) }).slice(0, 2500));
-      }
-    } catch (e) { console.log('[probe] espn hiba ' + sl + ' ' + e.message); }
   }
 }
 setInterval(warmup, 3 * 60 * 60 * 1000);
