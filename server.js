@@ -84,6 +84,7 @@ server.listen(PORT, () => {
         if (r.error) {} else console.log(`[slip] cél ${t} (minden piac): ${r.candidates} jelölt (${r.modelCandidates} modell) -> odds ${r.totalOdds.toFixed(2)}, esély ${(r.winP * 100).toFixed(1)}%, hozam ${(r.ev * 100).toFixed(1)}% | ` + r.legs.map(l => `${l.num} ${l.name} [${l.market}] ${l.label} ${l.pick}@${l.odds} ${(l.p * 100).toFixed(0)}% [${l.src}]`).join(' ; '));
       } catch (e) { console.log('[slip] hiba ' + e.message); }
     }
+    if (process.env.HTCAL === '1') require('./lib/htcal').runHT().catch(e => console.log('[ht] hiba', e));
     if (process.env.CALIB === '1') require('./lib/calib').runCalib().catch(e => console.log('[calib] hiba', e));
     if (process.env.STUDY === '1') require('./lib/study').runStudy().catch(e => console.log('[study] hiba', e));
   });
