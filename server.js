@@ -7,7 +7,7 @@ const analysis = require('./lib/analysis');
 
 const PORT = process.env.PORT || 3000;
 const PUB = path.join(__dirname, 'public');
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json' };
+const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json' };
 
 function json(res, code, obj) {
   res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -15,6 +15,7 @@ function json(res, code, obj) {
 }
 
 const naplo = require('./lib/naplo');
+const push = require('./lib/push');
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let b = ''; req.on('data', c => { b += c; if (b.length > 200000) req.destroy(); });
@@ -37,6 +38,15 @@ const server = http.createServer(async (req, res) => {
       const db = await naplo.settle();
       return json(res, 200, { slips: db.slips.slice(0, 300), stats: naplo.stats(db) });
     }
+    if (u.pathname === '/api/live/opps') {
+      const live = require('./lib/live');
+      const L = await live.liveList(d => analysis.quickForDate(d));
+      return json(res, 200, { opps: live.opportunities(L, { minP: parseFloat(q.minP) || 0.45, minOdds: parseFloat(q.minOdds) || 1.35 }), live: L.filter(e => e.state === 'in').length, types: live.TYPES });
+    }
+    if (u.pathname === '/api/push/key') return json(res, 200, { key: push.publicKey(), subs: push.count() });
+    if (u.pathname === '/api/push/sub' && req.method === 'POST') { const b = await readBody(req); push.subscribe(b.sub, b.prefs || {}); return json(res, 200, { ok: true }); }
+    if (u.pathname === '/api/push/unsub' && req.method === 'POST') { const b = await readBody(req); push.unsubscribe(b.endpoint); return json(res, 200, { ok: true }); }
+    if (u.pathname === '/api/push/test' && req.method === 'POST') { const b = await readBody(req); return json(res, 200, { ok: await push.test(b.endpoint) }); }
     if (u.pathname === '/api/live') return json(res, 200, await require('./lib/live').liveList(d => analysis.quickForDate(d)));
     if (u.pathname === '/api/learn') return json(res, 200, require('./lib/learn').stats());
     if (u.pathname === '/api/naplo/leg' && req.method === 'POST') {
@@ -136,6 +146,16 @@ async function settleAll() {
   console.log(`[learn] archívum: ${st.total} tipp, kiértékelve ${st.settled}; value: ${st.value.n} db, ROI ${st.value.roi == null ? '-' : (st.value.roi * 100).toFixed(1) + '%'}`);
 }
 setInterval(settleAll, 60 * 60 * 1000);
+// élő figyelő: ha van feliratkozó, percenként végignézi az élő meccseket és értesít
+setInterval(async () => {
+  if (!push.count()) return;
+  try {
+    const live = require('./lib/live');
+    const L = await live.liveList(d => analysis.quickForDate(d));
+    const n = await push.notify(live.opportunities(L, { minP: 0.3, maxP: 0.9, minOdds: 1.1 }));
+    if (n) console.log(`[push] ${n} értesítés elküldve`);
+  } catch (e) { console.log('[push] hiba ' + e.message); }
+}, 60 * 1000);
 setTimeout(settleAll, 30 * 1000);
 
 setTimeout(async () => {

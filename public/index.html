@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Foci Elemző</title>
 <meta name="theme-color" content="#0b1210">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <style>
 :root{--bg:#0b1210;--card:#121c19;--card2:#18251f;--line:#23332c;--txt:#e6efe9;--mut:#8aa197;--acc:#3ddc84;--acc2:#1fa463;--warn:#f5b942;--bad:#ef5b5b;--blue:#5aa9ff}
 *{box-sizing:border-box}
@@ -16,7 +19,7 @@ header{position:sticky;top:0;z-index:5;background:rgba(11,18,16,.94);backdrop-fi
 .brand{white-space:nowrap;flex-wrap:wrap;row-gap:6px}
 .tabb{font-size:13px;padding:6px 9px;margin-left:5px}
 html,body{overflow-x:hidden}
-@media(max-width:480px){.brand .bt{display:none}.brand .em{display:none}.tabb{font-size:12px;padding:6px 6px;margin-left:3px}}
+@media(max-width:480px){.brand .bt{display:none}.brand .bi{display:none}.brand .em{display:none}.tabb{font-size:12px;padding:6px 6px;margin-left:3px}}
 .bar{display:flex;gap:6px;align-items:center;margin-top:8px}
 .bar select{flex:1;min-width:0}
 header .btn{padding:7px 10px}
@@ -94,7 +97,7 @@ th{color:var(--mut);font-weight:600;font-size:12px}
 </head>
 <body>
 <header>
-  <div class="brand">⚽<span class="bt"> Foci <b>Elemző</b></span><span style="flex:1"></span><button class="btn on tabb" id="tabA">Meccsek</button><button class="btn tabb" id="tabS"><span class="em">🎫 </span>Szelvény</button><button class="btn tabb" id="tabL"><span class="em">⚡ </span>Élő</button><button class="btn tabb" id="tabN"><span class="em">📒 </span>Napló</button><button class="btn tabb" id="tabV">V</button></div>
+  <div class="brand"><span class="bi">⚽</span><span class="bt"> Foci <b>Elemző</b></span><span style="flex:1"></span><button class="btn on tabb" id="tabA">Meccsek</button><button class="btn tabb" id="tabS"><span class="em">🎫 </span>Szelvény</button><button class="btn tabb" id="tabL"><span class="em">⚡ </span>Élő</button><button class="btn tabb" id="tabN"><span class="em">📒 </span>Napló</button><button class="btn tabb" id="tabV">V</button></div>
   <div class="bar">
     <button class="btn" id="prev">◀</button>
     <input type="date" id="date">
@@ -138,7 +141,24 @@ th{color:var(--mut);font-weight:600;font-size:12px}
   <div class="note" style="margin-bottom:10px">Írd be a virtuális meccs három szorzóját (1 / X / 2). A program kiveszi belőlük a marzsot, és megmutatja a valódi esélyeket, amivel a gép sorsol. A v-sport eredménye véletlen sorsolás: a múltbeli eredmények nem segítenek, és hosszú távon a marzs miatt minden tipp veszít.</div>
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><label class="small mut">1<br><input id="vs1" inputmode="decimal" placeholder="odds" style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:18px"></label><label class="small mut">X<br><input id="vsX" inputmode="decimal" placeholder="odds" style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:18px"></label><label class="small mut">2<br><input id="vs2" inputmode="decimal" placeholder="odds" style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:18px"></label></div>
   <div id="vsOut" style="margin-top:12px"></div></div></main>
-<main id="livev" style="display:none"><div class="note" style="margin:0 4px 10px">Élő meccsek (ESPN, percenként frissül). Az esélyek a meccs előtti elemzésből, a hátralévő időből, az élő statisztikából (lövések, kapura lövések), a gólokból, a piros lapokból és az állásból számolódnak. Koppints egy meccsre, és írd be a TippmixPro élő szorzóját: azonnal látod, megéri-e.</div><div id="lOut"></div></main>
+<main id="livev" style="display:none">
+  <div class="bar" style="margin:0 0 10px"><button class="btn on" id="lOpp" style="flex:1">🔍 Élő lehetőségek</button><button class="btn" id="lAll" style="flex:1">Összes élő meccs</button><button class="btn" id="lBell">🔔</button></div>
+  <div id="lBellBox" style="display:none" class="card"><h3>Értesítés élő lehetőségekről</h3>
+    <div class="note" style="margin-bottom:8px">A szerver percenként átnézi az élő meccseket, és szól a telefonodon, ha valami megfelel a feltételeidnek – akkor is, ha az oldal nincs nyitva. iPhone-on előbb add hozzá az oldalt a kezdőképernyőhöz (Megosztás → Főképernyőhöz adás), és onnan nyisd meg.</div>
+    <div class="grid2">
+      <label class="small mut">Legalább ennyi esély<br><select id="pMinP" style="width:100%"><option value="0.45">45%</option><option value="0.5">50%</option><option value="0.55" selected>55%</option><option value="0.6">60%</option><option value="0.65">65%</option><option value="0.7">70%</option></select></label>
+      <label class="small mut">Legalább ekkora korrekt szorzó<br><select id="pMinO" style="width:100%"><option value="1.3">1,30</option><option value="1.4">1,40</option><option value="1.5" selected>1,50</option><option value="1.7">1,70</option><option value="2">2,00</option></select></label>
+    </div>
+    <div class="small" style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:4px">
+      <label><input type="checkbox" class="pT" value="ht" checked> 1. félidős gól</label><label><input type="checkbox" class="pT" value="more" checked> Lesz még gól</label>
+      <label><input type="checkbox" class="pT" value="team" checked> Csapat gól / köv. gól</label><label><input type="checkbox" class="pT" value="line"> Gólszám vonal</label>
+      <label><input type="checkbox" class="pT" value="win"> Győzelem / döntetlen</label><label><input type="checkbox" class="pT" value="btts"> Mindkét csapat gól</label>
+      <label style="grid-column:1/3"><input type="checkbox" id="pHot"> Csak 🔥 (ahol a statok erősen felfelé húzzák az esélyt)</label>
+    </div>
+    <div class="bar"><button class="btn on" id="pSub" style="flex:1">Értesítések bekapcsolása</button><button class="btn" id="pTest">Teszt</button><button class="btn" id="pOff">Ki</button></div>
+    <div class="note" id="pMsg"></div>
+  </div>
+  <div id="lInfo" class="note" style="margin:0 4px 10px">Élő meccsek (ESPN, percenként frissül). Az esélyek a meccs előtti elemzésből, a hátralévő időből, az élő statisztikából (lövések, kapura lövések), a gólokból, a piros lapokból és az állásból számolódnak. Koppints egy meccsre, és írd be a TippmixPro élő szorzóját: azonnal látod, megéri-e.</div><div id="lOut"></div></main>
 
 <div id="det">
   <div class="dh"><button class="btn" id="back">← Vissza</button><div id="dtitle" class="small mut"></div></div>
@@ -457,7 +477,38 @@ function vsCalc(){
 }
 ['1','X','2'].forEach(k => $('#vs'+k).addEventListener('input', vsCalc));
 const ODDS = {};
+const b64 = s => { const p = '='.repeat((4 - s.length % 4) % 4), r = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from([...r].map(c => c.charCodeAt(0))); };
+async function swReg(){ if (!('serviceWorker' in navigator) || !('PushManager' in window)) throw new Error('Ez a böngésző nem támogatja az értesítéseket (iPhone-on add hozzá a kezdőképernyőhöz, és onnan nyisd meg).'); return navigator.serviceWorker.register('/sw.js'); }
+$('#pSub').onclick = async () => {
+  try {
+    const perm = await Notification.requestPermission(); if (perm !== 'granted') throw new Error('Az értesítési engedélyt nem adtad meg.');
+    const reg = await swReg(); await navigator.serviceWorker.ready;
+    const { key } = await api('/api/push/key');
+    let sub = await reg.pushManager.getSubscription(); if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(key) });
+    const prefs = { minP: $('#pMinP').value, minOdds: $('#pMinO').value, types: [...document.querySelectorAll('.pT:checked')].map(x => x.value), onlyHot: $('#pHot').checked };
+    await postJSON('/api/push/sub', { sub, prefs });
+    $('#pMsg').innerHTML = '✅ Bekapcsolva. A beállítások módosításához nyomd meg újra a gombot.';
+  } catch(e){ $('#pMsg').textContent = '❌ ' + e.message; }
+};
+$('#pTest').onclick = async () => { try { const reg = await swReg(); const sub = await reg.pushManager.getSubscription(); if (!sub) throw new Error('Előbb kapcsold be.'); await postJSON('/api/push/test', { endpoint: sub.endpoint }); $('#pMsg').textContent = 'Teszt értesítés elküldve.'; } catch(e){ $('#pMsg').textContent = '❌ ' + e.message; } };
+$('#pOff').onclick = async () => { try { const reg = await swReg(); const sub = await reg.pushManager.getSubscription(); if (sub){ await postJSON('/api/push/unsub', { endpoint: sub.endpoint }); await sub.unsubscribe(); } $('#pMsg').textContent = 'Értesítések kikapcsolva.'; } catch(e){ $('#pMsg').textContent = '❌ ' + e.message; } };
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+let LMODE = 'opp';
+$('#lOpp').onclick = () => { LMODE = 'opp'; $('#lOpp').classList.add('on'); $('#lAll').classList.remove('on'); $('#lOut').innerHTML = ''; loadLive(); };
+$('#lAll').onclick = () => { LMODE = 'all'; $('#lAll').classList.add('on'); $('#lOpp').classList.remove('on'); $('#lOut').innerHTML = ''; loadLive(); };
+$('#lBell').onclick = () => { const b = $('#lBellBox'); b.style.display = b.style.display === 'none' ? '' : 'none'; };
+async function loadOpps(){
+  if (!$('#lOut').innerHTML) $('#lOut').innerHTML = '<div class="spin"></div>';
+  try {
+    const r = await api('/api/live/opps?minP=0.45&minOdds=1.35');
+    if (!r.opps.length){ $('#lOut').innerHTML = `<div class="empty">${r.live ? `${r.live} élő meccs fut, de most nincs olyan kimenet, ami 45–85% közötti eséllyel és legalább 1,35-ös korrekt szorzóval járna.` : 'Most nincs élő meccs.'}</div>`; return; }
+    $('#lOut').innerHTML = `<div class="note" style="margin:0 4px 8px">${r.opps.length} lehetőség ${r.live} élő meccsből. 🔥 = a lövés-statisztika jelentősen megemelte az esélyt. „Megéri, ha” = a TippmixPro élő szorzója legalább ennyi legyen.</div>` + r.opps.slice(0, 25).map(o => `<div class="m" style="cursor:default"><div class="row"><b>${o.hot ? '🔥 ' : ''}${esc(o.label)}</b><b style="color:var(--acc);font-size:18px">${Math.round(o.p*100)}%</b></div>
+      <div class="small mut">${esc(o.match)} · <b style="color:var(--txt)">${esc(o.score)}</b> · ${esc(o.clock)}${o.stats ? ' · ' + esc(o.stats) : ''}</div>
+      <div class="chips"><span class="chip">korrekt szorzó ${o.fair.toFixed(2)}</span><span class="chip tmg">megéri, ha ≥ ${o.need.toFixed(2)}</span>${o.boost >= 0.02 ? `<span class="chip w">statok: +${Math.round(o.boost*100)} pont</span>` : ''}<span class="chip">${esc(o.typeName)}</span></div></div>`).join('');
+  } catch(e){ $('#lOut').innerHTML = `<div class="empty">Hiba: ${esc(e.message)}</div>`; }
+}
 async function loadLive(){
+  if (LMODE === 'opp') return loadOpps();
   if (document.activeElement && document.activeElement.dataset && document.activeElement.dataset.odd) return; // gépelés közben nem frissítünk
   if (!$('#lOut').innerHTML) $('#lOut').innerHTML = '<div class="spin"></div>';
   try {
@@ -567,6 +618,7 @@ async function buildSlip(){
 }
 
 load();
+if (new URLSearchParams(location.search).get('tab') === 'L') tab('L');
 </script>
 </body>
 </html>

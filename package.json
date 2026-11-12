@@ -10,5 +10,8 @@
     "node": ">=18"
   },
   "license": "UNLICENSED",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "web-push": "^3.6.7"
+  }
 }
