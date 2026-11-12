@@ -43,7 +43,7 @@ const server = http.createServer(async (req, res) => {
     if (u.pathname === '/api/slip') {
       return json(res, 200, await require('./lib/slip').buildSlip({
         target: parseFloat(q.target) || 5, days: parseInt(q.days, 10) || 1, maxLegs: parseInt(q.maxLegs, 10) || 6,
-        onlyModel: q.onlyModel === '1', allMarkets: q.allMarkets !== '0', exclude: (q.exclude || '').split(',').filter(Boolean), stake: parseInt(q.stake, 10) || 1000,
+        onlyModel: q.onlyModel === '1', allMarkets: q.allMarkets !== '0', minOdds: parseFloat(q.minOdds) || 1.4, exclude: (q.exclude || '').split(',').filter(Boolean), stake: parseInt(q.stake, 10) || 1000,
       }));
     }
     if (u.pathname === '/api/tippmix') {
@@ -76,9 +76,10 @@ server.listen(PORT, () => {
   warmup().then(async () => {
     for (const t of [3, 10]) {
       try {
-        const r = await require('./lib/slip').buildSlip({ target: t, days: 2, maxLegs: 6, stake: 1000 });
+        const r = await require('./lib/slip').buildSlip({ target: t, days: 2, maxLegs: 6, stake: 1000, minOdds: 1.4 });
         if (r.error) console.log(`[slip] cél ${t}: ${r.error} (${r.candidates} jelölt)`);
-        else console.log(`[slip] cél ${t} (minden piac): ${r.candidates} jelölt (${r.modelCandidates} modell) -> odds ${r.totalOdds.toFixed(2)}, esély ${(r.winP * 100).toFixed(1)}%, hozam ${(r.ev * 100).toFixed(1)}% | ` + r.legs.map(l => `${l.num} ${l.name} [${l.market}] ${l.label} ${l.pick}@${l.odds} ${(l.p * 100).toFixed(0)}% [${l.src}]`).join(' ; '));
+        if (!r.error) console.log('[slip] top egyedi: ' + r.singles.slice(0, 6).map(x => `${x.num} ${x.name} [${x.market}] ${x.label} @${x.odds} ${(x.p * 100).toFixed(0)}% ev ${(x.ev * 100).toFixed(1)}%`).join(' ; '));
+        if (r.error) {} else console.log(`[slip] cél ${t} (minden piac): ${r.candidates} jelölt (${r.modelCandidates} modell) -> odds ${r.totalOdds.toFixed(2)}, esély ${(r.winP * 100).toFixed(1)}%, hozam ${(r.ev * 100).toFixed(1)}% | ` + r.legs.map(l => `${l.num} ${l.name} [${l.market}] ${l.label} ${l.pick}@${l.odds} ${(l.p * 100).toFixed(0)}% [${l.src}]`).join(' ; '));
       } catch (e) { console.log('[slip] hiba ' + e.message); }
     }
     if (process.env.PROBE === '1') probe2();
