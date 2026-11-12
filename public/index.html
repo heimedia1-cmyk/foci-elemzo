@@ -445,6 +445,13 @@ async function loadNaplo(){
           <td>${l.status==='függő'||l.manual?`<button class="btn small" data-leg="${s.id}|${i}|nyert">✓</button><button class="btn small" data-leg="${s.id}|${i}|vesztett">✗</button>`:''}</td></tr>`).join('')}</table>
         <div class="bar"><button class="btn small" data-del="${s.id}">Törlés</button></div></div>`;
     }
+    try {
+      const L = await api('/api/learn');
+      h += `<div class="card"><h3>🧠 Tanulás – automatikus tipp-archívum</h3><div class="note">A program minden nap elmenti az összes tippjét a valódi Tippmix-szorzókkal, a meccsek után összeveti a valós eredménnyel, és ahol rendszeresen téved, ott magától korrigál (kategóriánként legalább ${L.minN} lezárt tipp után). Archivált tippek: <b>${L.total}</b>, ebből kiértékelt: <b>${L.settled}</b>.${L.value.n ? ` Value-tippek (min. 1,40 odds, pozitív hozam): ${L.value.n} db, hozam <b>${L.value.roi>0?'+':''}${(L.value.roi*100).toFixed(1)}%</b>.` : ''}</div>`;
+      if (L.groups.length) h += `<table style="margin-top:8px"><tr><th style="text-align:left">Fajta</th>${L.bands.map(b => `<th>${b}</th>`).join('')}</tr>${L.groups.map(g => `<tr><td style="text-align:left">${esc(g.group)}</td>${g.cells.map(c => c.n ? `<td class="small" style="${c.active?'color:var(--acc)':''}">${Math.round(c.pred*100)}→${Math.round(c.hit*100)}<div class="mut">${c.n} db</div></td>` : '<td class="mut">–</td>').join('')}</tr>`).join('')}</table><div class="note" style="margin-top:6px">Cellában: mondott esély → valós találati arány. Zöld = a korrekció már aktív.</div>`;
+      else h += '<div class="note" style="margin-top:6px">Az első kiértékelések 1–3 napon belül jelennek meg.</div>';
+      h += '</div>';
+    } catch(e){}
     h += '<div class="note">A bajnoki és válogatott meccseket a program magától kiértékeli, amint az eredmény bekerül az adatbázisba (1–3 nap). A többit a ✓/✗ gombbal jelölheted.</div>';
     $('#nOut').innerHTML = h;
     document.querySelectorAll('[data-leg]').forEach(b => b.onclick = async () => { const [id, idx, status] = b.dataset.leg.split('|'); await postJSON('/api/naplo/leg', { id, idx: +idx, status }); loadNaplo(); });

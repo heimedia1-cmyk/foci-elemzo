@@ -37,6 +37,7 @@ const server = http.createServer(async (req, res) => {
       const db = await naplo.settle();
       return json(res, 200, { slips: db.slips.slice(0, 300), stats: naplo.stats(db) });
     }
+    if (u.pathname === '/api/learn') return json(res, 200, require('./lib/learn').stats());
     if (u.pathname === '/api/naplo/leg' && req.method === 'POST') {
       const b = await readBody(req); naplo.setLeg(b.id, b.idx, b.status); return json(res, 200, { ok: true });
     }
@@ -109,6 +110,7 @@ async function warmup() {
           const ex = await analysis.extraMarkets(m.tm, m.lam, h, a).catch(() => null);
           if (ex && ex.length) { nEx++; nRows += ex.length; ex.forEach(r => mkNames.set(r.market, (mkNames.get(r.market) || 0) + 1)); }
         }
+        await learn.record(day, ms, async e => { const [h, a] = e.tm.name.split(' - '); return analysis.extraMarkets(e.tm, e.lam, h, a, true); }).catch(err => console.log('[learn] mentési hiba', err.message));
         console.log(`[markets] ${day}: ${nEx} meccs további piacokkal, ${nRows} kimenet; piacok: ${[...mkNames.keys()].join(' | ')}`);
       }
       console.log(`[warmup] ${day}: Tippmix párosítva ${tms.length}/${ms.length}` + tms.slice(0, 6).map(m => ` | ${m.home}-${m.away} = ${m.tm.name} ${m.tm.best.pick}@${m.tm.best.odds} ${m.tm.best.ev}%`).join(''));
@@ -139,4 +141,12 @@ async function probe2() {
   } catch (e) { console.log('[probe] hiba ' + e.message); }
 }
 setInterval(warmup, 3 * 60 * 60 * 1000);
-setInterval(() => naplo.settle().catch(() => {}), 60 * 60 * 1000);
+const learn = require('./lib/learn');
+async function settleAll() {
+  await naplo.settle().catch(e => console.log('[naplo] hiba', e.message));
+  await learn.settle(naplo.findResult, naplo.legWon).catch(e => console.log('[learn] hiba', e.message));
+  const st = learn.stats();
+  console.log(`[learn] archívum: ${st.total} tipp, kiértékelve ${st.settled}; value: ${st.value.n} db, ROI ${st.value.roi == null ? '-' : (st.value.roi * 100).toFixed(1) + '%'}`);
+}
+setInterval(settleAll, 60 * 60 * 1000);
+setTimeout(settleAll, 30 * 1000);
