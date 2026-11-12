@@ -16,7 +16,7 @@ header{position:sticky;top:0;z-index:5;background:rgba(11,18,16,.94);backdrop-fi
 .brand{white-space:nowrap;flex-wrap:wrap;row-gap:6px}
 .tabb{font-size:13px;padding:6px 9px;margin-left:5px}
 html,body{overflow-x:hidden}
-@media(max-width:480px){.brand .bt{display:none}.brand .em{display:none}.tabb{font-size:12px;padding:6px 7px;margin-left:4px}}
+@media(max-width:480px){.brand .bt{display:none}.brand .em{display:none}.tabb{font-size:12px;padding:6px 6px;margin-left:3px}}
 .bar{display:flex;gap:6px;align-items:center;margin-top:8px}
 .bar select{flex:1;min-width:0}
 header .btn{padding:7px 10px}
@@ -94,7 +94,7 @@ th{color:var(--mut);font-weight:600;font-size:12px}
 </head>
 <body>
 <header>
-  <div class="brand">⚽<span class="bt"> Foci <b>Elemző</b></span><span style="flex:1"></span><button class="btn on tabb" id="tabA">Meccsek</button><button class="btn tabb" id="tabS"><span class="em">🎫 </span>Szelvény</button><button class="btn tabb" id="tabL"><span class="em">⚡ </span>Élő</button><button class="btn tabb" id="tabN"><span class="em">📒 </span>Napló</button></div>
+  <div class="brand">⚽<span class="bt"> Foci <b>Elemző</b></span><span style="flex:1"></span><button class="btn on tabb" id="tabA">Meccsek</button><button class="btn tabb" id="tabS"><span class="em">🎫 </span>Szelvény</button><button class="btn tabb" id="tabL"><span class="em">⚡ </span>Élő</button><button class="btn tabb" id="tabN"><span class="em">📒 </span>Napló</button><button class="btn tabb" id="tabV">V</button></div>
   <div class="bar">
     <button class="btn" id="prev">◀</button>
     <input type="date" id="date">
@@ -134,6 +134,10 @@ th{color:var(--mut);font-weight:600;font-size:12px}
   <div id="sOut"></div>
 </main>
 <main id="naplov" style="display:none"><div id="nOut"></div></main>
+<main id="vsv" style="display:none"><div class="card"><h3>V-sport kalkulátor</h3>
+  <div class="note" style="margin-bottom:10px">Írd be a virtuális meccs három szorzóját (1 / X / 2). A program kiveszi belőlük a marzsot, és megmutatja a valódi esélyeket, amivel a gép sorsol. A v-sport eredménye véletlen sorsolás: a múltbeli eredmények nem segítenek, és hosszú távon a marzs miatt minden tipp veszít.</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><label class="small mut">1<br><input id="vs1" inputmode="decimal" placeholder="odds" style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:18px"></label><label class="small mut">X<br><input id="vsX" inputmode="decimal" placeholder="odds" style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:18px"></label><label class="small mut">2<br><input id="vs2" inputmode="decimal" placeholder="odds" style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:18px"></label></div>
+  <div id="vsOut" style="margin-top:12px"></div></div></main>
 <main id="livev" style="display:none"><div class="note" style="margin:0 4px 10px">Élő meccsek (ESPN, percenként frissül). Az esélyek a meccs előtti elemzésből, a hátralévő időből, az élő statisztikából (lövések, kapura lövések), a gólokból, a piros lapokból és az állásból számolódnak. Koppints egy meccsre, és írd be a TippmixPro élő szorzóját: azonnal látod, megéri-e.</div><div id="lOut"></div></main>
 
 <div id="det">
@@ -429,13 +433,29 @@ let EXCL = [];
 let LIVET = null, LIVEOPEN = new Set();
 function tab(which){
   $('#main').style.display = which === 'A' ? '' : 'none'; $('#slipv').style.display = which === 'S' ? '' : 'none'; $('#naplov').style.display = which === 'N' ? '' : 'none'; $('#livev').style.display = which === 'L' ? '' : 'none';
-  $('#tabL').classList.toggle('on', which === 'L');
+  $('#tabL').classList.toggle('on', which === 'L'); $('#vsv').style.display = which === 'V' ? '' : 'none'; $('#tabV').classList.toggle('on', which === 'V');
   clearInterval(LIVET); if (which === 'L'){ loadLive(); LIVET = setInterval(loadLive, 45000); }
   document.querySelectorAll('header .bar').forEach(b => b.style.display = which === 'A' ? '' : 'none');
   $('#tabA').classList.toggle('on', which === 'A'); $('#tabS').classList.toggle('on', which === 'S'); $('#tabN').classList.toggle('on', which === 'N');
   if (which === 'N') loadNaplo();
 }
-$('#tabA').onclick = () => tab('A'); $('#tabS').onclick = () => tab('S'); $('#tabN').onclick = () => tab('N'); $('#tabL').onclick = () => tab('L');
+$('#tabA').onclick = () => tab('A'); $('#tabS').onclick = () => tab('S'); $('#tabN').onclick = () => tab('N'); $('#tabL').onclick = () => tab('L'); $('#tabV').onclick = () => { tab('V'); $('#vs1').focus(); };
+function vsCalc(){
+  const o = ['1','X','2'].map(k => parseFloat(($('#vs'+k).value || '').replace(',', '.')));
+  if (o.some(x => !(x > 1))){ $('#vsOut').innerHTML = ''; return; }
+  const inv = o.map(x => 1/x), book = inv.reduce((a,b) => a+b, 0);
+  // power-módszer (a hosszú szorzókra jutó marzs pontosabb kezelése)
+  let lo = 0.5, hi = 2; for (let i = 0; i < 60; i++){ const k = (lo+hi)/2; inv.reduce((a,p) => a + p**k, 0) > 1 ? lo = k : hi = k; }
+  const kk = (lo+hi)/2, p = inv.map(x => x**kk);
+  const names = ['Hazai győzelem (1)', 'Döntetlen (X)', 'Vendég győzelem (2)'];
+  const best = p.indexOf(Math.max(...p));
+  const dc = [['1X', p[0]+p[1], 1/(1/o[0]+1/o[1])], ['X2', p[1]+p[2], 1/(1/o[1]+1/o[2])], ['12', p[0]+p[2], 1/(1/o[0]+1/o[2])]];
+  $('#vsOut').innerHTML = `<div class="kpi" style="margin-bottom:10px"><div class="l">Legvalószínűbb</div><div class="v" style="color:var(--acc)">${['1','X','2'][best]} · ${(p[best]*100).toFixed(1)}%</div><div class="l">${names[best]} – 10 ilyen tippből átlagosan ${Math.round((1-p[best])*10)} nem jön be</div></div>
+    <table><tr><th style="text-align:left">Kimenet</th><th>Valódi esély</th><th>Szorzó</th><th>Hozam</th></tr>${p.map((x,i) => `<tr${i===best?' style="background:#16301f"':''}><td style="text-align:left">${names[i]}</td><td><b>${(x*100).toFixed(1)}%</b></td><td>${o[i].toFixed(2)}</td><td class="neg">${((x*o[i]-1)*100).toFixed(1)}%</td></tr>`).join('')}
+    ${dc.map(([n,x,od]) => `<tr><td style="text-align:left">Kétesély ${n} (ha a Tippmix kb. ${od.toFixed(2)}-t ad)</td><td>${(x*100).toFixed(1)}%</td><td class="mut">~${od.toFixed(2)}</td><td></td></tr>`).join('')}</table>
+    <div class="note" style="margin-top:8px">Marzs: ${((book-1)*100).toFixed(1)}%. Ennyit visz el átlagosan a gép minden fogadásból – ezért a „hozam” mindig negatív.</div>`;
+}
+['1','X','2'].forEach(k => $('#vs'+k).addEventListener('input', vsCalc));
 const ODDS = {};
 async function loadLive(){
   if (document.activeElement && document.activeElement.dataset && document.activeElement.dataset.odd) return; // gépelés közben nem frissítünk
