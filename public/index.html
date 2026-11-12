@@ -271,6 +271,7 @@ function card(m){
       <span class="chip g${mark(h?.x12)}">Tipp: ${tipLbl}</span>
       <span class="chip${mark(h?.btts)}">BTTS ${m.p.btts >= 50 ? 'Igen' : 'Nem'} ${Math.round(Math.max(m.p.btts, 100-m.p.btts))}%</span>
       <span class="chip${mark(h?.o25)}">${m.p.o25 >= 50 ? '2,5 felett' : '2,5 alatt'} ${Math.round(Math.max(m.p.o25, 100-m.p.o25))}%</span>
+      ${m.p.ht05 != null ? `<span class="chip">1. fh ${m.p.ht05 >= 50 ? '0,5 felett' : '0,5 alatt'} ${Math.round(Math.max(m.p.ht05, 100-m.p.ht05))}%</span>` : ''}
       <span class="chip${mark(h?.score)}" title="Legvalószínűbb pontos eredmény">${m.score}${m.cond && m.cond.score !== m.score ? ` · ha ${m.cond.out}: ${m.cond.score}` : ''}</span>
       <span class="chip">xG ${m.xg[0]}–${m.xg[1]}</span>
       ${m.tm ? `<span class="chip ${m.tm.best.ev > 0 ? 'tmg' : 'tmr'}">Tippmix ${esc(m.tm.num)}: ${m.tm.best.pick} @${m.tm.best.odds.toFixed(2)} (${m.tm.best.ev > 0 ? '+' : ''}${m.tm.best.ev}%)</span>` : ''}
@@ -331,6 +332,19 @@ function detail(a){
     <tr><td>${esc(m.away)} 2+ gól</td><td>${pc(f.awayOver['1.5'])}</td></tr>
     <tr><td>${esc(m.home)} kapott gól nélkül</td><td>${pc(f.cleanSheet.home)}</td></tr>
     <tr><td>${esc(m.away)} kapott gól nélkül</td><td>${pc(f.cleanSheet.away)}</td></tr></table></div></div>`;
+  if (a.ht){
+    const t = a.ht;
+    h += `<div class="card"><h3>Első félidő</h3><table>
+      <tr><td>0,5 gól felett (lesz gól az 1. félidőben)</td><td><b>${pc(t.o05)}</b></td><td class="mut">${(1/t.o05).toFixed(2)}</td></tr>
+      <tr><td>0,5 gól alatt (0–0 a félidőben)</td><td><b>${pc(1-t.o05)}</b></td><td class="mut">${(1/(1-t.o05)).toFixed(2)}</td></tr>
+      <tr><td>1,5 gól felett</td><td>${pc(t.o15)}</td><td class="mut">${(1/t.o15).toFixed(2)}</td></tr>
+      <tr><td>1,5 gól alatt</td><td>${pc(1-t.o15)}</td><td class="mut">${(1/(1-t.o15)).toFixed(2)}</td></tr>
+      <tr><td>Félidő: ${esc(m.home)} vezet</td><td>${pc(t.x12.h)}</td><td class="mut">${(1/t.x12.h).toFixed(2)}</td></tr>
+      <tr><td>Félidő: döntetlen</td><td>${pc(t.x12.d)}</td><td class="mut">${(1/t.x12.d).toFixed(2)}</td></tr>
+      <tr><td>Félidő: ${esc(m.away)} vezet</td><td>${pc(t.x12.a)}</td><td class="mut">${(1/t.x12.a).toFixed(2)}</td></tr>
+      <tr><td>Félidőben mindkét csapat lő gólt</td><td>${pc(t.btts)}</td><td class="mut">${(1/t.btts).toFixed(2)}</td></tr></table>
+      <div class="note" style="margin-top:6px">3. oszlop: korrekt szorzó. Várható gól az 1. félidőben: ${t.exp.toFixed(2)}. A félidős arányt régi meccsek félidős eredményeiből mértem.</div></div>`;
+  }
   // pontos eredmény
   h += `<div class="grid2"><div class="card"><h3>Pontos végeredmény – hőtérkép (%)</h3>${heat(f.matrix, m.home, m.away)}<div class="note" style="margin-top:6px">Sor: ${esc(m.home)} góljai · Oszlop: ${esc(m.away)} góljai</div></div>
     <div class="card"><h3>Legvalószínűbb eredmények</h3><table><tr><th>Eredmény</th><th>Esély</th><th>Fair szorzó</th></tr>${f.topScores.map(s => `<tr><td><b>${s.score}</b></td><td>${pc(s.p)}</td><td class="mut">${(1/s.p).toFixed(1)}</td></tr>`).join('')}</table>
@@ -438,10 +452,11 @@ async function loadLive(){
       const nextLine = k.ou.find(o => o.line > e.hs + e.as);
       h += `<div class="m" data-live="${e.id}"><div class="mh"><div class="tm" style="min-width:52px">${st}</div><div class="teams"><div>${esc(e.home)}${red(e.reds.h)}</div><div>${esc(e.away)}${red(e.reds.a)}</div></div><div class="res">${e.state==='pre'?'':`${e.hs}–${e.as}`}</div></div>
         <div class="x12"><div class="c1" style="width:${k.x12.h*100}%">${Math.round(k.x12.h*100)}</div><div class="cx" style="width:${k.x12.d*100}%">${Math.round(k.x12.d*100)}</div><div class="c2" style="width:${k.x12.a*100}%">${Math.round(k.x12.a*100)}</div></div>
-        <div class="chips"><span class="chip">Következő gól: H ${P(k.next.home)} · nincs ${P(k.next.none)} · V ${P(k.next.away)}</span>${nextLine?`<span class="chip">${String(nextLine.line).replace('.',',')} felett ${P(nextLine.over)}</span>`:''}<span class="chip">BTTS ${P(k.btts)}</span><span class="chip">${esc(k.top[0].score)} (${P(k.top[0].p)})</span><span class="chip ${e.pre.generic?'w':''}">${esc(e.pre.src)}</span></div>`;
+        <div class="chips"><span class="chip">Következő gól: H ${P(k.next.home)} · nincs ${P(k.next.none)} · V ${P(k.next.away)}</span>${nextLine?`<span class="chip">${String(nextLine.line).replace('.',',')} felett ${P(nextLine.over)}</span>`:''}${k.ht && !k.ht.settled ? `<span class="chip">1. fh 0,5 felett ${P(k.ht.o05)}</span>` : ''}<span class="chip">BTTS ${P(k.btts)}</span><span class="chip">${esc(k.top[0].score)} (${P(k.top[0].p)})</span><span class="chip ${e.pre.generic?'w':''}">${esc(e.pre.src)}</span></div>`;
       if (open){
         const rows = [['Hazai győz (1)', k.x12.h], ['Döntetlen (X)', k.x12.d], ['Vendég győz (2)', k.x12.a], ['1X', k.dc['1X']], ['X2', k.dc['X2']], ['12', k.dc['12']],
           ['Következő gól: hazai', k.next.home], ['Nem lesz több gól', k.next.none], ['Következő gól: vendég', k.next.away], ['Mindkét csapat lő gólt: igen', k.btts], ['Mindkét csapat lő gólt: nem', 1-k.btts],
+          ...(k.ht && !k.ht.settled ? [['1. félidő 0,5 gól felett', k.ht.o05], ['1. félidő 0,5 gól alatt', 1-k.ht.o05], ...(k.ht.o15 != null && k.ht.o15 < 1 ? [['1. félidő 1,5 gól felett', k.ht.o15], ['1. félidő 1,5 gól alatt', 1-k.ht.o15]] : [])] : []),
           ...k.ou.flatMap(o => [[`${String(o.line).replace('.',',')} gól felett`, o.over], [`${String(o.line).replace('.',',')} gól alatt`, o.under]])];
         h += `<table style="margin-top:8px" onclick="event.stopPropagation()"><tr><th style="text-align:left">Fogadás</th><th>Esély</th><th>Korrekt</th><th>TippmixPro</th><th>Hozam</th></tr>${rows.map(([n,p],i) => { const key = e.id+'|'+n, o = ODDS[key]; const ev = o ? p*o-1 : null;
           return `<tr><td style="text-align:left">${esc(n)}</td><td>${P(p)}</td><td class="mut">${p>0.005?F(p):'–'}</td><td><input data-odd="${esc(key)}" data-p="${p}" inputmode="decimal" value="${o||''}" placeholder="odds" style="width:64px;background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:4px"></td><td class="evc">${ev==null?'':`<b class="${ev>0?'pos':'neg'}">${ev>0?'+':''}${(ev*100).toFixed(1)}%</b>`}</td></tr>`; }).join('')}</table>
