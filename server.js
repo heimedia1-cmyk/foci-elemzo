@@ -137,6 +137,18 @@ async function settleAll() {
 }
 setInterval(settleAll, 60 * 60 * 1000);
 setTimeout(settleAll, 30 * 1000);
+if (process.env.PROBE === '1') setTimeout(async () => {
+  try {
+    const sb = await (await fetch('https://site.api.espn.com/apis/site/v2/sports/soccer/all/scoreboard')).json();
+    const ev = (sb.events || []).find(e => e.status && e.status.type && e.status.type.state === 'in') || sb.events[0];
+    console.log('[probe] ev keys ' + Object.keys(ev).join(',') + ' | uid ' + ev.uid + ' | links ' + JSON.stringify((ev.links || []).slice(0, 2).map(l => l.href)) + ' | season ' + JSON.stringify(ev.season));
+    for (const u of [`https://site.api.espn.com/apis/site/v2/sports/soccer/all/summary?event=${ev.id}`, `https://site.web.api.espn.com/apis/site/v2/sports/soccer/all/summary?event=${ev.id}`]) {
+      const r = await fetch(u); const t = await r.text();
+      let st = null; try { const j = JSON.parse(t); st = j.boxscore && j.boxscore.teams && j.boxscore.teams.map(x => ({ team: x.team && x.team.displayName, stats: (x.statistics || []).map(s => `${s.name}=${s.displayValue}`) })); } catch (e) {}
+      console.log(`[probe] summary ${u.slice(8, 40)} ${r.status} ${t.length} ` + JSON.stringify(st).slice(0, 1500));
+    }
+  } catch (e) { console.log('[probe] hiba ' + e.message); }
+}, 20000);
 setTimeout(async () => {
   try {
     const L = await require('./lib/live').liveList(d => analysis.quickForDate(d));
