@@ -136,3 +136,9 @@ async function settleAll() {
 }
 setInterval(settleAll, 60 * 60 * 1000);
 setTimeout(settleAll, 30 * 1000);
+setTimeout(async () => {
+  try {
+    const L = await require('./lib/live').liveList(d => analysis.quickForDate(d));
+    console.log(`[live] ${L.length} meccs (${L.filter(e => e.state === 'in').length} élő)` + L.filter(e => e.state === 'in').slice(0, 4).map(e => ` | ${e.home}-${e.away} ${e.clock} ${e.hs}-${e.as} -> 1:${Math.round(e.mk.x12.h * 100)} X:${Math.round(e.mk.x12.d * 100)} 2:${Math.round(e.mk.x12.a * 100)} [${e.pre.src}]`).join(''));
+  } catch (e) { console.log('[live] hiba ' + e.message); }
+}, 45 * 1000);
