@@ -127,18 +127,20 @@ async function warmup() {
   }
 }
 async function probe2() {
-  try {
-    const d = new Date().toISOString().slice(0, 10);
-    const t = await (await fetch(`https://www.tipplap.hu/kalkulator/labdarugas/${d}`, { headers: { 'User-Agent': 'Mozilla/5.0' } })).text();
-    const ev = (/<tr data-event="(\d+)"[^>]*>[\s\S]*?Olaszország/.exec(t) || /<tr data-event="(\d+)"/.exec(t))[1];
-    const r = await fetch(`https://www.tipplap.hu/kalkulator/markets/${ev}`, { headers: { 'User-Agent': 'Mozilla/5.0', 'X-Requested-With': 'XMLHttpRequest' } });
-    const body = await r.text();
-    console.log(`[probe] markets ${ev} ${r.status} ${body.length}`);
-    let html = body; try { html = JSON.parse(body).desktop; } catch (e) {}
-    const names = [...html.matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map(m => m[1].replace(/<[^>]+>/g, '').trim()).filter(Boolean);
-    console.log('[probe] piacnevek ' + JSON.stringify(names.slice(0, 80)));
-    console.log('[probe] minta ' + JSON.stringify(html.slice(0, 3500)));
-  } catch (e) { console.log('[probe] hiba ' + e.message); }
+  const slugs = ['all', 'eng.1', 'esp.1', 'uefa.nations', 'fifa.friendly', 'caf.nations_qual', 'fifa.worldq.uefa', 'uefa.euro_u21_qual', 'conmebol.libertadores', 'concacaf.nations.league', 'hun.1', 'ita.3'];
+  for (const sl of slugs) {
+    try {
+      const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${sl}/scoreboard`, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      const j = r.ok ? await r.json() : null;
+      const ev = j && j.events || [];
+      console.log(`[probe] espn ${sl} ${r.status} ${ev.length} esemény` + ev.slice(0, 3).map(e => ` | ${e.name} ${e.status && e.status.type && e.status.type.state} ${e.status && e.status.displayClock}`).join(''));
+      const live = ev.find(e => e.status && e.status.type && e.status.type.state === 'in') || ev[0];
+      if (live && (sl === 'all' || sl === 'caf.nations_qual' || sl === 'uefa.nations')) {
+        const c = live.competitions && live.competitions[0];
+        console.log('[probe] minta ' + JSON.stringify({ status: live.status, competitors: c && c.competitors.map(x => ({ name: x.team && x.team.displayName, abbr: x.team && x.team.abbreviation, homeAway: x.homeAway, score: x.score })), details: c && (c.details || []).slice(0, 6), league: live.league || (j.leagues && j.leagues[0] && j.leagues[0].slug) }).slice(0, 2500));
+      }
+    } catch (e) { console.log('[probe] espn hiba ' + sl + ' ' + e.message); }
+  }
 }
 setInterval(warmup, 3 * 60 * 60 * 1000);
 const learn = require('./lib/learn');
