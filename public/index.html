@@ -142,7 +142,8 @@ th{color:var(--mut);font-weight:600;font-size:12px}
   <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px"><label class="small mut">1<br><input id="vs1" inputmode="decimal" placeholder="odds" style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:18px"></label><label class="small mut">X<br><input id="vsX" inputmode="decimal" placeholder="odds" style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:18px"></label><label class="small mut">2<br><input id="vs2" inputmode="decimal" placeholder="odds" style="width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:18px"></label></div>
   <div id="vsOut" style="margin-top:12px"></div></div></main>
 <main id="livev" style="display:none">
-  <div class="bar" style="margin:0 0 10px"><button class="btn on" id="lOpp" style="flex:1">🔍 Élő lehetőségek</button><button class="btn" id="lAll" style="flex:1">Összes élő meccs</button><button class="btn" id="lBell">🔔</button></div>
+  <div class="bar" style="margin:0 0 10px"><button class="btn on" id="lOpp" style="flex:1">🔍 Élő lehetőségek</button><button class="btn" id="lAll" style="flex:1">Összes élő meccs</button><button class="btn" id="lBell">🔔</button><button class="btn" id="lLearn">🧠</button></div>
+  <div id="lLearnBox" style="display:none" class="card"></div>
   <div id="lBellBox" style="display:none" class="card"><h3>Értesítés élő lehetőségekről</h3>
     <div class="note" style="margin-bottom:8px">A szerver percenként átnézi az élő meccseket, és szól a telefonodon, ha valami megfelel a feltételeidnek – akkor is, ha az oldal nincs nyitva. iPhone-on előbb add hozzá az oldalt a kezdőképernyőhöz (Megosztás → Főképernyőhöz adás), és onnan nyisd meg.</div>
     <div class="grid2">
@@ -496,15 +497,24 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').cat
 let LMODE = 'opp';
 $('#lOpp').onclick = () => { LMODE = 'opp'; $('#lOpp').classList.add('on'); $('#lAll').classList.remove('on'); $('#lOut').innerHTML = ''; loadLive(); };
 $('#lAll').onclick = () => { LMODE = 'all'; $('#lAll').classList.add('on'); $('#lOpp').classList.remove('on'); $('#lOut').innerHTML = ''; loadLive(); };
+$('#lLearn').onclick = async () => {
+  const b = $('#lLearnBox'); if (b.style.display === ''){ b.style.display = 'none'; return; }
+  b.style.display = ''; b.innerHTML = '<div class="spin"></div>';
+  try {
+    const r = await api('/api/live/learn'); const TN = { ht: '1. félidős gól', more: 'Lesz még gól', team: 'Csapat gól / köv. gól', win: 'Győzelem / döntetlen', btts: 'Mindkét csapat gól', line: 'Gólszám vonal' };
+    b.innerHTML = `<h3>🧠 Élő tanulás</h3><div class="note">Minden élő lehetőséget elment (perc, állás, statok, esély), a meccs végén kiértékeli, és ebből tanul. Mentve: <b>${r.total}</b>, kiértékelve: <b>${r.settled}</b>. Egy percsáv ${r.minFilter} kiértékelt tipp után kap minősítést: ha rendszeresen gyengébb a mondottnál, onnan nem ajánl többet. ${r.minCal} tipp után az esélyeket is automatikusan korrigálja.</div>` +
+      (r.rows.length ? `<table style="margin-top:8px"><tr><th style="text-align:left">Fajta</th>${r.minutes.map(m => `<th>${m}'</th>`).join('')}</tr>${r.rows.map(x => `<tr><td style="text-align:left" class="small">${esc(TN[x.type]||x.type)}</td>${x.cells.map(c => c.n ? `<td class="small" style="${c.n>=r.minFilter ? (c.hit-c.pred <= -0.05 ? 'color:var(--bad)' : c.hit-c.pred >= -0.01 ? 'color:var(--acc)' : '') : ''}">${Math.round(c.pred*100)}→${Math.round(c.hit*100)}<div class="mut">${c.n}</div></td>` : '<td class="mut">–</td>').join('')}</tr>`).join('')}</table><div class="note" style="margin-top:6px">Cellában: mondott → valós %, alatta a darabszám. Zöld = bizonyított, piros = gyenge (kiszűrve).</div>` : '<div class="note" style="margin-top:6px">Az első kiértékelések az első lefújt meccsek után jelennek meg.</div>');
+  } catch(e){ b.innerHTML = 'Hiba: ' + esc(e.message); }
+};
 $('#lBell').onclick = () => { const b = $('#lBellBox'); b.style.display = b.style.display === 'none' ? '' : 'none'; };
 async function loadOpps(){
   if (!$('#lOut').innerHTML) $('#lOut').innerHTML = '<div class="spin"></div>';
   try {
     const r = await api('/api/live/opps?minP=0.45&minOdds=1.35');
     if (!r.opps.length){ $('#lOut').innerHTML = `<div class="empty">${r.live ? `${r.live} élő meccs fut, de most nincs olyan kimenet, ami 45–85% közötti eséllyel és legalább 1,35-ös korrekt szorzóval járna.` : 'Most nincs élő meccs.'}</div>`; return; }
-    $('#lOut').innerHTML = `<div class="note" style="margin:0 4px 8px">${r.opps.length} lehetőség ${r.live} élő meccsből. 🔥 = a lövés-statisztika jelentősen megemelte az esélyt. „Megéri, ha” = a TippmixPro élő szorzója legalább ennyi legyen.</div>` + r.opps.slice(0, 25).map(o => `<div class="m" style="cursor:default"><div class="row"><b>${o.hot ? '🔥 ' : ''}${esc(o.label)}</b><b style="color:var(--acc);font-size:18px">${Math.round(o.p*100)}%</b></div>
+    $('#lOut').innerHTML = `<div class="note" style="margin:0 4px 8px">${r.opps.length} lehetőség ${r.live} élő meccsből. 🔥 = a lövés-statisztika jelentősen megemelte az esélyt. ✅ = ebben a percsávban az ilyen tippek a mérések szerint beváltak. Általános (adat nélküli) meccsek és a bizonyítottan gyenge helyzetek kiszűrve. „Megéri, ha” = a TippmixPro élő szorzója legalább ennyi legyen.</div>` + r.opps.slice(0, 25).map(o => `<div class="m" style="cursor:default"><div class="row"><b>${o.hot ? '🔥 ' : ''}${esc(o.label)}</b><b style="color:var(--acc);font-size:18px">${Math.round(o.p*100)}%</b></div>
       <div class="small mut">${esc(o.match)} · <b style="color:var(--txt)">${esc(o.score)}</b> · ${esc(o.clock)}${o.stats ? ' · ' + esc(o.stats) : ''}</div>
-      <div class="chips"><span class="chip">korrekt szorzó ${o.fair.toFixed(2)}</span><span class="chip tmg">megéri, ha ≥ ${o.need.toFixed(2)}</span>${o.boost >= 0.02 ? `<span class="chip w">statok: +${Math.round(o.boost*100)} pont</span>` : ''}<span class="chip">${esc(o.typeName)}</span></div></div>`).join('');
+      <div class="chips"><span class="chip">korrekt szorzó ${o.fair.toFixed(2)}</span><span class="chip tmg">megéri, ha ≥ ${o.need.toFixed(2)}</span>${o.verdict === 'jó' ? '<span class="chip ok">✅ bizonyított percsáv</span>' : ''}${o.boost >= 0.02 ? `<span class="chip w">statok: +${Math.round(o.boost*100)} pont</span>` : ''}<span class="chip">${esc(o.typeName)}</span></div></div>`).join('');
   } catch(e){ $('#lOut').innerHTML = `<div class="empty">Hiba: ${esc(e.message)}</div>`; }
 }
 async function loadLive(){

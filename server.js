@@ -43,6 +43,7 @@ const server = http.createServer(async (req, res) => {
       const L = await live.liveList(d => analysis.quickForDate(d));
       return json(res, 200, { opps: live.opportunities(L, { minP: parseFloat(q.minP) || 0.45, minOdds: parseFloat(q.minOdds) || 1.35 }), live: L.filter(e => e.state === 'in').length, types: live.TYPES });
     }
+    if (u.pathname === '/api/live/learn') return json(res, 200, require('./lib/livelearn').stats());
     if (u.pathname === '/api/push/key') return json(res, 200, { key: push.publicKey(), subs: push.count() });
     if (u.pathname === '/api/push/sub' && req.method === 'POST') { const b = await readBody(req); push.subscribe(b.sub, b.prefs || {}); return json(res, 200, { ok: true }); }
     if (u.pathname === '/api/push/unsub' && req.method === 'POST') { const b = await readBody(req); push.unsubscribe(b.endpoint); return json(res, 200, { ok: true }); }
@@ -146,15 +147,25 @@ async function settleAll() {
   console.log(`[learn] archívum: ${st.total} tipp, kiértékelve ${st.settled}; value: ${st.value.n} db, ROI ${st.value.roi == null ? '-' : (st.value.roi * 100).toFixed(1) + '%'}`);
 }
 setInterval(settleAll, 60 * 60 * 1000);
-// élő figyelő: ha van feliratkozó, percenként végignézi az élő meccseket és értesít
+// élő figyelő: percenként végignézi az élő meccseket -> archívum (tanulás), kiértékelés, értesítések
+const livelearn = require('./lib/livelearn');
+let liveTick = 0;
 setInterval(async () => {
-  if (!push.count()) return;
   try {
     const live = require('./lib/live');
+    const evs = await live.scoreboard();
+    const nS = livelearn.settle(evs);
+    if (!evs.some(e => e.state === 'in') && !push.count()) return;
     const L = await live.liveList(d => analysis.quickForDate(d));
-    const n = await push.notify(live.opportunities(L, { minP: 0.3, maxP: 0.9, minOdds: 1.1 }));
-    if (n) console.log(`[push] ${n} értesítés elküldve`);
-  } catch (e) { console.log('[push] hiba ' + e.message); }
+    if (liveTick++ % 2 === 0) { // 2 percenként archiválunk (tág sávval, nyers esélyekkel)
+      const nR = livelearn.record(L, live.opportunities(L, { minP: 0.3, maxP: 0.92, minOdds: 1.05, includeWeak: true, raw: true }));
+      if (nR || nS) console.log(`[elo-tanulas] +${nR} mentve, ${nS} kiértékelve`);
+    }
+    if (push.count()) {
+      const n = await push.notify(live.opportunities(L, { minP: 0.3, maxP: 0.9, minOdds: 1.1 }));
+      if (n) console.log(`[push] ${n} értesítés elküldve`);
+    }
+  } catch (e) { console.log('[live-loop] hiba ' + e.message); }
 }, 60 * 1000);
 setTimeout(settleAll, 30 * 1000);
 
