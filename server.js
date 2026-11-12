@@ -14,6 +14,14 @@ function json(res, code, obj) {
   res.end(JSON.stringify(obj));
 }
 
+const naplo = require('./lib/naplo');
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let b = ''; req.on('data', c => { b += c; if (b.length > 200000) req.destroy(); });
+    req.on('end', () => { try { resolve(JSON.parse(b || '{}')); } catch (e) { reject(new Error('Hibás adat')); } });
+  });
+}
+
 const server = http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
   const q = Object.fromEntries(u.searchParams);
@@ -22,6 +30,15 @@ const server = http.createServer(async (req, res) => {
     if (u.pathname === '/api/matches') {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(q.date || '')) return json(res, 400, { error: 'Hibás dátum' });
       return json(res, 200, await analysis.quickForDate(q.date));
+    }
+    if (u.pathname === '/api/naplo') {
+      if (req.method === 'POST') return json(res, 200, naplo.addSlip(await readBody(req)));
+      if (req.method === 'DELETE') { naplo.removeSlip(q.id); return json(res, 200, { ok: true }); }
+      const db = await naplo.settle();
+      return json(res, 200, { slips: db.slips.slice(0, 300), stats: naplo.stats(db) });
+    }
+    if (u.pathname === '/api/naplo/leg' && req.method === 'POST') {
+      const b = await readBody(req); naplo.setLeg(b.id, b.idx, b.status); return json(res, 200, { ok: true });
     }
     if (u.pathname === '/api/slip') {
       return json(res, 200, await require('./lib/slip').buildSlip({
@@ -121,3 +138,4 @@ async function probe2() {
   } catch (e) { console.log('[probe] hiba ' + e.message); }
 }
 setInterval(warmup, 3 * 60 * 60 * 1000);
+setInterval(() => naplo.settle().catch(() => {}), 60 * 60 * 1000);

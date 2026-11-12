@@ -13,8 +13,10 @@ button,select,input{font:inherit;color:inherit}
 header{position:sticky;top:0;z-index:5;background:rgba(11,18,16,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);padding:10px 14px calc(10px)}
 .brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:18px;letter-spacing:.3px}
 .brand b{color:var(--acc)}
-.brand{white-space:nowrap}
-.tabb{font-size:13px;padding:6px 10px;margin-left:6px}
+.brand{white-space:nowrap;flex-wrap:wrap;row-gap:6px}
+.tabb{font-size:13px;padding:6px 9px;margin-left:5px}
+html,body{overflow-x:hidden}
+@media(max-width:480px){.brand .bt{display:none}.tabb{font-size:12px;padding:6px 7px;margin-left:4px}}
 .bar{display:flex;gap:6px;align-items:center;margin-top:8px}
 .bar select{flex:1;min-width:0}
 header .btn{padding:7px 10px}
@@ -92,7 +94,7 @@ th{color:var(--mut);font-weight:600;font-size:12px}
 </head>
 <body>
 <header>
-  <div class="brand">⚽ Foci <b>Elemző</b><span style="flex:1"></span><button class="btn on tabb" id="tabA">Meccsek</button><button class="btn tabb" id="tabS">🎫 Szelvény</button></div>
+  <div class="brand">⚽<span class="bt"> Foci <b>Elemző</b></span><span style="flex:1"></span><button class="btn on tabb" id="tabA">Meccsek</button><button class="btn tabb" id="tabS">🎫 Szelvény</button><button class="btn tabb" id="tabN">📒 Napló</button></div>
   <div class="bar">
     <button class="btn" id="prev">◀</button>
     <input type="date" id="date">
@@ -130,6 +132,7 @@ th{color:var(--mut);font-weight:600;font-size:12px}
   </div>
   <div id="sOut"></div>
 </main>
+<main id="naplov" style="display:none"><div id="nOut"></div></main>
 
 <div id="det">
   <div class="dh"><button class="btn" id="back">← Vissza</button><div id="dtitle" class="small mut"></div></div>
@@ -398,12 +401,45 @@ async function runTune(k){
 // ---------- Szelvénykészítő ----------
 let EXCL = [];
 function tab(which){
-  const s = which === 'S';
-  $('#main').style.display = s ? 'none' : ''; $('#slipv').style.display = s ? '' : 'none';
-  document.querySelectorAll('header .bar').forEach(b => b.style.display = s ? 'none' : '');
-  $('#tabA').classList.toggle('on', !s); $('#tabS').classList.toggle('on', s);
+  $('#main').style.display = which === 'A' ? '' : 'none'; $('#slipv').style.display = which === 'S' ? '' : 'none'; $('#naplov').style.display = which === 'N' ? '' : 'none';
+  document.querySelectorAll('header .bar').forEach(b => b.style.display = which === 'A' ? '' : 'none');
+  $('#tabA').classList.toggle('on', which === 'A'); $('#tabS').classList.toggle('on', which === 'S'); $('#tabN').classList.toggle('on', which === 'N');
+  if (which === 'N') loadNaplo();
 }
-$('#tabA').onclick = () => tab('A'); $('#tabS').onclick = () => tab('S');
+$('#tabA').onclick = () => tab('A'); $('#tabS').onclick = () => tab('S'); $('#tabN').onclick = () => tab('N');
+async function postJSON(url, body, method = 'POST'){ const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }); const j = await r.json(); if (!r.ok) throw new Error(j.error || 'Hiba'); return j; }
+let LASTSLIP = null;
+async function saveToNaplo(legs, stake){
+  try { await postJSON('/api/naplo', { legs, stake }); return true; } catch(e){ alert('Mentési hiba: ' + e.message); return false; }
+}
+async function loadNaplo(){
+  $('#nOut').innerHTML = '<div class="spin"></div>';
+  try {
+    const r = await api('/api/naplo'); const st = r.stats;
+    const ft = n => Math.round(n).toLocaleString('hu-HU') + ' Ft';
+    let h = `<div class="sum">
+      <div class="kpi"><div class="v">${st.slips}</div><div class="l">mentett szelvény (${st.settled} lezárt)</div></div>
+      <div class="kpi"><div class="v">${st.won}/${st.settled}</div><div class="l">nyertes szelvény</div></div>
+      <div class="kpi"><div class="v ${st.profit>=0?'pos':''}" style="${st.profit<0?'color:var(--bad)':''}">${st.profit>=0?'+':''}${ft(st.profit)}</div><div class="l">eredmény (${ft(st.staked)} tétből)</div></div>
+      <div class="kpi"><div class="v">${st.roi==null?'–':(st.roi>0?'+':'')+(st.roi*100).toFixed(1)+'%'}</div><div class="l">hozam (ROI)</div></div>
+      <div class="kpi"><div class="v">${st.legsWon}/${st.legs}</div><div class="l">bejött tipp (modell szerint várt: ${st.expectedLegs.toFixed(1)})</div></div></div>`;
+    const bm = Object.entries(st.byMarket);
+    if (bm.length) h += `<div class="card"><h3>Fogadásfajták szerint</h3><table><tr><th style="text-align:left">Fajta</th><th>Tipp</th><th>Bejött</th><th>Várt</th></tr>${bm.map(([k,v]) => `<tr><td style="text-align:left">${esc(k)}</td><td>${v.n}</td><td>${v.won} (${Math.round(v.won/v.n*100)}%)</td><td class="mut">${Math.round(v.expected/v.n*100)}%</td></tr>`).join('')}</table><div class="note" style="margin-top:6px">Ha a „bejött” tartósan a „várt” alatt van, az adott fajtát érdemes kerülni.</div></div>`;
+    if (!r.slips.length) h += '<div class="empty">Még nincs mentett szelvény. A Szelvény fülön a „Megjátszottam” gombbal mentheted.</div>';
+    const col = { 'nyert': 'var(--acc)', 'vesztett': 'var(--bad)', 'függő': 'var(--warn)', 'törölt': 'var(--mut)' };
+    for (const s of r.slips){
+      h += `<div class="card"><div class="row"><b style="color:${col[s.status]}">${s.status.toUpperCase()}</b><span class="small mut">${new Date(s.created).toLocaleString('hu-HU')}</span></div>
+        <div class="small mut" style="margin:4px 0 6px">Odds ${s.odds.toFixed(2)} · tét ${ft(s.stake)} · esély ${(s.p*100).toFixed(1)}%${s.status==='nyert'?` · nyeremény <b style="color:var(--acc)">${ft(s.payout)}</b>`:''}</div>
+        <table>${s.legs.map((l,i) => `<tr><td style="text-align:left">${esc(l.num)} <b>${esc(l.pick)}</b> · ${esc(l.name)}<div class="small mut">${l.market!=='1X2'?esc(l.market)+': ':''}${esc(l.label)} · ${esc((l.date||'').slice(5))} ${l.score?' · eredmény '+esc(l.score):''}</div></td><td>${l.odds.toFixed(2)}</td><td style="color:${col[l.status]}">${l.status}</td>
+          <td>${l.status==='függő'||l.manual?`<button class="btn small" data-leg="${s.id}|${i}|nyert">✓</button><button class="btn small" data-leg="${s.id}|${i}|vesztett">✗</button>`:''}</td></tr>`).join('')}</table>
+        <div class="bar"><button class="btn small" data-del="${s.id}">Törlés</button></div></div>`;
+    }
+    h += '<div class="note">A bajnoki és válogatott meccseket a program magától kiértékeli, amint az eredmény bekerül az adatbázisba (1–3 nap). A többit a ✓/✗ gombbal jelölheted.</div>';
+    $('#nOut').innerHTML = h;
+    document.querySelectorAll('[data-leg]').forEach(b => b.onclick = async () => { const [id, idx, status] = b.dataset.leg.split('|'); await postJSON('/api/naplo/leg', { id, idx: +idx, status }); loadNaplo(); });
+    document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => { if (confirm('Biztosan törlöd ezt a szelvényt?')){ await postJSON('/api/naplo?id=' + b.dataset.del, null, 'DELETE'); loadNaplo(); } });
+  } catch(e){ $('#nOut').innerHTML = `<div class="empty">Hiba: ${esc(e.message)}</div>`; }
+}
 $('#sQuick').innerHTML = [2,3,5,10,20,50].map(t => `<span class="chip" style="cursor:pointer" data-t="${t}">${t}-es odds</span>`).join('');
 $('#sQuick').onclick = e => { const t = e.target.dataset.t; if (t){ $('#sTarget').value = t; EXCL = []; buildSlip(); } };
 $('#sGo').onclick = () => { EXCL = []; buildSlip(); };
@@ -425,13 +461,16 @@ async function buildSlip(){
       <table><tr><th>Sorszám</th><th style="text-align:left">Meccs</th><th>Tipp</th><th>Odds</th><th>Esély</th><th></th></tr>
       ${r.legs.map(l => `<tr><td><b>${esc(l.num)}</b></td><td style="text-align:left">${esc(l.name)}<div class="small mut">${esc(l.league)} · ${esc(l.date.slice(5).replace('-','.'))}. ${esc(l.time)}${l.minCombi>1?` · min. ${l.minCombi}-es kötés`:''}${l.src==='szorzó'?' · csak szorzó alapján':''}</div></td><td><b>${esc(l.pick)}</b><div class="small mut">${l.market && l.market !== '1X2' ? esc(l.market) + ': ' : ''}${esc(l.label)}</div></td><td>${l.odds.toFixed(2)}</td><td>${(l.p*100).toFixed(0)}%</td><td><button class="btn small" data-x="${esc(l.exNum || l.num)}" title="Kihagyás és újraszámolás">✕</button></td></tr>`).join('')}</table>
       <div class="note" style="margin-top:8px">✕ = a meccs kihagyása, a program helyette a következő legjobbat választja. A nyerési esély a tippek esélyeinek szorzata. ${r.ev < 0 ? 'Negatív várható hozam: hosszú távon ez veszteséges, a Tippmix marzsa miatt.' : ''} ${EXCL.length ? `Kihagyva: ${EXCL.length} meccs. <a href="#" id="sReset" style="color:var(--acc)">Visszaállít</a>` : ''}</div>
-      <div class="bar"><button class="btn" id="sCopy" style="flex:1">📋 Sorszámok másolása</button></div></div>`;
+      <div class="bar"><button class="btn" id="sCopy" style="flex:1">📋 Sorszámok másolása</button><button class="btn on" id="sSave" style="flex:1">✅ Megjátszottam – mentés</button></div></div>`;
     h += `<div class="card"><h3>Legbiztosabb egyedi tippek (szimplában is játszható)</h3><table><tr><th>Sorszám</th><th style="text-align:left">Meccs</th><th>Tipp</th><th>Odds</th><th>Esély</th><th>Hozam</th></tr>
-      ${r.singles.map(x => `<tr><td>${esc(x.num)}</td><td style="text-align:left">${esc(x.name)}<div class="small mut">${esc(x.date.slice(5).replace('-','.'))}. ${esc(x.time)}</div></td><td><b>${esc(x.pick)}</b><div class="small mut">${x.market && x.market !== '1X2' ? esc(x.market) + ': ' + esc(x.label) : ''}</div></td><td>${x.odds.toFixed(2)}</td><td>${(x.p*100).toFixed(0)}%</td><td class="${evc(x.ev)}">${x.ev>0?'+':''}${(x.ev*100).toFixed(1)}%</td></tr>`).join('')}</table>
+      ${r.singles.map((x, i) => `<tr><td>${esc(x.num)}</td><td style="text-align:left">${esc(x.name)}<div class="small mut">${esc(x.date.slice(5).replace('-','.'))}. ${esc(x.time)}</div></td><td><b>${esc(x.pick)}</b><div class="small mut">${x.market && x.market !== '1X2' ? esc(x.market) + ': ' + esc(x.label) : ''}</div></td><td>${x.odds.toFixed(2)}</td><td>${(x.p*100).toFixed(0)}%</td><td class="${evc(x.ev)}">${x.ev>0?'+':''}${(x.ev*100).toFixed(1)}%</td><td><button class="btn small" data-single="${i}" title="Megjátszottam szimplában">＋</button></td></tr>`).join('')}</table>
       <div class="note" style="margin-top:6px">${r.candidates} meccs közül választva (${r.modelCandidates} statisztikai modellel elemezve).</div></div>`;
     $('#sOut').innerHTML = h;
     document.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { EXCL.push(b.dataset.x); buildSlip(); });
     const rs = $('#sReset'); if (rs) rs.onclick = e => { e.preventDefault(); EXCL = []; buildSlip(); };
+    LASTSLIP = r;
+    $('#sSave').onclick = async () => { if (await saveToNaplo(r.legs, r.stake)) { $('#sSave').textContent = '✓ Mentve a naplóba'; $('#sSave').disabled = true; } };
+    document.querySelectorAll('[data-single]').forEach(b => b.onclick = async () => { const x = r.singles[+b.dataset.single]; if (await saveToNaplo([x], r.stake)) { b.textContent = '✓'; b.disabled = true; } });
     $('#sCopy').onclick = () => { const t = r.legs.map(l => `${l.num} ${l.pick}`).join('\n'); navigator.clipboard?.writeText(t); $('#sCopy').textContent = '✓ Másolva'; };
   } catch(e){ $('#sOut').innerHTML = `<div class="empty">Hiba: ${esc(e.message)}</div>`; }
 }
