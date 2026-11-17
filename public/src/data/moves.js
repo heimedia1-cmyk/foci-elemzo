@@ -1,0 +1,56 @@
+// MoveRegistry – minden támadás adata.
+// cat: 'fiz' (fizikai), 'spec' (speciális), 'stat' (státusz)
+// effect: { status, chance } | { stat, stages, target:'self'|'foe' } | { heal } | { highCrit } | { priority }
+export const MOVES = {
+  harapas:      { name: 'Harapás',        type: 'semleges', cat: 'fiz',  power: 40, acc: 100, pp: 35, desc: 'Egy jó erős harapás.' },
+  gyorsmancs:   { name: 'Gyors Mancs',    type: 'semleges', cat: 'fiz',  power: 40, acc: 100, pp: 30, priority: 1, desc: 'Mindig elsőként csap le.' },
+  rohamugras:   { name: 'Rohamugrás',     type: 'semleges', cat: 'fiz',  power: 65, acc: 95,  pp: 20, desc: 'Nekiugrik az ellenfélnek.' },
+  ugatas:       { name: 'Ugatás',         type: 'semleges', cat: 'stat', power: 0,  acc: 100, pp: 30, effect: { stat: 'atk', stages: -1, target: 'foe' }, desc: 'Csökkenti az ellenfél támadását.' },
+  farokcsovalas:{ name: 'Farokcsóválás',  type: 'semleges', cat: 'stat', power: 0,  acc: 100, pp: 30, effect: { stat: 'def', stages: -1, target: 'foe' }, desc: 'Csökkenti az ellenfél védekezését.' },
+  kutyanez:     { name: 'Kutyanéz',       type: 'semleges', cat: 'stat', power: 0,  acc: 100, pp: 20, effect: { stat: 'atk', stages: 1, target: 'self' }, desc: 'Bociszemek: növeli a saját támadást.' },
+
+  parazs:       { name: 'Parázs',         type: 'tuz', cat: 'spec', power: 40, acc: 100, pp: 25, effect: { status: 'eges', chance: 10 }, desc: 'Kis tűzcsóva, megégethet.' },
+  langmancs:    { name: 'Lángmancs',      type: 'tuz', cat: 'fiz',  power: 65, acc: 100, pp: 15, effect: { status: 'eges', chance: 10 }, desc: 'Lángoló mancsütés.' },
+  tuzlehelet:   { name: 'Tűzlehelet',     type: 'tuz', cat: 'spec', power: 85, acc: 90,  pp: 10, effect: { status: 'eges', chance: 10 }, desc: 'Hatalmas lángnyelv.' },
+
+  vizpermet:    { name: 'Vízpermet',      type: 'viz', cat: 'spec', power: 40, acc: 100, pp: 25, desc: 'Vízsugarat lő.' },
+  bekaugras:    { name: 'Békaugrás',      type: 'viz', cat: 'fiz',  power: 55, acc: 100, pp: 20, desc: 'Nagyot ugrik és rácsobban.' },
+  hullamcsapas: { name: 'Hullámcsapás',   type: 'viz', cat: 'spec', power: 75, acc: 95,  pp: 15, desc: 'Hullámot zúdít az ellenfélre.' },
+  nyalkapajzs:  { name: 'Nyálkapajzs',    type: 'viz', cat: 'stat', power: 0,  acc: 100, pp: 20, effect: { stat: 'def', stages: 1, target: 'self' }, desc: 'Növeli a saját védekezést.' },
+
+  fullank:      { name: 'Fullánk',        type: 'noveny', cat: 'fiz',  power: 35, acc: 100, pp: 30, effect: { status: 'mereg', chance: 30 }, desc: 'Megszúrja, megmérgezheti.' },
+  viragpor:     { name: 'Virágpor',       type: 'noveny', cat: 'stat', power: 0,  acc: 75,  pp: 15, effect: { status: 'alvas', chance: 100 }, desc: 'Elaltatja az ellenfelet.' },
+  levelvihar:   { name: 'Levélvihar',     type: 'noveny', cat: 'spec', power: 60, acc: 100, pp: 20, desc: 'Éles levelek forgószele.' },
+  mez:          { name: 'Mézcsepp',       type: 'noveny', cat: 'stat', power: 0,  acc: 100, pp: 10, effect: { heal: 0.5 }, desc: 'Visszaad a HP feléből.' },
+
+  szikra:       { name: 'Szikra',         type: 'villam', cat: 'spec', power: 40, acc: 100, pp: 30, effect: { status: 'benitas', chance: 10 }, desc: 'Megrázza, megbéníthatja.' },
+  villamcsapas: { name: 'Villámcsapás',   type: 'villam', cat: 'spec', power: 80, acc: 95,  pp: 15, effect: { status: 'benitas', chance: 10 }, desc: 'Villám csap le.' },
+
+  csakany:      { name: 'Csákánycsapás',  type: 'fold', cat: 'fiz',  power: 55, acc: 100, pp: 25, desc: 'Lecsap a csákánnyal.' },
+  kozapor:      { name: 'Kőzápor',        type: 'fold', cat: 'fiz',  power: 75, acc: 90,  pp: 10, desc: 'Köveket zúdít.' },
+  sziklapajzs:  { name: 'Sziklapajzs',    type: 'fold', cat: 'stat', power: 0,  acc: 100, pp: 20, effect: { stat: 'def', stages: 2, target: 'self' }, desc: 'Nagyon növeli a védekezést.' },
+
+  jegszilank:   { name: 'Jégszilánk',     type: 'jeg', cat: 'spec', power: 40, acc: 100, pp: 25, effect: { status: 'fagyas', chance: 10 }, desc: 'Jégszilánkot lő, lefagyaszthat.' },
+  fagyoslehelet:{ name: 'Fagyos Lehelet', type: 'jeg', cat: 'spec', power: 65, acc: 100, pp: 15, effect: { stat: 'spe', stages: -1, target: 'foe', chance: 50 }, desc: 'Lelassíthatja az ellenfelet.' },
+
+  arnyekkarom:  { name: 'Árnyékkarom',    type: 'arnyek', cat: 'fiz',  power: 50, acc: 100, pp: 25, effect: { highCrit: true }, desc: 'Gyakran kritikus találat.' },
+  fustbomba:    { name: 'Füstbomba',      type: 'arnyek', cat: 'stat', power: 0,  acc: 100, pp: 20, effect: { stat: 'spe', stages: 1, target: 'self' }, desc: 'Növeli a saját sebességet.' },
+  remkep:       { name: 'Rémkép',         type: 'arnyek', cat: 'spec', power: 55, acc: 100, pp: 20, effect: { status: 'alvas', chance: 10 }, desc: 'Ijesztő látomás.' },
+  nindzsavagas: { name: 'Nindzsavágás',   type: 'arnyek', cat: 'fiz',  power: 75, acc: 95,  pp: 15, effect: { highCrit: true }, desc: 'Villámgyors kardvágás.' },
+
+  fenysugar:    { name: 'Fénysugár',      type: 'feny', cat: 'spec', power: 50, acc: 100, pp: 25, desc: 'Ragyogó fénynyaláb.' },
+  gyogyitofeny: { name: 'Gyógyító Fény',  type: 'feny', cat: 'stat', power: 0,  acc: 100, pp: 10, effect: { heal: 0.5 }, desc: 'Visszaad a HP feléből.' },
+  csillagpor:   { name: 'Csillagpor',     type: 'feny', cat: 'spec', power: 70, acc: 95,  pp: 15, desc: 'Csillagzáport idéz.' },
+
+  lezer:        { name: 'Lézer',          type: 'gep', cat: 'spec', power: 55, acc: 100, pp: 20, desc: 'Precíz lézersugár.' },
+  fogaskerek:   { name: 'Fogaskerék',     type: 'gep', cat: 'fiz',  power: 50, acc: 100, pp: 25, desc: 'Pörgő fogaskereket dob.' },
+  tultoltes:    { name: 'Túltöltés',      type: 'gep', cat: 'stat', power: 0,  acc: 100, pp: 20, effect: { stat: 'spa', stages: 2, target: 'self' }, desc: 'Nagyon növeli a spec. támadást.' },
+};
+
+export const STATUS = {
+  eges:    { name: 'Égés',     short: 'ÉG',  color: '#f0703a' },
+  mereg:   { name: 'Mérgezés', short: 'MÉR', color: '#a35ad0' },
+  benitas: { name: 'Bénítás',  short: 'BÉN', color: '#e8c830' },
+  alvas:   { name: 'Alvás',    short: 'ALV', color: '#8a8aa0' },
+  fagyas:  { name: 'Lefagyás', short: 'FAG', color: '#7fd4f0' },
+};

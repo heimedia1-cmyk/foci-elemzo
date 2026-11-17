@@ -1,0 +1,21 @@
+{
+  "name": "mexiverse",
+  "version": "1.0.0",
+  "description": "MexiVerse – Az elveszett Mexik",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/logic.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.3.0",
+    "phaser": "^3.90.0"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  }
+}
