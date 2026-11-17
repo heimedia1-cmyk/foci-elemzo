@@ -27,6 +27,8 @@ export function preloadArt(scene) {
   L.image('src_back', 'assets/mexi_back.png');
   L.image('src_map', 'assets/mexi_map.png');
   L.image('src_evo', 'assets/mexi_evo.png');
+  L.image('src_anim_a', 'assets/anim_a.png');
+  L.image('src_anim_b', 'assets/anim_b.png');
   L.image('title_bg', 'assets/title.jpg');
   for (const k of Object.keys(BUILDING_INFO)) L.image('b_' + k, `assets/b_${k}.png`);
   for (const k of Object.keys(PROP_INFO)) L.image('pr_' + k, `assets/p_${k}.png`);
@@ -123,6 +125,12 @@ export function registerArt(scene) {
     addCanvas(scene, 'mf_' + sp, f); addCanvas(scene, 'mf_' + sp + '_s', fs);
     addCanvas(scene, 'mb_' + sp, b); addCanvas(scene, 'mb_' + sp + '_s', hueCanvas(b, 150));
     urlCache[sp] = f.toDataURL(); urlCache[sp + '_s'] = fs.toDataURL();
+  });
+  // harci animációk (elölnézet): támadás, sérülés, ájulás, győzelem
+  const POSES = ['attack', 'hurt', 'faint', 'win'];
+  ART_SPECIES.forEach((sp, row) => {
+    const src = img(scene, row < 6 ? 'src_anim_a' : 'src_anim_b'), r = row % 6;
+    POSES.forEach((pose, c) => addCanvas(scene, `ma_${sp}_${pose}`, crop(src, c * 192, r * 192, 192, 192)));
   });
   // fejlődési alakok: saját harci képek (elöl, hátul, shiny elöl); a térképen az alapfaj színváltozata
   const ev = img(scene, 'src_evo');

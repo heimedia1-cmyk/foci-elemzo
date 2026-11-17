@@ -176,6 +176,8 @@ export class WorldScene extends Phaser.Scene {
       this.tileImgs[y] = [];
       for (let x = 0; x < this.W; x++) {
         const ch = this.tiles[y][x];
+        const custom = th.tiles?.[ch];
+        if (custom) { this.tileImgs[y][x] = this.add.image(x * T, y * T, custom).setOrigin(0).setDisplaySize(T, T).setDepth(-10); continue; }
         const f = ch === 'W' ? th.wall : ch === 'w' ? th.win : ch === 'P' ? th.pic : ch === 'E' ? 'exitmat' : RUG[ch] || th.floor;
         this.tileImgs[y][x] = this.add.image(x * T, y * T, 'itiles', f).setOrigin(0).setDepth(-10);
       }
@@ -207,7 +209,8 @@ export class WorldScene extends Phaser.Scene {
 
   addProp(key, x, y) {
     const info = PROP_INFO[key];
-    const img = this.add.image(x * T + T / 2, y * T + T + (key.startsWith('tree') ? 4 : 0), 'pr_' + key).setOrigin(0.5, 1);
+    const tex = PROP_INFO[key] ? 'pr_' + key : 'fu_' + key;
+    const img = this.add.image(x * T + T / 2, y * T + T + (key.startsWith('tree') ? 4 : 0), tex).setOrigin(0.5, 1);
     img.setDepth(y * T + T - 1);
     return img;
   }

@@ -71,6 +71,16 @@ export class BattleScene extends Phaser.Scene {
     if (this.meSpr) { this.meSpr.setPosition(this.mePos.x, this.mePos.y).setScale(this.sc * 0.27); }
   }
 
+  /** Animációs póz az ellenfél Mexijén (támadás, sérülés, ájulás, győzelem), ha van hozzá kép. */
+  pose(side, pose) {
+    const spr = side === 'p' ? this.meSpr : this.foeSpr;
+    const m = side === 'p' ? this.engine.pm : this.engine.fm;
+    if (!spr || side === 'p') return;
+    const key = pose ? `ma_${m.species}_${pose}` : this.texFor(m, false);
+    if (pose && (m.shiny || !this.textures.exists(key))) return;
+    spr.setTexture(key);
+  }
+
   texFor(m, back) { return (back ? 'mb_' : 'mf_') + m.species + (m.shiny ? '_s' : ''); }
 
   // ---------------- DOM felület ----------------
@@ -242,14 +252,20 @@ export class BattleScene extends Phaser.Scene {
         case 'damage': {
           const spr = ev.side === 'p' ? this.meSpr : this.foeSpr;
           if (!ev.dot) { this.cameras.main.shake(ev.eff >= 2 ? 220 : 120, ev.eff >= 2 ? 0.008 : 0.004); }
+          this.pose(ev.side, 'hurt');
           await tween(this, { targets: spr, alpha: 0.2, yoyo: true, repeat: 2, duration: 70 });
           spr.setAlpha(1);
+          if (ev.hp > 0) this.time.delayedCall(250, () => this.pose(ev.side, null));
           await this.animateHp(ev.side, ev.hp, ev.max);
           break; }
         case 'heal': this.sparkle(ev.side === 'p' ? this.mePos.x : this.foePos.x, (ev.side === 'p' ? this.mePos.y : this.foePos.y) - 20 * this.sc, 0x80ff90); await this.animateHp(ev.side, ev.hp, ev.max); break;
         case 'status': this.renderInfo(ev.side); break;
         case 'stat': { const spr = ev.side === 'p' ? this.meSpr : this.foeSpr; spr.setTint(ev.stages > 0 ? 0xff9090 : 0x9090ff); await wait(this, 300); spr.clearTint(); break; }
-        case 'faint': { const spr = ev.side === 'p' ? this.meSpr : this.foeSpr; await tween(this, { targets: spr, y: spr.y + 30, alpha: 0, duration: 450 }); break; }
+        case 'faint': {
+          const spr = ev.side === 'p' ? this.meSpr : this.foeSpr;
+          this.pose(ev.side, 'faint');
+          if (ev.side === 'f') await wait(this, 600);
+          await tween(this, { targets: spr, y: spr.y + 30, alpha: 0, duration: 450 }); break; }
         case 'switch': await this.switchAnim(ev.side); break;
         case 'xp': case 'levelup': this.renderInfo('p'); if (ev.t === 'levelup') { this.sparkle(this.mePos.x, this.mePos.y - 20 * this.sc, 0xfff080); } break;
         case 'canLearn': { const m = G.state.party[ev.index]; this.ui.classList.add('hidden'); await offerMove(m, ev.move); this.ui.classList.remove('hidden'); break; }
@@ -258,7 +274,9 @@ export class BattleScene extends Phaser.Scene {
           const i = await openParty({ mode: 'pick', title: 'Válassz új Mexit!', canPick: (m) => m.hp > 0, forced: true });
           await this.play(this.engine.forcedSwitch(i));
           break; }
-        case 'end': break;
+        case 'end':
+          if (ev.result === 'lose' && this.foeSpr) { this.pose('f', 'win'); this.tweens.add({ targets: this.foeSpr, y: this.foeSpr.y - 14, yoyo: true, repeat: 2, duration: 180 }); await wait(this, 900); }
+          break;
       }
     }
   }
@@ -289,7 +307,9 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
     const dx = side === 'p' ? 30 : -30;
-    await tween(this, { targets: att, x: att.x + dx, yoyo: true, duration: 120 });
+    this.pose(side, 'attack');
+    await tween(this, { targets: att, x: att.x + dx, yoyo: true, duration: 160 });
+    this.time.delayedCall(200, () => this.pose(side, null));
     const cy = tgt.y - 22 * this.sc;
     if (cat === 'spec') {
       const orb = this.add.circle(att.x, att.y - 20 * this.sc, 6 * this.sc / 4, color).setDepth(20);
