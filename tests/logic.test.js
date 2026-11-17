@@ -68,4 +68,11 @@ t('teljes harc szimuláció (vad, edző, befogás)', () => {
     assert.ok(e.over, 'harc nem ért véget');
   }
 });
+t('közös XP: a nem harcoló csapattag is fejlődik', () => {
+  const a = createMexi('alap', 5), b2 = createMexi('beka', 5); const xb = b2.xp;
+  const e = new BattleEngine({ playerParty: [a, b2], foeParty: [createMexi('mehecske', 3)] });
+  e.fm.hp = 0; e.checkFaints([]);
+  assert.ok(b2.xp > xb, 'a második Mexi nem kapott XP-t');
+  assert.ok(a.xp - xpForLevel(5) > b2.xp - xb);
+});
 console.log(`\n${n} teszt sikeres.`);

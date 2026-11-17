@@ -297,23 +297,27 @@ export class BattleEngine {
     return any;
   }
 
+  /** XP: aki harcolt, a teljes összeget kapja; a csapat többi harcképes tagja a felét (közös tapasztalat). */
   awardXp(ev) {
     const defeated = this.fm;
     const amount = xpYield(defeated, this.isTrainer);
-    const parts = [...this.p.participants].filter(i => this.p.party[i] && this.p.party[i].hp > 0);
-    if (!parts.length) return;
-    const each = Math.max(1, Math.floor(amount / parts.length));
-    for (const i of parts) {
-      const m = this.p.party[i];
-      ev.push({ t: 'msg', text: `${displayName(m)} ${each} XP-t kapott!` });
-      const res = gainXp(m, each);
+    const share = Math.max(1, Math.floor(amount * CONFIG.xpShare));
+    let sharedTo = 0;
+    this.p.party.forEach((m, i) => {
+      if (!m || m.hp <= 0) return;
+      const fought = this.p.participants.has(i);
+      const got = fought ? amount : share;
+      if (fought) ev.push({ t: 'msg', text: `${displayName(m)} ${got} XP-t kapott!` });
+      else sharedTo++;
+      const res = gainXp(m, got);
       ev.push({ t: 'xp', index: i });
       for (const r of res) {
         if (r.type === 'levelup') ev.push({ t: 'levelup', index: i, level: r.level }, { t: 'msg', text: `${displayName(m)} elérte a(z) ${r.level}. szintet!` });
         if (r.type === 'learned') ev.push({ t: 'msg', text: `${displayName(m)} megtanulta: ${MOVES[r.move].name}!` });
         if (r.type === 'canLearn') ev.push({ t: 'canLearn', index: i, move: r.move });
       }
-    }
+    });
+    if (sharedTo) ev.push({ t: 'msg', text: `A csapat többi tagja is kapott ${share} XP-t.` });
     this.p.participants = new Set([this.p.active]);
   }
 

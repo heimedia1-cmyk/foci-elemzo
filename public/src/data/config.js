@@ -9,6 +9,7 @@ export const CONFIG = {
   highCritChance: 1 / 4,
   stab: 1.5,
   startMoney: 1000,
+  xpShare: 0.5,                      // a nem harcoló csapattagok ennyi XP-t kapnak
   starterLevel: 5,
   saveVersion: 1,
   nightHours: [20, 6],               // 20:00 – 06:00 éjszaka
