@@ -13,7 +13,7 @@ import { getWeather, weatherTable, WEATHER } from '../systems/weather.js';
 import { Net } from '../systems/net.js';
 import { coopDaily } from '../ui/menus.js';
 import { addCaught } from '../systems/state.js';
-import { canEvolve, evolve } from '../systems/mexi.js';
+import { canEvolve, evolve, scaleWildLevel } from '../systems/mexi.js';
 import { MOVES } from '../data/moves.js';
 import { offerMove, moveReminder, openTransfer } from '../ui/menus.js';
 import { BONES } from '../systems/bones.js';
@@ -274,7 +274,7 @@ export class WorldScene extends Phaser.Scene {
       const [ax, ay, aw, ah] = def.area;
       const x = ax + randInt(0, aw - 1), y = ay + randInt(0, ah - 1);
       if (this.isSolid(x, y) || (this.player && this.player.x === x && this.player.y === y)) continue;
-      const mon = createMexi(def.species, randInt(def.level[0], def.level[1]));
+      const mon = createMexi(def.species, scaleWildLevel(randInt(def.level[0], def.level[1]), def.level[1], G.state.party));
       const key = 'mm_' + mon.species + (mon.shiny ? '_s' : '');
       const r = { def, mon, x, y, dir: 'down', sprite: this.add.sprite(0, 0, key, 0).setOrigin(0.5, 1) };
       this.placeSprite(r);
@@ -664,7 +664,7 @@ export class WorldScene extends Phaser.Scene {
     for (const [sp, w] of table) { if ((r -= w) < 0) { species = sp; break; } }
     // a játékos előrehaladása kicsit emeli a szintet
     const bonus = Math.min(2, Math.floor((G.state.defeatedTrainers.length) / 1));
-    return createMexi(species, randInt(levels[0], levels[1]) + (rand() < 0.3 ? bonus : 0));
+    return createMexi(species, scaleWildLevel(randInt(levels[0], levels[1]) + (rand() < 0.3 ? bonus : 0), levels[1], G.state.party));
   }
 
   randomEncounter() { this.startWildBattle(this.pickEncounter()); }
@@ -938,7 +938,7 @@ export class WorldScene extends Phaser.Scene {
     }
     const c = await choose(['📤 Mexik átadása (csontért)', '🦴 Hogyan működnek a csontok?', '💬 Beszélgetés', 'Viszlát'], { question: 'Miben segíthetek?' });
     if (c === 0) { this.cutscene = true; await openTransfer(); this.cutscene = false; this.refreshFollower(); this.updateHud(); return; }
-    if (c === 1) { await dialog(['Elkapás: +3 csont a Mexi családjából. Átadás: +1 csont, minden 10. szint után +1, shiny +2.', 'Erősítés: a Mexi adatlapján – csont + érme = +1 szint (legfeljebb 40-ig).', `Fejlesztés: ${BONES.evolveCost} csontért bármikor fejlődhet, ha van fejlett formája.`, 'Tipp: a kedvenceidet zárold le 🔒, így véletlenül sem adod át őket!'], who); return; }
+    if (c === 1) { await dialog(['Elkapás: +3 csont a Mexi családjából. Átadás: +1 csont, minden 10. szint után +1, shiny +2.', 'Erősítés: a Mexi adatlapján – csont + érme = +1 szint. Csak a csapatod legerősebb Mexijének szintjéig, így a lemaradókat tudod felhozni.', `Fejlesztés: ${BONES.evolveCost} csontért, ha a Mexi már legfeljebb 4 szintre van a fejlődéstől.`, 'Tipp: a kedvenceidet zárold le 🔒, így véletlenül sem adod át őket!'], who); return; }
     if (c !== 2) return;
     if (caught >= 4 && !s.flags.profGift1) {
       s.flags.profGift1 = true; s.inventory.profi_labda = (s.inventory.profi_labda || 0) + 3;

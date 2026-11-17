@@ -8,7 +8,7 @@ import { TYPES } from '../data/types.js';
 import { CONFIG } from '../data/config.js';
 import { displayName, ivPercent, xpForLevel, relearnable } from '../systems/mexi.js';
 import { Sfx } from '../systems/sfx.js';
-import { familyOf, bonesOf, powerUp, canPowerUp, powerUpCost, evolveCost, transfer, canTransfer, transferReward, duplicatePlan, BONES } from '../systems/bones.js';
+import { canBoneEvolve, familyOf, bonesOf, powerUp, canPowerUp, powerUpCost, evolveCost, transfer, canTransfer, transferReward, duplicatePlan, BONES } from '../systems/bones.js';
 import { evolve } from '../systems/mexi.js';
 import { mexiIconDataURL } from '../art/placeholders.js';
 import { getArtURL } from '../art/registerArt.js';
@@ -187,6 +187,7 @@ export function openMexiDetail(m, { inParty = false, inStorage = false, index = 
           sp.evolve ? el('div', { style: 'margin-top:8px;font-size:14px' }, '🌟 Fejlődés: ', el('b', {}, MEXIS[sp.evolve.to].name), ` (${sp.evolve.level}. szinten)`) : null,
           m.caughtWhere ? el('div', { style: 'font-size:12px;margin-top:6px;opacity:.75' }, `Megszerezve: ${m.caughtWhere}, ${new Date(m.caughtAt).toLocaleString('hu-HU')}`) : null,
           el('div', { style: 'margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center' }, boneTag(m.species)),
+          (() => { const t = [canPowerUp(m) && 'Erősítés: ' + canPowerUp(m), sp.evolve && canBoneEvolve(m) && 'Csont-fejlesztés: ' + canBoneEvolve(m)].filter(Boolean).join(' • '); return t ? el('div', { style: 'font-size:12px;opacity:.75;margin-top:2px' }, t) : null; })(),
           el('div', { class: 'actions' },
             (() => { const c = powerUpCost(m); const err = canPowerUp(m); return el('button', { class: 'btn primary', disabled: !!err, title: err || '', onclick: async () => {
               const r = powerUp(m); if (r.err) { toast(r.err); return; }
@@ -194,7 +195,7 @@ export function openMexiDetail(m, { inParty = false, inStorage = false, index = 
               for (const e of r.events) if (e.type === 'canLearn') await offerMove(m, e.move); else if (e.type === 'learned') await dialog(`${displayName(m)} megtanulta: ${MOVES[e.move].name}!`);
               save(); draw(); onChange?.();
             } }, `💪 Erősítés +1 szint (${c.bones} 🦴 + ${c.coins} 🪙)`); })(),
-            sp.evolve ? el('button', { class: 'btn', disabled: bonesOf(m.species) < evolveCost(m), onclick: async () => {
+            sp.evolve ? el('button', { class: 'btn', disabled: !!canBoneEvolve(m), title: canBoneEvolve(m) || '', onclick: async () => {
               const to = sp.evolve.to; const cost = evolveCost(m);
               const ok = await choose([`Igen, fejlődjön (${cost} csont)`, 'Mégse'], { question: `${displayName(m)} → ${MEXIS[to].name}?` }); if (ok !== 0) return;
               G.state.bones[familyOf(m.species)] -= cost; const old = displayName(m);

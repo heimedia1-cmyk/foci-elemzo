@@ -104,6 +104,13 @@ export function gainXp(m, amount) {
   return events;
 }
 
+/** Vad Mexi szintjének igazítása: ha a csapatod legerősebbje jóval a terület fölött jár, a vad Mexik is felzárkóznak (max +8). */
+export function scaleWildLevel(base, zoneMax, party) {
+  const top = Math.max(0, ...party.filter(m => m.hp > 0).map(m => m.level));
+  const over = top - zoneMax - 3;
+  return Math.min(CONFIG.maxLevel, base + (over > 0 ? Math.min(8, Math.ceil(over * 0.6)) : 0));
+}
+
 export function canEvolve(m) {
   const evo = MEXIS[m.species].evolve;
   if (evo && evo.level && m.level >= evo.level) return evo.to;

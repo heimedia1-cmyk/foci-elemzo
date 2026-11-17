@@ -21,9 +21,11 @@ export function addBones(species, n) {
 export function transferReward(m) { return BONES.transfer + Math.floor(m.level / 10) + (m.shiny ? 2 : 0); }
 
 /** Erősítés ára az adott szintről. */
-export function powerUpCost(m) { return { bones: 1 + Math.floor(m.level / 10), coins: 10 + m.level * 15 }; }
+export function powerUpCost(m) { return { bones: 1 + Math.floor(m.level / 8), coins: 10 + m.level * 15 }; }
+/** Csonttal legfeljebb a csapat (és tároló) legerősebb Mexijének szintjéig lehet erősíteni. */
+export function powerUpCap() { const s = G.state; return Math.min(BONES.levelCap, CONFIG.maxLevel, Math.max(1, ...[...s.party, ...s.storage].map(x => x.level))); }
 export function canPowerUp(m) {
-  if (m.level >= Math.min(BONES.levelCap, CONFIG.maxLevel)) return 'Csonttal legfeljebb ' + BONES.levelCap + '. szintig erősíthető.';
+  if (m.level >= powerUpCap()) return m.level >= BONES.levelCap ? `Csonttal legfeljebb ${BONES.levelCap}. szintig erősíthető.` : 'Csonttal csak a legerősebb Mexid szintjéig erősíthetsz – őt harcban fejleszd tovább!';
   const c = powerUpCost(m);
   if (bonesOf(m.species) < c.bones) return `Kell ${c.bones} csont (van: ${bonesOf(m.species)}).`;
   if (G.state.money < c.coins) return `Kell ${c.coins} érme.`;
@@ -38,6 +40,7 @@ export function powerUp(m) {
   return { events, cost: c };
 }
 export function evolveCost(m) { return MEXIS[m.species].evolve ? BONES.evolveCost : null; }
+export function canBoneEvolve(m) { const e = MEXIS[m.species].evolve; if (!e) return 'Nincs fejlett formája.'; if (m.level < e.level - 4) return `Előbb érje el a(z) ${e.level - 4}. szintet.`; if (bonesOf(m.species) < BONES.evolveCost) return `Kell ${BONES.evolveCost} csont.`; return null; }
 
 /** Átadható-e (a csapat utolsó Mexije nem). */
 export function canTransfer(m) {

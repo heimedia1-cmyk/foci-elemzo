@@ -1,8 +1,8 @@
 // Konfigurálható játékbeállítások (balanszolás egy helyen).
 export const CONFIG = {
   shinyChance: 1 / 512,
-  encounterChanceTallGrass: 0.2,    // lépésenként a magas fűben
-  encounterCooldownSteps: 1,         // ennyi lépés védett idő harc után
+  encounterChanceTallGrass: 0.13,   // lépésenként a magas fűben
+  encounterCooldownSteps: 2,         // ennyi lépés védett idő harc után
   maxLevel: 50,                      // később 100-ig bővíthető
   partySize: 6,
   critChance: 1 / 16,

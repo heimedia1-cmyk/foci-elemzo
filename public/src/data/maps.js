@@ -171,12 +171,12 @@ export const MAPS = {
 export const TRAINERS = {
   bence: {
     name: 'Bence, a kezdő edző', sprite: 'edzo1', reward: 300, sight: 4,
-    team: [['alap', 5], ['beka', 6]],
+    team: [['alap', 6], ['beka', 7]],
     intro: 'Hé! Te is Mexi-edző vagy? Mérkőzzünk meg!', lose: 'Jaj, ez gyors volt! Még gyakorolnom kell.', after: 'A Béka Mexi ellen a Növény-támadások nagyon hatékonyak!',
   },
   lili: {
     name: 'Lili, a kalandor', sprite: 'edzo2', reward: 450, sight: 4,
-    team: [['mehecske', 5], ['nindzsa', 5], ['kacsa', 6]],
+    team: [['mehecske', 7], ['nindzsa', 7], ['kacsa', 8]],
     intro: 'Az én csapatom gyors és trükkös! Készen állsz?', lose: 'Hűha, ügyes vagy! A Titokzatos Erdőben találkozunk.', after: 'Az alvó Mexit sokkal könnyebb elkapni!',
   },
 };
