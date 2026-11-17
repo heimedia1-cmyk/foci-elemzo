@@ -359,7 +359,7 @@ export class WorldScene extends Phaser.Scene {
     o.x = pos.x; o.y = pos.y;
     o.sprite.setFrame(DIR_ROW[pos.dir || 'down'] * 3);
     o.mexi.setFrame(DIR_ROW[pos.dir || 'down'] * 3);
-    this.tweens.add({ targets: o.sprite, x: this.px(pos.x), y: this.py(pos.y), duration: 200, onUpdate: () => { o.label.setPosition(o.sprite.x, o.sprite.y - 44); o.sprite.setDepth(o.sprite.y); o.mexi.setDepth(o.mexi.y); } });
+    this.tweens.add({ targets: o.sprite, x: this.px(pos.x), y: this.py(pos.y), duration: 200, onUpdate: () => { o.label.setPosition(o.sprite.x, o.sprite.y - 46); o.sprite.setDepth(o.sprite.y); o.mexi.setDepth(o.mexi.y); } });
   }
 
   partnerNear() {
@@ -527,6 +527,7 @@ export class WorldScene extends Phaser.Scene {
   update(time, delta) {
     for (const l of this.wxLayers || []) { l.ts.tilePositionX -= l.speedX * delta / 16; l.ts.tilePositionY -= l.speedY * delta / 16; }
     this.idleCheck(time);
+    if (this.partnerObj) this.partnerObj.label.setPosition(this.partnerObj.sprite.x, this.partnerObj.sprite.y - 44);
     for (const o of [this.player, this.follower, ...this.npcs, ...this.roamers]) if (o?.sprite) o.sprite.setDepth(o.sprite.y);
     if (!this.canControl()) return;
     const K = this.keys;

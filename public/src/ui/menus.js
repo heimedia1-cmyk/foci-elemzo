@@ -13,6 +13,7 @@ import { evolve } from '../systems/mexi.js';
 import { mexiIconDataURL } from '../art/placeholders.js';
 import { getArtURL } from '../art/registerArt.js';
 import { Net } from '../systems/net.js';
+import { MAPS } from '../data/maps.js';
 
 const iconCache = {};
 export function iconFor(species, shiny = false) {
@@ -449,6 +450,14 @@ export function coopDaily() {
   if (!s.coop || s.coop.date !== today) s.coop = { date: today, foes: 0, caught: 0, wins: 0, claimed: {} };
   return s.coop;
 }
+/** Teleport a társ mellé (szabad szomszédos mezőre). */
+function goToPartner(pos) {
+  const world = window.MEXI_DEBUG?.game?.scene.getScene('World');
+  if (!world || world.inBattle || world.cutscene) { toast('Most nem lehet – fejezd be, amit csinálsz!'); return; }
+  const spot = [pos.x, pos.y]; // a társ mezője biztosan járható
+  toast('Irány a társad! 🐾');
+  world.warpTo({ to: pos.map, tx: spot[0], ty: spot[1], dir: 'up' });
+}
 export function openPartyMenu() {
   openWindow('Barátok – közös játék', (w) => {
     const draw = () => w.render((body) => {
@@ -465,8 +474,10 @@ export function openPartyMenu() {
         const partner = p.members.find(m => m.sid !== Net.sid);
         body.append(
           el('div', { style: 'font-size:15px' }, 'Party-kód: ', el('b', { style: 'font-size:26px;letter-spacing:4px' }, p.code)),
-          el('p', {}, partner ? `Társad: ${partner.name} ${partner.online ? '🟢' : '⚪ (nem elérhető)'}${partner.pos ? ' – ' + (partner.pos.map || '') : ''}` : 'Várakozás a társadra... Küldd el neki a kódot!'),
-          el('div', { class: 'actions' }, el('button', { class: 'btn', onclick: () => Net.send({ t: 'party_leave' }) }, 'Kilépés a partiból')));
+          el('p', {}, partner ? `Társad: ${partner.name} ${partner.online ? '🟢' : '⚪ (nem elérhető)'}${partner.pos && MAPS[partner.pos.map] ? ' – itt van: ' + MAPS[partner.pos.map].name : ''}` : 'Várakozás a társadra... Küldd el neki a kódot!'),
+          el('div', { class: 'actions' },
+            partner && partner.online && partner.pos && MAPS[partner.pos.map] ? el('button', { class: 'btn primary', onclick: () => { w.close(); goToPartner(partner.pos); } }, `🚶 Odamegyek hozzá (${MAPS[partner.pos.map].name})`) : null,
+            el('button', { class: 'btn', onclick: () => Net.send({ t: 'party_leave' }) }, 'Kilépés a partiból')));
       }
       body.append(el('h4', { style: 'margin:14px 0 4px' }, 'Hogyan működik?'),
         el('ul', { style: 'margin:0;padding-left:18px;font-size:14px;line-height:1.5' },
