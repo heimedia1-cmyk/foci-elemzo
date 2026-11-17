@@ -15,7 +15,7 @@ export class TitleScene extends Phaser.Scene {
     this.scale.on('resize', this.drawBackground, this);
     this.events.once('shutdown', () => { this.scale.off('resize', this.drawBackground, this); this.ui?.remove(); this.offKeys?.(); });
     this.showMenu();
-    if (Account.loggedIn) syncFromCloud().then((r) => { if (r === 'auth') { Account.current = null; toast('Lejárt a belépésed, lépj be újra.'); } if (this.scene.isActive()) this.showMenu(); });
+    if (Account.loggedIn && !window.MEXI_PREVIEW) syncFromCloud().then((r) => { if (r === 'auth') { Account.current = null; toast('Lejárt a belépésed, lépj be újra.'); } if (this.scene.isActive()) this.showMenu(); });
   }
 
   drawBackground() {
@@ -36,7 +36,9 @@ export class TitleScene extends Phaser.Scene {
     if (saveExists) btns.push(el('button', { class: 'btn primary', onclick: () => this.continueGame() }, '▶ Folytatás'));
     btns.push(el('button', { class: 'btn' + (saveExists ? '' : ' primary'), onclick: () => this.newGameForm() }, '✨ Új játék'));
     const acct = Account.current;
-    const bar = acct
+    const bar = window.MEXI_PREVIEW
+      ? el('div', { class: 'acctbar panel' }, el('span', {}, 'Előzetes tesztverzió – a fiókos belépés a végleges oldalon lesz elérhető.'))
+      : acct
       ? el('div', { class: 'acctbar panel' }, el('span', {}, '👤 Belépve: ', el('b', {}, acct.username), ' • a mentésed a fiókodban van'),
           el('button', { class: 'btn', onclick: () => { Account.logout(); toast('Kijelentkeztél.'); this.showMenu(); } }, 'Kilépés'))
       : el('div', { class: 'acctbar panel' }, el('span', {}, 'Vendégként játszol (a mentés csak ezen az eszközön van)'),
@@ -106,8 +108,8 @@ export class TitleScene extends Phaser.Scene {
     let gender = 'fiu';
     const input = el('input', { maxlength: 12, value: 'Kalandor' });
     const gb = (g, t) => el('button', { class: 'btn' + (g === gender ? ' sel' : ''), onclick: (e) => { gender = g; [...e.target.parentNode.children].forEach(b => b.classList.remove('sel')); e.target.classList.add('sel'); } }, t);
-    const start = () => {
-      if (hasSave() && !confirm('Van már mentésed. Biztosan új játékot kezdesz? A régi mentés törlődik.')) return;
+    const start = async () => {
+      if (hasSave() && (await choose(['Igen, új játék', 'Mégse'], { question: 'Van már mentésed. Biztosan új játékot kezdesz? A régi mentés törlődik.' })) !== 0) return;
       deleteSave();
       G.state = newGameState(input.value.trim() || 'Kalandor', gender);
       G.state.flags.intro = false;

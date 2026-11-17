@@ -6,7 +6,7 @@ import { CONFIG } from '../data/config.js';
 import { DIR_ROW, TS as T, BUILDING_INFO, PROP_INFO } from '../art/registerArt.js';
 import { G, save, markSeen } from '../systems/state.js';
 import { createMexi, healFull, rand, randInt, displayName } from '../systems/mexi.js';
-import { dialog, choose, toast, UI, el } from '../ui/ui.js';
+import { dialog, choose, toast, UI, el, askText } from '../ui/ui.js';
 import { openMainMenu, openParty, openBag, openDex, openShop } from '../ui/menus.js';
 import { setupTouch } from '../ui/touch.js';
 
@@ -601,7 +601,7 @@ export class WorldScene extends Phaser.Scene {
       this.follower.x = this.player.x; this.follower.y = this.player.y; this.placeSprite(this.follower);
       await dialog(['Megkaptad: Alap Mexi! 🐶', 'Kaptál 5 Sima Teniszlabdát és egy Mexidexet is!'], null);
       const nick = await choose(['Igen', 'Nem'], { question: 'Adsz neki becenevet?', cancel: false });
-      if (nick === 0) { const n = prompt('Becenév:', 'Mexi'); if (n && n.trim()) m.nickname = n.trim().slice(0, 14); }
+      if (nick === 0) { const n = await askText('Becenév:', 'Mexi'); if (n && n.trim()) m.nickname = n.trim().slice(0, 14); }
       await dialog(['A vad Mexiket harcban gyengítsd meg, aztán dobj rájuk teniszlabdát!', 'Minél kevesebb a HP-juk, annál könnyebb elkapni őket.', 'Indulj északra, a Mexi-ösvényre! Ott élnek az első vad Mexik.', 'Ha bajba kerülsz: a gyógyítóállomás jobbra fent van, a bolt jobbra lent.'], who);
       save();
       this.cutscene = false;

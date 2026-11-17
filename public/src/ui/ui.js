@@ -107,3 +107,21 @@ export function openWindow(title, build, { onClose } = {}) {
 
 export function hpClass(hp, max) { const r = hp / max; return r > 0.5 ? '' : r > 0.2 ? 'mid' : 'low'; }
 export function hpBar(hp, max) { return el('div', { class: 'hpbar ' + hpClass(hp, max) }, el('i', { style: `width:${Math.max(0, Math.round((hp / max) * 100))}%` })); }
+
+// ---- Szövegbekérés (a böngésző saját prompt() ablaka helyett) ----
+export function askText(question, value = '', max = 14) {
+  UI.lock();
+  return new Promise((resolve) => {
+    const input = el('input', { value, maxlength: max, style: 'font:inherit;font-size:18px;width:100%;padding:8px;border:3px solid var(--line);border-radius:8px;margin:8px 0' });
+    const done = (v) => { off(); modal.remove(); UI.unlock(); setTimeout(() => resolve(v), 30); };
+    const modal = el('div', { class: 'modal' }, el('div', { class: 'panel newgame' },
+      el('div', { style: 'font-weight:800' }, question), input,
+      el('div', { style: 'display:flex;gap:8px' },
+        el('button', { class: 'btn', onclick: () => done(null) }, 'Mégse'),
+        el('button', { class: 'btn primary', style: 'flex:1', onclick: () => done(input.value) }, 'OK'))));
+    document.getElementById('ui').append(modal);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') done(input.value); if (e.key === 'Escape') done(null); e.stopPropagation(); });
+    const off = pushKeys(() => {});
+    setTimeout(() => input.focus(), 50);
+  });
+}

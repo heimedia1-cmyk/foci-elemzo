@@ -6,7 +6,7 @@ import { ITEMS } from '../data/items.js';
 import { TYPES, effectiveness } from '../data/types.js';
 import { G, addCaught, markSeen, save } from '../systems/state.js';
 import { displayName, canEvolve, evolve, xpForLevel } from '../systems/mexi.js';
-import { el, pushKeys, choose, UI, hpClass } from '../ui/ui.js';
+import { el, pushKeys, choose, UI, hpClass, askText } from '../ui/ui.js';
 import { openParty, openBag, offerMove, typeBadge } from '../ui/menus.js';
 import { CONFIG } from '../data/config.js';
 import { MAPS } from '../data/maps.js';
@@ -357,7 +357,7 @@ export class BattleScene extends Phaser.Scene {
       if (m.shiny) await this.say('✨ Ez egy különleges SHINY Mexi! Bekerült a Mexidex shiny-gyűjteményébe!');
       this.ui.classList.add('hidden');
       const nick = await choose(['Igen', 'Nem'], { question: `Adsz becenevet ennek a Mexinek: ${MEXIS[m.species].name}?`, cancel: true });
-      if (nick === 0) { const n = prompt('Becenév:', ''); if (n && n.trim()) m.nickname = n.trim().slice(0, 14); }
+      if (nick === 0) { const n = await askText('Becenév:', ''); if (n && n.trim()) m.nickname = n.trim().slice(0, 14); }
       this.ui.classList.remove('hidden');
     }
     // fejlődés

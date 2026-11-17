@@ -1,5 +1,5 @@
 // Játékmenük: Mexidex, csapat, tároló, táska, bolt, Mexi-adatlap.
-import { el, openWindow, choose, dialog, toast, hpBar, UI } from './ui.js';
+import { el, openWindow, choose, dialog, toast, hpBar, UI, askText } from './ui.js';
 import { G, save } from '../systems/state.js';
 import { MEXIS, RARITY, SPECIES_ORDER, NATURES, STAT_NAMES } from '../data/mexis.js';
 import { MOVES, STATUS } from '../data/moves.js';
@@ -103,7 +103,7 @@ export function openMexiDetail(m, { inParty = false, inStorage = false, index = 
           sp.evolve ? el('div', { style: 'margin-top:8px;font-size:14px' }, '🌟 Fejlődés: ', el('b', {}, MEXIS[sp.evolve.to].name), ` (${sp.evolve.level}. szinten)`) : null,
           m.caughtWhere ? el('div', { style: 'font-size:12px;margin-top:6px;opacity:.75' }, `Megszerezve: ${m.caughtWhere}, ${new Date(m.caughtAt).toLocaleString('hu-HU')}`) : null,
           el('div', { class: 'actions' },
-            el('button', { class: 'btn', onclick: async () => { const n = prompt('Új becenév (üresen: eredeti név):', m.nickname || ''); if (n !== null) { m.nickname = n.trim().slice(0, 14) || null; save(); draw(); onChange?.(); } } }, '✏️ Becenév'),
+            el('button', { class: 'btn', onclick: async () => { const n = await askText('Új becenév (üresen: eredeti név):', m.nickname || ''); if (n !== null) { m.nickname = n.trim().slice(0, 14) || null; save(); draw(); onChange?.(); } } }, '✏️ Becenév'),
             inParty && index > 0 ? el('button', { class: 'btn', onclick: () => { const p = G.state.party; p.splice(index, 1); p.unshift(m); index = 0; save(); toast(`${displayName(m)} a csapat élén!`); w.close(); onChange?.(); } }, '⬆️ Csapat élére') : null,
             inParty && G.state.party.length > 1 ? el('button', { class: 'btn', onclick: () => { const p = G.state.party; p.splice(p.indexOf(m), 1); G.state.storage.push(m); save(); toast('Tárolóba került.'); w.close(); onChange?.(); } }, '📦 Tárolóba') : null,
             inStorage ? el('button', { class: 'btn', onclick: () => { if (G.state.party.length >= CONFIG.partySize) { toast('A csapat tele van (6).'); return; } const st = G.state.storage; st.splice(st.indexOf(m), 1); G.state.party.push(m); save(); toast('Csapatba került!'); w.close(); onChange?.(); } }, '➕ Csapatba') : null,
