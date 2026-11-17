@@ -148,6 +148,10 @@ export const MAPS = {
     roamers: [
       { species: 'kacsa', area: [23, 30, 5, 3], level: [4, 6] },
       { species: 'alap', area: [2, 41, 3, 4], level: [3, 5] },
+      { species: 'beka', area: [18, 30, 4, 3], level: [3, 6] },
+      { species: 'mehecske', area: [2, 26, 4, 4], level: [4, 6] },
+      { species: 'alap', area: [14, 12, 6, 3], level: [5, 7] },
+      { species: 'banyasz', area: [2, 17, 5, 2], level: [5, 7] },
     ],
     encounters: {
       default: {

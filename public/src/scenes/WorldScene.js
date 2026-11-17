@@ -579,9 +579,9 @@ export class WorldScene extends Phaser.Scene {
       const r = opts.roamer;
       if (res === 'win' || res === 'caught') {
         r.sprite.destroy(); this.roamers.splice(this.roamers.indexOf(r), 1);
-        // a legyőzött vándorló Mexi 3 percig nem tér vissza, akkor sem, ha közben elhagyod a területet
-        s.roamerCD = s.roamerCD || {}; s.roamerCD[r.def._id] = Date.now() + 180000;
-        this.time.delayedCall(180000, () => this.spawnRoamer(r.def));
+        // a legyőzött vándorló Mexi 1 percig nem tér vissza, akkor sem, ha közben elhagyod a területet
+        s.roamerCD = s.roamerCD || {}; s.roamerCD[r.def._id] = Date.now() + CONFIG.roamerRespawnMs;
+        this.time.delayedCall(CONFIG.roamerRespawnMs, () => this.spawnRoamer(r.def));
       } else {
         // elfutás vagy vereség után a vad Mexi kipiheni magát
         healFull(r.mon);
