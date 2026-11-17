@@ -176,7 +176,7 @@ export const TRAINERS = {
   },
   lili: {
     name: 'Lili, a kalandor', sprite: 'edzo2', reward: 450, sight: 4,
-    team: [['mehecske', 6], ['nindzsa', 6], ['kacsa', 7]],
+    team: [['mehecske', 5], ['nindzsa', 5], ['kacsa', 6]],
     intro: 'Az én csapatom gyors és trükkös! Készen állsz?', lose: 'Hűha, ügyes vagy! A Titokzatos Erdőben találkozunk.', after: 'Az alvó Mexit sokkal könnyebb elkapni!',
   },
 };

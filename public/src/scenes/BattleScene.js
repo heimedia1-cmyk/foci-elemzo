@@ -59,6 +59,8 @@ export class BattleScene extends Phaser.Scene {
       playerParty: s.party, foeParty: this.opts.foeParty, isTrainer: this.opts.isTrainer,
       trainerName: this.opts.trainerName, inventory: s.inventory, guaranteeCatch: !!this.opts.tutorial,
     });
+    // a képernyőn éppen látható Mexik (a harc logikája egy körrel előrébb járhat a lejátszásnál)
+    this.shown = { p: this.engine.p.active, f: this.engine.f.active };
     this.layout();
     this.buildUi();
     this.scale.on('resize', this.onResize, this);
@@ -104,9 +106,11 @@ export class BattleScene extends Phaser.Scene {
   }
 
   /** Animációs póz az ellenfél Mexijén (támadás, sérülés, ájulás, győzelem), ha van hozzá kép. */
+  shownMon(side) { return side === 'p' ? this.engine.p.party[this.shown.p] : this.engine.f.party[this.shown.f]; }
+
   pose(side, pose) {
     const spr = side === 'p' ? this.meSpr : this.foeSpr;
-    const m = side === 'p' ? this.engine.pm : this.engine.fm;
+    const m = this.shownMon(side);
     if (!spr || side === 'p') return;
     const key = pose ? `ma_${m.species}_${pose}` : this.texFor(m, false);
     if (pose && (m.shiny || !this.textures.exists(key))) return;
@@ -130,7 +134,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   renderInfo(side) {
-    const m = side === 'p' ? this.engine.pm : this.engine.fm;
+    const m = this.shownMon(side);
     const box = side === 'p' ? this.meBox : this.foeBox;
     box.classList.remove('hidden');
     const caughtMark = side === 'f' && !this.opts.isTrainer && G.state.dex.caught[m.species] ? ' 🎾' : '';
@@ -302,8 +306,8 @@ export class BattleScene extends Phaser.Scene {
           this.pose(ev.side, 'faint');
           if (ev.side === 'f') await wait(this, 600);
           await tween(this, { targets: spr, y: spr.y + 30, alpha: 0, duration: 450 }); break; }
-        case 'switch': await this.switchAnim(ev.side); break;
-        case 'xp': case 'levelup': this.renderInfo('p'); if (ev.t === 'levelup' && ev.index === this.engine.p.active) { this.fx(['lvl1', 'lvl2', 'lvl1', 'lvl2'], this.mePos.x, this.mePos.y - 30 * this.sc, 50 * this.sc, 150); } break;
+        case 'switch': await this.switchAnim(ev.side, ev.index); break;
+        case 'xp': case 'levelup': this.renderInfo('p'); if (ev.t === 'levelup' && ev.index === this.shown.p) { this.fx(['lvl1', 'lvl2', 'lvl1', 'lvl2'], this.mePos.x, this.mePos.y - 30 * this.sc, 50 * this.sc, 150); } break;
         case 'canLearn': { const m = G.state.party[ev.index]; this.ui.classList.add('hidden'); await offerMove(m, ev.move); this.ui.classList.remove('hidden'); break; }
         case 'ball': await this.ballAnim(ev.itemId, ev.shakes, ev.caught); break;
         case 'needSwitch': {
@@ -317,17 +321,19 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  async switchAnim(side) {
+  async switchAnim(side, index) {
     const e = this.engine;
+    if (index !== undefined) this.shown[side] = index;
+    const mon = this.shownMon(side);
     if (side === 'p') {
       if (this.meSpr) { await tween(this, { targets: this.meSpr, x: -100, duration: 250 }); this.meSpr.destroy(); }
-      this.meSpr = this.add.sprite(this.mePos.x, this.mePos.y, this.texFor(e.pm, true)).setOrigin(0.5, 1).setScale(0);
+      this.meSpr = this.add.sprite(this.mePos.x, this.mePos.y, this.texFor(mon, true)).setOrigin(0.5, 1).setScale(0);
       await tween(this, { targets: this.meSpr, scale: this.sc * 0.27, duration: 300, ease: 'Back.out' });
       this.renderInfo('p');
     } else {
       this.foeSpr?.destroy();
-      this.foeSpr = this.add.sprite(this.foePos.x, this.foePos.y, this.texFor(e.fm, false)).setOrigin(0.5, 1).setScale(0);
-      markSeen(e.fm.species);
+      this.foeSpr = this.add.sprite(this.foePos.x, this.foePos.y, this.texFor(mon, false)).setOrigin(0.5, 1).setScale(0);
+      markSeen(mon.species);
       await tween(this, { targets: this.foeSpr, scale: this.sc / 4, duration: 300, ease: 'Back.out' });
       this.renderInfo('f');
     }
