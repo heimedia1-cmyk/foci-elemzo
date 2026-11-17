@@ -76,3 +76,20 @@ t('közös XP: a nem harcoló csapattag is fejlődik', () => {
   assert.ok(a.xp - xpForLevel(5) > b2.xp - xb);
 });
 console.log(`\n${n} teszt sikeres.`);
+
+// --- támadások: max 4, evolúció/újratanulás ---
+{
+  const { createMexi, gainXp, relearnable, evolve } = await import('../public/src/systems/mexi.js');
+  const { MEXIS } = await import('../public/src/data/mexis.js');
+  let ok = true;
+  for (const sp of Object.keys(MEXIS)) {
+    const m = createMexi(sp, 5);
+    for (let i = 0; i < 40; i++) gainXp(m, 5000);
+    if (m.moves.length > 4) ok = false;
+    const r = relearnable(m);
+    if (r.some(id => m.moves.some(x => x.id === id))) ok = false;
+    const evo = MEXIS[sp].evolve; if (evo && evo.to) { const p = evolve(m, evo.to); if (!Array.isArray(p) || m.moves.length > 4) ok = false; }
+  }
+  if (!ok) throw new Error('támadás-szabály sérült');
+  console.log('✓ legfeljebb 4 támadás, újratanulási lista rendben');
+}

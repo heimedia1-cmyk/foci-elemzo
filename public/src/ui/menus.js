@@ -6,9 +6,11 @@ import { MOVES, STATUS } from '../data/moves.js';
 import { ITEMS, SHOP_STOCK, itemIcon } from '../data/items.js';
 import { TYPES } from '../data/types.js';
 import { CONFIG } from '../data/config.js';
-import { displayName, ivPercent, xpForLevel } from '../systems/mexi.js';
+import { displayName, ivPercent, xpForLevel, relearnable } from '../systems/mexi.js';
+import { Sfx } from '../systems/sfx.js';
 import { mexiIconDataURL } from '../art/placeholders.js';
 import { getArtURL } from '../art/registerArt.js';
+import { Net } from '../systems/net.js';
 
 const iconCache = {};
 export function iconFor(species, shiny = false) {
@@ -37,6 +39,23 @@ function mexiRow(m, onClick, extra = null) {
     extra);
 }
 
+// ===================== HANG =====================
+export function openSound() {
+  openWindow('Hangeffektek', (w) => {
+    const lab = el('div', { style: 'font-weight:700;margin:6px 0' });
+    const r = el('input', { type: 'range', min: 0, max: 100, step: 5, value: Math.round(Sfx.volume * 100), style: 'width:100%' });
+    const upd = () => { lab.textContent = `Hangerő: ${r.value}%${+r.value === 0 ? ' (némítva)' : ''}`; };
+    r.addEventListener('input', () => { Sfx.setVolume(r.value / 100); upd(); });
+    r.addEventListener('change', () => Sfx.play('select'));
+    upd();
+    const demo = (label, k) => el('button', { class: 'btn', onclick: () => k.startsWith('move:') ? Sfx.move(k.slice(5)) : Sfx.play(k) }, label);
+    w.body.append(lab, r,
+      el('div', { style: 'margin:10px 0 4px;font-weight:700' }, 'Kipróbálás:'),
+      el('div', { class: 'mainmenu' }, demo('🐶 Vau!', 'bark'), demo('🎾 Elkapás', 'catch'), demo('⭐ Szintlépés', 'levelup'), demo('🔥 Tűz', 'move:tuz'), demo('⚡ Villám', 'move:villam'), demo('💖 Gyógyítás', 'heal')),
+      el('button', { class: 'btn', style: 'margin-top:8px', onclick: () => { Sfx.setVolume(Sfx.volume > 0 ? 0 : 0.6); r.value = Math.round(Sfx.volume * 100); upd(); } }, '🔇 Némítás be/ki'));
+  });
+}
+
 // ===================== FŐMENÜ (Esc) =====================
 export function openMainMenu(world) {
   openWindow('Menü', (w) => {
@@ -49,7 +68,9 @@ export function openMainMenu(world) {
         b([el('img', { class: 'mico', src: 'assets/ui/m_party.png' }), 'Csapat (P)'], () => openParty()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_bag.png' }), 'Táska (I)'], () => openBag()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_map.png' }), 'Mexi-tároló'], () => openStorage()),
+        b([el('img', { class: 'mico', src: 'assets/ui/m_party.png' }), 'Barátok (party)'], () => openPartyMenu()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_save.png' }), 'Mentés'], () => { save() ? toast('Játék elmentve!') : toast('Mentés sikertelen'); }),
+        b([el('img', { class: 'mico', src: 'assets/ui/m_settings.png' }), `Hang: ${Math.round(Sfx.volume * 100)}%`], () => openSound()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_settings.png' }), 'Irányítás'], () => dialog(['WASD / nyilak: mozgás\nE: beszélgetés, interakció\nSpace: szimatolás', 'I: táska • J: Mexidex • P: csapat\nEsc: menü\nMobilon: joystick + A gomb + 🐾 + ☰'])),
         b([el('img', { class: 'mico', src: 'assets/ui/m_exit.png' }), 'Főmenü'], () => world.scene.start('Title')),
       ));
@@ -256,7 +277,7 @@ export function openShop() {
         if (tab === 'buy') {
           for (const id of SHOP_STOCK) {
             const it = ITEMS[id];
-            const buy = (n) => { const cost = it.price * n; if (s.money < cost) { toast('Nincs elég pénzed.'); return; } s.money -= cost; s.inventory[id] = (s.inventory[id] || 0) + n;
+            const buy = (n) => { const cost = it.price * n; if (s.money < cost) { toast('Nincs elég pénzed.'); return; } s.money -= cost; Sfx.play('coin'); s.inventory[id] = (s.inventory[id] || 0) + n;
               if (id === 'sima_labda' && n >= 10) { s.inventory.profi_labda = (s.inventory.profi_labda || 0) + 1; toast('Ajándék: 1 Profi Teniszlabda!'); } else toast(`Megvetted: ${n}× ${it.name}`); save(); draw(); };
             body.append(el('div', { class: 'row', style: 'cursor:default' },
               el('img', { src: itemIcon(id), style: 'width:40px;height:40px;image-rendering:pixelated' }),
@@ -279,16 +300,110 @@ export function openShop() {
   });
 }
 
-/** Új támadás felajánlása, ha már 4 van. */
+const moveLine = (id, pp) => { const d = MOVES[id]; return `${d.name} · ${TYPES[d.type].name} · ${d.power ? d.power + ' erő' : 'státusz'} · ${pp ?? d.pp} PP`; };
+
+/** Új támadás felajánlása, ha már 4 van (max 4 támadás, cserélhető). */
 export async function offerMove(m, moveId) {
   const mv = MOVES[moveId];
-  await dialog(`${displayName(m)} szeretné megtanulni: ${mv.name}! De már 4 támadása van.`);
-  const opts = [...m.moves.map(x => `Elfelejti: ${MOVES[x.id].name}`), `Nem tanulja meg (${mv.name})`];
-  const i = await choose(opts, { question: 'Melyik támadást felejtse el?', cancel: false });
-  if (i >= 0 && i < m.moves.length) {
-    const old = MOVES[m.moves[i].id].name; m.moves[i] = { id: moveId, pp: mv.pp };
-    await dialog(`1, 2 és... Puff! ${displayName(m)} elfelejtette: ${old}, és megtanulta: ${mv.name}!`);
-  } else await dialog(`${displayName(m)} nem tanulta meg: ${mv.name}.`);
+  await dialog([`${displayName(m)} szeretné megtanulni: ${mv.name}!`, `De egy Mexi legfeljebb 4 támadást tudhat. Elfelejtsen egyet a(z) ${mv.name} kedvéért?`]);
+  while (true) {
+    const opts = [...m.moves.map(x => `Elfelejti: ${moveLine(x.id, x.pp)}`), `✗ Nem tanulja meg (${moveLine(moveId)})`];
+    const i = await choose(opts, { question: `Új: ${moveLine(moveId)}${mv.desc ? ' – ' + mv.desc : ''}`, cancel: false });
+    if (i >= 0 && i < m.moves.length) {
+      const old = MOVES[m.moves[i].id].name;
+      const ok = await choose([`Igen, felejtse el: ${old}`, 'Mégse'], { question: `Biztos? ${displayName(m)} elfelejti: ${old}.` });
+      if (ok !== 0) continue;
+      m.moves[i] = { id: moveId, pp: mv.pp };
+      Sfx.play('learn');
+      await dialog(`1, 2 és... Puff! ${displayName(m)} elfelejtette: ${old}, és megtanulta: ${mv.name}!`);
+    } else {
+      const ok = await choose(['Igen, ne tanulja meg', 'Mégse'], { question: `Biztos, hogy ${displayName(m)} nem tanulja meg: ${mv.name}?` });
+      if (ok !== 0) continue;
+      await dialog(`${displayName(m)} nem tanulta meg: ${mv.name}. (A gyógyítóállomáson később még megtanulhatja.)`);
+    }
+    return;
+  }
+}
+
+/** Támadás-emlékeztető: kihagyott/elfelejtett támadás újratanulása pénzért. */
+export async function moveReminder(who = 'Nővér Mancsi') {
+  const s = G.state; const PRICE = 200;
+  const cands = s.party.map((m, i) => ({ m, i, list: relearnable(m) })).filter(x => x.list.length);
+  if (!cands.length) { await dialog('Most egyik Mexid sem tud újra megtanulni semmit. Gyere vissza, ha szintet léptek!', who); return; }
+  const ci = await choose(cands.map(x => `${displayName(x.m)} (Sz. ${x.m.level}) – ${x.list.length} támadás`), { question: `Melyik Mexi emlékezzen? (${PRICE} 🪙 / támadás)` });
+  if (ci < 0) return;
+  const { m, list } = cands[ci];
+  const mi = await choose(list.map(id => moveLine(id)), { question: 'Melyik támadást tanulja meg újra?' });
+  if (mi < 0) return;
+  if (s.money < PRICE) { await dialog(`Ehhez ${PRICE} 🪙 kell, neked csak ${s.money} 🪙 van.`, who); return; }
+  s.money -= PRICE;
+  if (m.moves.length < 4) { m.moves.push({ id: list[mi], pp: MOVES[list[mi]].pp }); Sfx.play('learn'); await dialog(`${displayName(m)} újra megtanulta: ${MOVES[list[mi]].name}!`, who); }
+  else {
+    const before = m.moves.map(x => x.id).join();
+    await offerMove(m, list[mi]);
+    if (m.moves.map(x => x.id).join() === before) { s.money += PRICE; toast('Nem történt csere – a pénzt visszakaptad.'); }
+  }
+  save();
 }
 
 export { UI };
+
+// ===================== KÖZÖS JÁTÉK: PARTY + NAPI KIHÍVÁSOK =====================
+export const COOP_DAILY = [
+  { id: 'win5', text: 'Győzzetek le együtt 5 vad Mexit közös harcban', goal: 5, key: 'foes', reward: { item: 'profi_labda', qty: 3 } },
+  { id: 'catch2', text: 'Kapjatok el 2 Mexit közös harcban', goal: 2, key: 'caught', reward: { item: 'arany_labda', qty: 1 } },
+  { id: 'battles3', text: 'Nyerjetek meg 3 közös harcot', goal: 3, key: 'wins', reward: { money: 500 } },
+];
+export function coopDaily() {
+  const s = G.state; const today = new Date().toISOString().slice(0, 10);
+  if (!s.coop || s.coop.date !== today) s.coop = { date: today, foes: 0, caught: 0, wins: 0, claimed: {} };
+  return s.coop;
+}
+export function openPartyMenu() {
+  openWindow('Barátok – közös játék', (w) => {
+    const draw = () => w.render((body) => {
+      if (!Net.online) body.append(el('p', { style: 'color:#c03030;font-weight:700' }, 'Kapcsolódás a szerverhez...'));
+      const p = Net.party;
+      if (!p) {
+        const input = el('input', { maxlength: 5, placeholder: 'KÓD', style: 'font:inherit;font-size:22px;letter-spacing:4px;width:140px;text-transform:uppercase;padding:6px;border:3px solid var(--line);border-radius:8px' });
+        body.append(
+          el('p', {}, 'Játssz egy barátoddal! Hozz létre egy partit, és küldd el neki a kódot – vagy írd be az ő kódját.'),
+          el('div', { class: 'actions' },
+            el('button', { class: 'btn primary', onclick: () => Net.send({ t: 'party_create' }) }, '➕ Party létrehozása'),
+            input, el('button', { class: 'btn', onclick: () => input.value.trim() && Net.send({ t: 'party_join', code: input.value.trim().toUpperCase() }) }, 'Csatlakozás')));
+      } else {
+        const partner = p.members.find(m => m.sid !== Net.sid);
+        body.append(
+          el('div', { style: 'font-size:15px' }, 'Party-kód: ', el('b', { style: 'font-size:26px;letter-spacing:4px' }, p.code)),
+          el('p', {}, partner ? `Társad: ${partner.name} ${partner.online ? '🟢' : '⚪ (nem elérhető)'}${partner.pos ? ' – ' + (partner.pos.map || '') : ''}` : 'Várakozás a társadra... Küldd el neki a kódot!'),
+          el('div', { class: 'actions' }, el('button', { class: 'btn', onclick: () => Net.send({ t: 'party_leave' }) }, 'Kilépés a partiból')));
+      }
+      body.append(el('h4', { style: 'margin:14px 0 4px' }, 'Hogyan működik?'),
+        el('ul', { style: 'margin:0;padding-left:18px;font-size:14px;line-height:1.5' },
+          el('li', {}, 'Ugyanazon a területen látjátok egymást és egymás Mexijét.'),
+          el('li', {}, 'Ha egymás közelében (10 lépésen belül) léptek a magas fűbe, közös 2v2 harc indul két vad Mexi ellen.'),
+          el('li', {}, 'A vad Mexik a csapatotok szintjéhez igazodnak (1–2 szinttel erősebbek). Ha nagy a szintkülönbség köztetek, a harcban a magasabb szintű Mexik a közös szinthatárra állnak be.'),
+          el('li', {}, 'XP, érme és tárgy mindenkinek külön jár. Akinek a labdája elkapja a Mexit, azé lesz.')));
+      const d = coopDaily();
+      body.append(el('h4', { style: 'margin:14px 0 4px' }, 'Közös napi kihívások'));
+      for (const c of COOP_DAILY) {
+        const prog = Math.min(c.goal, d[c.key] || 0), done = prog >= c.goal, claimed = d.claimed[c.id];
+        const rw = c.reward.item ? `${c.reward.qty}× ${ITEMS[c.reward.item].name}` : `${c.reward.money} érme`;
+        body.append(el('div', { class: 'row', style: 'cursor:default' },
+          el('div', { class: 'grow' }, el('b', {}, c.text), el('div', { style: 'font-size:13px' }, `${prog}/${c.goal} • Jutalom: ${rw}`),
+            el('div', { class: 'xpbar' }, el('i', { style: `width:${prog / c.goal * 100}%` }))),
+          claimed ? el('b', {}, '✔') : el('button', { class: 'btn' + (done ? ' primary' : ''), disabled: !done, onclick: () => {
+            d.claimed[c.id] = true;
+            if (c.reward.item) G.state.inventory[c.reward.item] = (G.state.inventory[c.reward.item] || 0) + c.reward.qty; else G.state.money += c.reward.money;
+            save(); toast('Jutalom megszerezve: ' + rw); draw();
+          } }, 'Átvétel')));
+      }
+    });
+    draw();
+    const off = Net.on('party_state', draw); const off2 = Net.on('error', (m) => toast(m.text));
+    const iv = setInterval(draw, 4000);
+    w.modal.addEventListener('remove', () => {});
+    const obs = new MutationObserver(() => { if (!document.body.contains(w.modal)) { off(); off2(); clearInterval(iv); obs.disconnect(); } });
+    obs.observe(document.getElementById('ui'), { childList: true });
+  });
+}

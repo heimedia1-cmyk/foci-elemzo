@@ -7,6 +7,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import http from 'node:http';
+import { attachCoop } from './server/coop.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -96,4 +98,6 @@ app.use(express.static(path.join(__dirname, 'public'), {
   },
 }));
 
-app.listen(PORT, () => console.log(`MexiVerse fut: http://localhost:${PORT} (adatok: ${DATA_DIR}, fiókok: ${ACCOUNT_API})`));
+const server = http.createServer(app);
+attachCoop(server);
+server.listen(PORT, () => console.log(`MexiVerse fut: http://localhost:${PORT} (adatok: ${DATA_DIR}, fiókok: ${ACCOUNT_API})`));

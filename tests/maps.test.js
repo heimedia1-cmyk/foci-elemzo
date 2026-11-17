@@ -33,3 +33,10 @@ for (const [key, m] of Object.entries(MAPS)) {
   for (const t of m.triggers) assert.ok(seen.has(t.x + ',' + t.y), `${key}: esemény-zóna elérhetetlen ${t.id}`);
   console.log(`✓ ${key}: ${seen.size} bejárható mező, minden fontos pont elérhető`);
 }
+// A találkozási táblázatok szerkezete (a WorldScene ezt olvassa)
+for (const [key, m] of Object.entries(MAPS)) {
+  if (!m.encounters) continue;
+  assert.ok(m.encounters.default?.day?.length && m.encounters.default?.night?.length && m.encounters.default?.levels, `${key}: hiányos alap találkozási tábla`);
+  for (const z of m.encounters.zones) assert.ok(z.rect && (z.levels || m.encounters.default.levels), `${key}: hibás zóna`);
+}
+console.log('✓ találkozási táblázatok rendben');

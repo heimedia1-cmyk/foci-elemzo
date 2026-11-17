@@ -10,6 +10,7 @@ import { el, pushKeys, choose, UI, hpClass, askText } from '../ui/ui.js';
 import { openParty, openBag, offerMove, typeBadge } from '../ui/menus.js';
 import { CONFIG } from '../data/config.js';
 import { MAPS } from '../data/maps.js';
+import { Sfx } from '../systems/sfx.js';
 
 const wait = (scene, ms) => new Promise(r => scene.time.delayedCall(ms, r));
 const tween = (scene, cfg) => new Promise(r => scene.tweens.add({ ...cfg, onComplete: r }));
@@ -283,10 +284,11 @@ export class BattleScene extends Phaser.Scene {
   async play(events) {
     for (const ev of events) {
       switch (ev.t) {
-        case 'msg': await this.say(ev.text); break;
-        case 'anim': await this.attackAnim(ev.side, ev.moveType, ev.cat); break;
+        case 'msg': if (ev.text === 'De nem talált!') Sfx.play('miss'); await this.say(ev.text); break;
+        case 'anim': if (ev.cat !== 'stat') Sfx.move(ev.moveType); await this.attackAnim(ev.side, ev.moveType, ev.cat); break;
         case 'damage': {
           const spr = ev.side === 'p' ? this.meSpr : this.foeSpr;
+          Sfx.hit({ crit: ev.crit, eff: ev.dot ? 0.5 : ev.eff });
           if (!ev.dot) { this.cameras.main.shake(ev.eff >= 2 ? 220 : 120, ev.eff >= 2 ? 0.008 : 0.004); }
           this.pose(ev.side, 'hurt');
           { const pos = ev.side === 'p' ? this.mePos : this.foePos; this.fx(ev.crit ? ['crit1', 'crit2', 'crit3'] : ['hit1', 'hit2', 'hit3'], pos.x, pos.y - 26 * this.sc, (ev.crit ? 44 : 30) * this.sc, 80, 23); }
@@ -295,19 +297,19 @@ export class BattleScene extends Phaser.Scene {
           if (ev.hp > 0) this.time.delayedCall(250, () => this.pose(ev.side, null));
           await this.animateHp(ev.side, ev.hp, ev.max);
           break; }
-        case 'heal': { const pos = ev.side === 'p' ? this.mePos : this.foePos; this.fx(['heal1', 'heal2', 'heal1', 'heal2'], pos.x, pos.y - 24 * this.sc, 40 * this.sc, 140); await this.animateHp(ev.side, ev.hp, ev.max); break; }
+        case 'heal': { Sfx.play('heal_hp'); const pos = ev.side === 'p' ? this.mePos : this.foePos; this.fx(['heal1', 'heal2', 'heal1', 'heal2'], pos.x, pos.y - 24 * this.sc, 40 * this.sc, 140); await this.animateHp(ev.side, ev.hp, ev.max); break; }
         case 'status': {
           this.renderInfo(ev.side);
-          if (ev.status) { const pos = ev.side === 'p' ? this.mePos : this.foePos; await this.fx([`st_${ev.status}1`, `st_${ev.status}2`, `st_${ev.status}1`, `st_${ev.status}2`], pos.x, pos.y - 30 * this.sc, 34 * this.sc, 150); }
+          if (ev.status) { Sfx.play('status'); const pos = ev.side === 'p' ? this.mePos : this.foePos; await this.fx([`st_${ev.status}1`, `st_${ev.status}2`, `st_${ev.status}1`, `st_${ev.status}2`], pos.x, pos.y - 30 * this.sc, 34 * this.sc, 150); }
           break; }
-        case 'stat': { const pos = ev.side === 'p' ? this.mePos : this.foePos; const k = ev.stages > 0 ? 'up' : 'down'; await this.fx([k + '1', k + '2', k + '1', k + '2'], pos.x, pos.y - 26 * this.sc, 34 * this.sc, 140); break; }
+        case 'stat': { Sfx.play(ev.stages > 0 ? 'stat_up' : 'stat_down'); const pos = ev.side === 'p' ? this.mePos : this.foePos; const k = ev.stages > 0 ? 'up' : 'down'; await this.fx([k + '1', k + '2', k + '1', k + '2'], pos.x, pos.y - 26 * this.sc, 34 * this.sc, 140); break; }
         case 'faint': {
           const spr = ev.side === 'p' ? this.meSpr : this.foeSpr;
-          this.pose(ev.side, 'faint');
+          this.pose(ev.side, 'faint'); Sfx.play('faint');
           if (ev.side === 'f') await wait(this, 600);
           await tween(this, { targets: spr, y: spr.y + 30, alpha: 0, duration: 450 }); break; }
-        case 'switch': await this.switchAnim(ev.side, ev.index); break;
-        case 'xp': case 'levelup': this.renderInfo('p'); if (ev.t === 'levelup' && ev.index === this.shown.p) { this.fx(['lvl1', 'lvl2', 'lvl1', 'lvl2'], this.mePos.x, this.mePos.y - 30 * this.sc, 50 * this.sc, 150); } break;
+        case 'switch': Sfx.play('switch_in', { delay: 0.2 }); await this.switchAnim(ev.side, ev.index); break;
+        case 'xp': case 'levelup': this.renderInfo('p'); if (ev.t === 'levelup') Sfx.play('levelup', { throttle: 800 }); if (ev.t === 'levelup' && ev.index === this.shown.p) { this.fx(['lvl1', 'lvl2', 'lvl1', 'lvl2'], this.mePos.x, this.mePos.y - 30 * this.sc, 50 * this.sc, 150); } break;
         case 'canLearn': { const m = G.state.party[ev.index]; this.ui.classList.add('hidden'); await offerMove(m, ev.move); this.ui.classList.remove('hidden'); break; }
         case 'ball': await this.ballAnim(ev.itemId, ev.shakes, ev.caught); break;
         case 'needSwitch': {
@@ -315,6 +317,7 @@ export class BattleScene extends Phaser.Scene {
           await this.play(this.engine.forcedSwitch(i));
           break; }
         case 'end':
+          Sfx.play(ev.result === 'lose' ? 'lose' : ev.result === 'run' ? 'run' : ev.result === 'caught' ? 'item' : 'win');
           if (ev.result === 'lose' && this.foeSpr) { this.pose('f', 'win'); this.tweens.add({ targets: this.foeSpr, y: this.foeSpr.y - 14, yoyo: true, repeat: 2, duration: 180 }); await wait(this, 900); }
           break;
       }
@@ -377,10 +380,11 @@ export class BattleScene extends Phaser.Scene {
     const sx = ball.x, sy = ball.y;
     const trail = this.add.image(sx, sy, 'bfx_c_fly2').setDepth(24).setAlpha(0.8);
     trail.setScale((size * 1.6) / trail.width);
+    Sfx.play('throw');
     await tween(this, { targets: { t: 0 }, t: 1, duration: 550, onUpdate: (tw, obj) => { const t = obj.t; ball.x = sx + (tx - sx) * t; ball.y = sy + (ty - sy) * t - Math.sin(t * Math.PI) * 90 * (this.sc / 2); ball.angle = t * 720; trail.setPosition(ball.x - 8, ball.y); } });
     trail.destroy();
     // a labda kinyílik, a Mexi bekerül
-    ball.setVisible(false);
+    ball.setVisible(false); Sfx.play('ball_open');
     const fxP = this.fx(['c_open1', 'c_open2', 'c_beam1', 'c_beam2'], tx, ty, 34 * this.sc, 120, 26);
     this.foeSpr.setTintFill(0xffffff);
     await tween(this, { targets: this.foeSpr, scale: 0, y: ty, duration: 420 });
@@ -390,16 +394,18 @@ export class BattleScene extends Phaser.Scene {
     for (let i = 0; i < shakes; i++) {
       await wait(this, 300);
       this.fx([i % 2 ? 'c_wob2' : 'c_wob1'], ball.x, ball.y, 26 * this.sc, 280, 26);
+      Sfx.play('shake');
       await tween(this, { targets: ball, angle: i % 2 ? 25 : -25, yoyo: true, duration: 140 });
       this.msg.textContent = '.'.repeat(i + 1);
     }
     await wait(this, 350);
     if (caught) {
+      Sfx.play('catch');
       await this.fx(['c_ok1', 'c_ok2', 'c_ok3'], ball.x, ball.y, 40 * this.sc, 160, 26);
       ball.setTint(0xbbbbbb);
       this._caughtBall = ball;
     } else {
-      ball.destroy();
+      ball.destroy(); Sfx.play('escape');
       this.fx(['c_esc1', 'c_esc2'], tx, this.foePos.y - 14 * this.sc, 40 * this.sc, 140, 26);
       this.foeSpr.clearTint().setPosition(this.foePos.x, this.foePos.y);
       await tween(this, { targets: this.foeSpr, scale: this.sc / 4, duration: 300, ease: 'Back.out' });
@@ -454,7 +460,7 @@ export class BattleScene extends Phaser.Scene {
       await wait(this, 220 - i * 18);
     }
     const oldName = displayName(m);
-    evolve(m, to);
+    const pendMoves = evolve(m, to);
     s_setCaught(to);
     spr.setTexture(toKey).clearTint();
     this.cameras.main.flash(500);
@@ -462,6 +468,7 @@ export class BattleScene extends Phaser.Scene {
     txt.textContent = `Gratulálok! ${oldName} fejlődött: ${MEXIS[to].name}! 🌟`;
     await wait(this, 2600);
     txt.remove(); dim.destroy(); spr.destroy();
+    for (const mv of pendMoves) await offerMove(m, mv);
     this.ui.classList.remove('hidden');
   }
 }

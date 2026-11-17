@@ -7,6 +7,7 @@ import { MEXIS } from '../data/mexis.js';
 import { ITEMS } from '../data/items.js';
 
 export const TS = 32; // a világ csempemérete
+const PW = 44, PH = 56; // ember-sprite képkocka
 const FX_TYPES = ['semleges', 'tuz', 'viz', 'noveny', 'villam', 'fold', 'jeg', 'arnyek', 'feny', 'gep'];
 export const FX_FILES = [
   'hit1', 'hit2', 'hit3', 'crit1', 'crit2', 'crit3', 'up1', 'up2', 'down1', 'down2', 'heal1', 'heal2', 'lvl1', 'lvl2',
@@ -107,19 +108,19 @@ export function registerArt(scene) {
   // ---- játékos (6 oszlop: fiú 0-2, lány 3-5; 4 sor irányonként), 32×44
   const pl = img(scene, 'src_player');
   for (const [key, off] of [['fiu', 0], ['lany', 3]]) {
-    const c = cv(32 * 3, 44 * 4); const ctx = c.getContext('2d');
-    for (let r = 0; r < 4; r++) for (let f = 0; f < 3; f++) ctx.drawImage(pl, (off + f) * 32, r * 44, 32, 44, f * 32, r * 44, 32, 44);
-    addSheet(scene, 'p_' + key, c, 32, 44);
+    const c = cv(PW * 3, PH * 4); const ctx = c.getContext('2d');
+    for (let r = 0; r < 4; r++) for (let f = 0; f < 3; f++) ctx.drawImage(pl, (off + f) * PW, r * PH, PW, PH, f * PW, r * PH, PW, PH);
+    addSheet(scene, 'p_' + key, c, PW, PH);
   }
   // Lili (edző lány): a lány-sprite lila változata
-  addSheet(scene, 'p_edzo2', hueCanvas(scene.textures.get('p_lany').getSourceImage(), 140, 1.1), 32, 44);
+  addSheet(scene, 'p_edzo2', hueCanvas(scene.textures.get('p_lany').getSourceImage(), 140, 1.1), PW, PH);
 
   // ---- NPC-k: soronként 4 irány, egy-egy képkocka → 3 egyforma fázis
   const np = img(scene, 'src_npcs');
   NPC_ROWS.forEach((key, row) => {
-    const c = cv(32 * 3, 44 * 4); const ctx = c.getContext('2d');
-    for (let d = 0; d < 4; d++) for (let f = 0; f < 3; f++) ctx.drawImage(np, d * 32, row * 44, 32, 44, f * 32, d * 44, 32, 44);
-    addSheet(scene, 'p_' + key, c, 32, 44);
+    const c = cv(PW * 3, PH * 4); const ctx = c.getContext('2d');
+    for (let d = 0; d < 4; d++) for (let f = 0; f < 3; f++) ctx.drawImage(np, d * PW, row * PH, PW, PH, f * PW, d * PH, PW, PH);
+    addSheet(scene, 'p_' + key, c, PW, PH);
   });
 
   // ---- Mexik: térkép (32×32, 4 irány × 3 fázis), harc elöl/hátul (96×96)

@@ -1,3 +1,4 @@
+import { Sfx } from '../systems/sfx.js';
 // UIManager – DOM-alapú felület (párbeszédek, választások, ablakok, értesítések).
 const root = () => document.getElementById('ui');
 
@@ -16,6 +17,10 @@ export function el(tag, attrs = {}, ...children) {
 
 // ---- Billentyű-kezelő verem: a legfelső ablak kapja a billentyűket ----
 const keyStack = [];
+if (typeof document !== 'undefined') document.addEventListener('click', (e) => {
+  const b = e.target.closest && e.target.closest('button'); if (!b || b.disabled || b.closest('.choices')) return;
+  Sfx.play(/vissza|mégse|bezár|✕|×/i.test(b.textContent) ? 'back' : 'select');
+}, true);
 export function pushKeys(fn) { keyStack.push(fn); return () => { const i = keyStack.lastIndexOf(fn); if (i >= 0) keyStack.splice(i, 1); }; }
 window.addEventListener('keydown', (e) => {
   const top = keyStack[keyStack.length - 1];
@@ -41,11 +46,11 @@ export function dialog(lines, who = null) {
       box.innerHTML = ''; if (who) box.append(el('div', { class: 'who' }, who));
       const span = el('span'); box.append(span, el('div', { class: 'more' }, '▼'));
       clearInterval(typing);
-      typing = setInterval(() => { n += 2; span.textContent = full.slice(0, n); if (n >= full.length) { clearInterval(typing); typing = null; } }, 16);
+      typing = setInterval(() => { n += 2; if (n % 6 === 0) Sfx.play('text', { throttle: 60 }); span.textContent = full.slice(0, n); if (n >= full.length) { clearInterval(typing); typing = null; } }, 16);
     };
     const next = () => {
       if (typing) { clearInterval(typing); typing = null; box.querySelector('span').textContent = full; return; }
-      i++; if (i >= lines.length) { off(); box.remove(); UI.unlock(); setTimeout(resolve, 60); } else show();
+      Sfx.play('cursor'); i++; if (i >= lines.length) { off(); box.remove(); UI.unlock(); setTimeout(resolve, 60); } else show();
     };
     box.addEventListener('pointerdown', (e) => { e.stopPropagation(); next(); });
     const off = pushKeys((e) => { if (['Enter', ' ', 'e', 'E', 'Escape'].includes(e.key)) next(); });
@@ -64,10 +69,10 @@ export function choose(options, { question = null, who = null, cancel = true } =
     const btns = options.map((o, i) => el('button', { class: 'btn', onclick: () => done(i) }, o));
     box.append(...btns); root().append(box);
     const paint = () => btns.forEach((b, i) => b.classList.toggle('sel', i === sel)); paint();
-    const done = (i) => { off(); box.remove(); qBox?.remove(); UI.unlock(); setTimeout(() => resolve(i), 30); };
+    const done = (i) => { Sfx.play(i < 0 ? 'back' : 'select'); off(); box.remove(); qBox?.remove(); UI.unlock(); setTimeout(() => resolve(i), 30); };
     const off = pushKeys((e) => {
-      if (e.key === 'ArrowDown' || e.key === 's') { sel = (sel + 1) % btns.length; paint(); }
-      else if (e.key === 'ArrowUp' || e.key === 'w') { sel = (sel - 1 + btns.length) % btns.length; paint(); }
+      if (e.key === 'ArrowDown' || e.key === 's') { sel = (sel + 1) % btns.length; paint(); Sfx.play('cursor'); }
+      else if (e.key === 'ArrowUp' || e.key === 'w') { sel = (sel - 1 + btns.length) % btns.length; paint(); Sfx.play('cursor'); }
       else if (['Enter', ' ', 'e', 'E'].includes(e.key)) done(sel);
       else if (e.key === 'Escape' && cancel) done(-1);
     });
@@ -85,7 +90,7 @@ export function toast(text, ms = 2200) {
 
 // ---- Ablak ----
 export function openWindow(title, build, { onClose } = {}) {
-  UI.lock();
+  UI.lock(); Sfx.play('open');
   const body = el('div', { class: 'body' });
   const close = () => { off(); modal.remove(); UI.unlock(); onClose?.(); };
   const modal = el('div', { class: 'modal', onpointerdown: (e) => { if (e.target === modal) close(); } },

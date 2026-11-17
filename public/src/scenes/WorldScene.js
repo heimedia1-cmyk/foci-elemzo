@@ -10,6 +10,13 @@ import { dialog, choose, toast, UI, el, askText } from '../ui/ui.js';
 import { openMainMenu, openParty, openBag, openDex, openShop } from '../ui/menus.js';
 import { setupTouch } from '../ui/touch.js';
 import { getWeather, weatherTable, WEATHER } from '../systems/weather.js';
+import { Net } from '../systems/net.js';
+import { coopDaily } from '../ui/menus.js';
+import { addCaught } from '../systems/state.js';
+import { canEvolve, evolve } from '../systems/mexi.js';
+import { MOVES } from '../data/moves.js';
+import { offerMove, moveReminder } from '../ui/menus.js';
+import { Sfx } from '../systems/sfx.js';
 
 const DV = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
@@ -78,6 +85,7 @@ export class WorldScene extends Phaser.Scene {
     this.time.addEvent({ delay: 30000, loop: true, callback: () => { if (!this.inBattle) save(); } });
 
     this.buildHud();
+    this.setupNet();
     this.events.on('resume', () => this.onResume());
     this.events.once('shutdown', () => this.cleanup());
 
@@ -87,6 +95,8 @@ export class WorldScene extends Phaser.Scene {
   }
 
   cleanup() {
+    (this.netOffs || []).forEach(f => f());
+    this.partnerObj?.sprite.destroy(); this.partnerObj?.label.destroy(); this.partnerObj?.mexi.destroy();
     this.input.keyboard.off('keydown');
     this.scale.off('resize', this.fitZoom, this);
     this.touch?.destroy();
@@ -284,12 +294,13 @@ export class WorldScene extends Phaser.Scene {
     if (!this.hud) return;
     const now = new Date();
     this.hud.innerHTML = '';
-    this.hud.append(
+    this.hud.append(...[
       el('div', { class: 'chip' }, '📍 ' + this.map.name),
       el('div', { class: 'chip' }, (isNight(now) ? '🌙 ' : '☀️ ') + now.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })),
       this.map.interior ? null : el('div', { class: 'chip' }, WEATHER[this.weather].icon + ' ' + WEATHER[this.weather].name),
+      Net.party ? el('div', { class: 'chip' }, '👥 ' + (Net.partner ? Net.partner.name + (this.partnerNear() ? ' (közel)' : '') : 'Party: ' + Net.party.code)) : null,
       el('div', { class: 'chip' }, el('img', { src: 'assets/ui/coin.png', class: 'ico' }), ' ' + G.state.money),
-      el('div', { class: 'chip' }, el('img', { src: 'assets/ui/ball_sima.png', class: 'ico' }), ' ' + ['sima_labda', 'profi_labda', 'arany_labda', 'hos_labda'].reduce((a, k) => a + (G.state.inventory[k] || 0), 0)));
+      el('div', { class: 'chip' }, el('img', { src: 'assets/ui/ball_sima.png', class: 'ico' }), ' ' + ['sima_labda', 'profi_labda', 'arany_labda', 'hos_labda'].reduce((a, k) => a + (G.state.inventory[k] || 0), 0))].filter(Boolean));
   }
 
   updateDaylight() {
@@ -299,6 +310,113 @@ export class WorldScene extends Phaser.Scene {
     if (h >= 21 || h < 5) a = 0.45; else if (h >= 19) a = (h - 19) / 2 * 0.45; else if (h < 7) a = (7 - h) / 2 * 0.45;
     const color = h >= 17 && h < 21 ? 0x5a2a6a : 0x1a1050;
     this.nightLayer.setFillStyle(color, a);
+  }
+
+  // ---------------- Közös játék ----------------
+  setupNet() {
+    Net.connect();
+    this.netOffs = [
+      Net.on('partner_pos', () => this.drawPartner()),
+      Net.on('party_state', () => { this.drawPartner(); this.updateHud(); }),
+      Net.on('toast', (m) => toast(m.text)),
+      Net.on('coop_request', (m) => {
+        const ok = this.canControl() && !this.inBattle && G.state.party.some(x => x.hp > 0);
+        Net.send({ t: 'coop_party', ok, party: G.state.party, inventory: G.state.inventory });
+        if (ok) { this.cutscene = true; this.moving = false; this.time.delayedCall(5000, () => { if (!this.inBattle) this.cutscene = false; }); }
+      }),
+      Net.on('coop_declined', () => {
+        this.cutscene = false;
+        if (this._coopFallback) { const f = this._coopFallback; this._coopFallback = null; f(); }
+      }),
+      Net.on('coop_begin', (m) => { this._coopFallback = null; this.launchCoop(m); }),
+    ];
+    this.sendPos();
+    this.drawPartner();
+  }
+
+  sendPos() {
+    const lead = G.state.party.find(m => m.hp > 0) || G.state.party[0];
+    Net.send({ t: 'pos', map: this.mapKey, x: this.player.x, y: this.player.y, dir: this.player.dir, lead: lead ? { species: lead.species, shiny: lead.shiny } : null });
+  }
+
+  drawPartner() {
+    const pr = Net.partner; const pos = pr?.pos;
+    const show = Net.party && pr && pos && pos.map === this.mapKey && pr.online !== false;
+    if (!show) { if (this.partnerObj) { this.partnerObj.sprite.destroy(); this.partnerObj.label.destroy(); this.partnerObj.mexi.destroy(); this.partnerObj = null; } return; }
+    if (!this.partnerObj) {
+      const sprite = this.add.sprite(this.px(pos.x), this.py(pos.y), 'p_' + (pr.gender === 'lany' ? 'lany' : 'fiu'), 0).setOrigin(0.5, 1).setTint(0xd8e8ff);
+      const label = this.add.text(0, 0, pr.name, { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '11px', color: '#fff', stroke: '#1b1430', strokeThickness: 3 }).setOrigin(0.5, 1).setDepth(99990);
+      const mexi = this.add.sprite(this.px(pos.x), this.py(pos.y + 1), 'px').setOrigin(0.5, 1);
+      this.partnerObj = { sprite, label, mexi, x: pos.x, y: pos.y, lead: null };
+    }
+    const o = this.partnerObj;
+    if (pos.lead && (!o.lead || o.lead.species !== pos.lead.species)) { o.lead = pos.lead; o.mexi.setTexture('mm_' + pos.lead.species + (pos.lead.shiny ? '_s' : ''), 0); }
+    const [dx, dy] = DV[pos.dir] || [0, 1];
+    const mx = pos.x - dx, my = pos.y - dy;
+    this.tweens.add({ targets: o.mexi, x: this.px(o.x), y: this.py(o.y), duration: 200 });
+    o.x = pos.x; o.y = pos.y;
+    o.sprite.setFrame(DIR_ROW[pos.dir || 'down'] * 3);
+    o.mexi.setFrame(DIR_ROW[pos.dir || 'down'] * 3);
+    this.tweens.add({ targets: o.sprite, x: this.px(pos.x), y: this.py(pos.y), duration: 200, onUpdate: () => { o.label.setPosition(o.sprite.x, o.sprite.y - 44); o.sprite.setDepth(o.sprite.y); o.mexi.setDepth(o.mexi.y); } });
+  }
+
+  partnerNear() {
+    const pr = Net.partner;
+    return Net.online && Net.party && pr?.pos && pr.pos.map === this.mapKey && pr.online !== false && Math.abs(pr.pos.x - this.player.x) + Math.abs(pr.pos.y - this.player.y) <= 10;
+  }
+
+  /** Közös találkozás kérése; ha a társ nem ér rá, egyedül harcolsz. */
+  tryCoopEncounter(fallback) {
+    const enc = this.map.encounters; const p = this.player;
+    const zone = enc.zones.find(z => p.x >= z.rect[0] && p.x < z.rect[0] + z.rect[2] && p.y >= z.rect[1] && p.y < z.rect[1] + z.rect[3]);
+    const night = isNight();
+    const table = weatherTable((zone && (night ? zone.night : zone.day)) || (night ? enc.default.night : enc.default.day), this.weather);
+    this.cutscene = true;
+    this._coopFallback = fallback;
+    Net.send({ t: 'coop_encounter', map: this.mapKey, table, levels: zone?.levels || enc.default.levels, party: G.state.party, inventory: G.state.inventory, bg: this.mapKey === 'osveny' ? (night ? 'route_night' : 'route') : 'village' });
+  }
+
+  launchCoop(m) {
+    Sfx.play('encounter');
+    for (const x of m.state.allies) G.state.dex.seen ||= {};
+    for (const f of m.state.foes) G.state.dex.seen[f.mon.species] = true;
+    this.inBattle = true; this.moving = false; this.cutscene = false;
+    this.touch?.hide(); this.hud?.classList.add('hidden');
+    this.cameras.main.flash(250, 255, 255, 255);
+    this.time.delayedCall(300, () => {
+      this.scene.pause();
+      this.scene.launch('CoopBattle', { state: m.state, bg: m.bg, onEnd: (res) => this.afterCoop(res) });
+    });
+  }
+
+  async afterCoop(r) {
+    const s = G.state;
+    this.cutscene = true;
+    // a szerver által visszaküldött, frissített csapat (XP, HP, státusz, PP)
+    if (Array.isArray(r.party) && r.party.length === s.party.length) s.party = r.party;
+    if (r.inventory) for (const [k, v] of Object.entries(r.inventory)) s.inventory[k] = Math.max(0, Math.min(s.inventory[k] ?? v, v));
+    s.money += r.coins || 0;
+    const d = coopDaily();
+    const lines = [];
+    for (const m of r.caught || []) { const where = addCaught(m, 'Közös harc – ' + this.map.name); lines.push(`${MEXIS[m.species].name} ${where === 'party' ? 'csatlakozott a csapatodhoz' : 'a tárolóba került'}!`); d.caught++; }
+    if (r.result === 'win') { d.wins++; d.foes += 2; s.stats.wins++; }
+    if (r.totalXp) lines.push(`A csapatod összesen ${r.totalXp} XP-t és ${r.coins} érmét kapott.`);
+    for (const e of r.xpEvents || []) {
+      if (e.type === 'levelup') lines.push(`${e.name} elérte a(z) ${e.level}. szintet!`);
+      if (e.type === 'learned') lines.push(`${e.name} megtanulta: ${MOVES[e.move].name}!`);
+    }
+    if (lines.length) await dialog(lines);
+    for (const e of r.xpEvents || []) if (e.type === 'canLearn' && s.party[e.index]) await offerMove(s.party[e.index], e.move);
+    for (const m of s.party) { const to = canEvolve(m); if (to && m.hp > 0) { const old = displayName(m); const pend = evolve(m, to); s.dex.seen[to] = s.dex.caught[to] = true; this.cameras.main.flash(500); Sfx.play('evolve'); await dialog(`Mi történik?! ${old} fejlődött: ${MEXIS[to].name}! 🌟`); for (const mv of pend) await offerMove(m, mv); } }
+    if (r.result === 'lose') {
+      await dialog('Mindkettőtök Mexijei kidőltek... Visszasiettél gyógyulni.');
+      for (const m of s.party) healFull(m);
+      s.map = s.lastHeal.map; s.pos = { x: s.lastHeal.x, y: s.lastHeal.y, dir: 'down' };
+      save(); this.cutscene = false; this.scene.restart(); return;
+    }
+    this.encounterCooldown = CONFIG.encounterCooldownSteps;
+    save(); this.refreshFollower(); this.updateHud();
+    this.cutscene = false;
   }
 
   // ---------------- Időjárás ----------------
@@ -343,6 +461,7 @@ export class WorldScene extends Phaser.Scene {
 
   // ---------------- Interakció a Mexivel ----------------
   emote(target, kind, ms = 1200) {
+    if (kind === 'excl') Sfx.play('excl'); else if (kind === 'heart') Sfx.play('heart'); else if (kind === 'zzz' || kind === 'sleep') Sfx.play('snore');
     const e = this.add.image(target.sprite.x, target.sprite.y - 42, 'emo_' + kind).setDepth(99500).setScale(0.7);
     this.tweens.add({ targets: e, y: e.y - 8, duration: 300, yoyo: true, repeat: 1 });
     this.time.delayedCall(ms, () => e.destroy());
@@ -361,7 +480,7 @@ export class WorldScene extends Phaser.Scene {
     if (!spr) { f.sprite.setVisible(true); this.tweens.add({ targets: f.sprite, y: f.sprite.y - 10, yoyo: true, repeat: 3, duration: 150 }); }
     if (frames) for (let i = 0; i < 6; i++) { spr.setTexture(frames[Math.min(2, Math.floor(i / 2))]); await new Promise(r => this.time.delayedCall(260, r)); }
     else await new Promise(r => this.time.delayedCall(1000, r));
-    this.emote(f, ['heart', 'note', 'sparkle'][c]);
+    this.emote(f, ['heart', 'note', 'sparkle'][c]); Sfx.play(c === 2 ? 'bark' : 'yip');
     m.friendship = Math.min(255, (m.friendship || 0) + (c === 1 ? 3 : 2));
     const lines = [`${name} boldogan behunyja a szemét. Imádja, ha simogatod!`, `${name} jóízűen megette a falatot. Nyamm!`, `${name} kergeti a teniszlabdát és hozza vissza. Vau!`];
     await dialog(lines[c]);
@@ -474,6 +593,7 @@ export class WorldScene extends Phaser.Scene {
   bump() {
     if (this._bumpT && this.time.now - this._bumpT < 300) return;
     this._bumpT = this.time.now;
+    Sfx.play('bump');
   }
 
   animateWalk(o, dur) {
@@ -487,6 +607,7 @@ export class WorldScene extends Phaser.Scene {
     const s = G.state; const p = this.player;
     s.pos = { x: p.x, y: p.y, dir: p.dir };
     s.stats.steps++;
+    this.sendPos();
     if (warp) { this.warpTo(warp); return; }
 
     // ajtó?
@@ -512,13 +633,17 @@ export class WorldScene extends Phaser.Scene {
         return;
       }
       if (this.encounterCooldown > 0) this.encounterCooldown--;
-      else if (this.map.encounters && rand() < CONFIG.encounterChanceTallGrass) { this.randomEncounter(); return; }
+      else if (this.map.encounters && rand() < CONFIG.encounterChanceTallGrass) {
+        if (this.partnerNear()) this.tryCoopEncounter(() => this.randomEncounter());
+        else this.randomEncounter();
+        return;
+      }
     }
   }
 
   rustle(x, y) {
     const img = this.tileImgs[y][x];
-    img.setFrame('tall1');
+    img.setFrame('tall1'); Sfx.play('grass');
     this.time.delayedCall(250, () => img.setFrame('tall0'));
     const leaf = this.add.image(this.px(x), this.py(y) - 6, 'tiles', 'tall0').setDisplaySize(T, T * 0.45).setDepth(this.py(y) + 1).setCrop(0, 18, 32, 14);
     this.time.delayedCall(220, () => leaf.destroy());
@@ -529,8 +654,8 @@ export class WorldScene extends Phaser.Scene {
     const enc = this.map.encounters; const p = this.player;
     const zone = enc.zones.find(z => p.x >= z.rect[0] && p.x < z.rect[0] + z.rect[2] && p.y >= z.rect[1] && p.y < z.rect[1] + z.rect[3]);
     const night = isNight();
-    const table = weatherTable((zone && (night ? zone.night : zone.day)) || (night ? enc.night : enc.day), this.weather);
-    const levels = zone?.levels || enc.levels;
+    const table = weatherTable((zone && (night ? zone.night : zone.day)) || (night ? enc.default.night : enc.default.day), this.weather);
+    const levels = zone?.levels || enc.default.levels;
     const total = table.reduce((a, [, w]) => a + w, 0);
     let r = rand() * total, species = table[0][0];
     for (const [sp, w] of table) { if ((r -= w) < 0) { species = sp; break; } }
@@ -549,6 +674,7 @@ export class WorldScene extends Phaser.Scene {
 
   launchBattle(opts) {
     this.inBattle = true;
+    Sfx.play(opts.isTrainer ? 'trainer' : 'encounter');
     this.moving = false;
     this.touch?.hide();
     this.hud?.classList.add('hidden');
@@ -738,8 +864,13 @@ export class WorldScene extends Phaser.Scene {
   async doHeal() {
     const s = G.state; const who = 'Nővér Mancsi';
     this.cutscene = true;
-    await dialog(['Üdv a Mexi-gyógyítóállomáson! 💖', 'Add ide a Mexijeidet, mindegyiket meggyógyítom...'], who);
+    await dialog('Üdv a Mexi-gyógyítóállomáson! 💖', who);
+    const c = await choose(['💖 Gyógyítás', '🧠 Támadás-emlékeztető (200 🪙)', 'Viszlát'], { question: 'Miben segíthetek?' });
+    if (c === 1) { await moveReminder(who); this.updateHud(); this.cutscene = false; return; }
+    if (c !== 0) { this.cutscene = false; return; }
+    await dialog('Add ide a Mexijeidet, mindegyiket meggyógyítom...', who);
     for (const m of s.party) healFull(m);
+    Sfx.play('heal');
     this.cameras.main.flash(400, 255, 200, 220);
     s.lastHeal = { map: this.mapKey, x: this.player.x, y: this.player.y };
     await dialog(`Kész! Mind a(z) ${s.party.length} Mexid újra teljesen egészséges. Gyere vissza bármikor!`, who);
@@ -915,6 +1046,7 @@ export class WorldScene extends Phaser.Scene {
 
   // ---------------- Térképváltás ----------------
   warpTo(w) {
+    Sfx.play('door');
     const s = G.state;
     s.map = w.to; s.pos = { x: w.tx, y: w.ty, dir: w.dir };
     save();

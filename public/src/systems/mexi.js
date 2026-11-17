@@ -115,11 +115,19 @@ export function evolve(m, to) {
   m.species = to;
   m.stats = calcStats(m);
   m.hp = Math.max(1, m.stats.hp - hpLost);
+  const pending = [];
   for (const [lvl, moveId] of MEXIS[to].learnset) {
-    if (lvl <= m.level && !m.moves.some(x => x.id === moveId) && m.moves.length < 4) {
-      m.moves.push({ id: moveId, pp: MOVES[moveId].pp });
-    }
+    if (lvl > m.level || m.moves.some(x => x.id === moveId)) continue;
+    if (m.moves.length < 4) m.moves.push({ id: moveId, pp: MOVES[moveId].pp });
+    else if (lvl === m.level) pending.push(moveId);
   }
+  return pending;
+}
+
+/** Elfelejtett / kihagyott támadások, amiket a Mexi újra megtanulhat (szint ≤ jelenlegi). */
+export function relearnable(m) {
+  const seen = new Set();
+  return MEXIS[m.species].learnset.filter(([lvl, id]) => lvl <= m.level && !m.moves.some(x => x.id === id) && !seen.has(id) && seen.add(id)).map(([, id]) => id);
 }
 
 export function healFull(m) {

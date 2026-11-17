@@ -3,6 +3,7 @@ import { BootScene } from './scenes/BootScene.js';
 import { TitleScene } from './scenes/TitleScene.js';
 import { WorldScene } from './scenes/WorldScene.js';
 import { BattleScene } from './scenes/BattleScene.js';
+import { CoopBattleScene } from './scenes/CoopBattleScene.js';
 
 const isTouch = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
 window.MEXI_TOUCH = isTouch;
@@ -14,7 +15,7 @@ const game = new Phaser.Game({
   pixelArt: true,
   roundPixels: true,
   scale: { mode: Phaser.Scale.RESIZE, width: window.innerWidth, height: window.innerHeight },
-  scene: [BootScene, TitleScene, WorldScene, BattleScene],
+  scene: [BootScene, TitleScene, WorldScene, BattleScene, CoopBattleScene],
 });
 window.MEXI_GAME = game;
 
