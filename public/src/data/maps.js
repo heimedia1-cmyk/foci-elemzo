@@ -1,61 +1,71 @@
-// Térképek – kódból építve, hogy könnyű legyen bővíteni.
+// Térképek – kézzel tervezett, összefüggő elrendezés (semmi véletlenszerű elhelyezés).
 // Csempekódok:
-//  .  fű            "  magas fű (vad Mexik)   _  út       ~  víz      s  homok
-//  f  virág (piros) g  virág (kék)            T  fa       b  bokor     R  szikla
-//  F  kerítés       S  tábla                  h  gyanús bokor (szimatolással nyitható)
-//  p  feltárt átjáró
-export const SOLID = new Set(['~', 'T', 'b', 'R', 'F', 'S', 'h', '#']);
+//  .  fű          "  magas fű (vad Mexik)    =  földút     c  kőburkolat
+//  ~  víz         s  homok           f  rózsaszín virág         w  fehér virág
+//  T  fa          b  bokor           r  szikla                  F  kerítés
+//  h  gyanús bokor (szimatolással nyitható)                     p  feltárt ösvény
+export const SOLID = new Set(['~', 'T', 'b', 'r', 'F', 'h', '#']);
 
 function grid(w, h, ch = '.') { return Array.from({ length: h }, () => Array(w).fill(ch)); }
 function rect(g, x, y, w, h, ch) { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (g[j] && g[j][i] !== undefined) g[j][i] = ch; }
 function border(g, t = 2, ch = 'T') { const H = g.length, W = g[0].length; rect(g, 0, 0, W, t, ch); rect(g, 0, H - t, W, t, ch); rect(g, 0, 0, t, H, ch); rect(g, W - t, 0, t, H, ch); }
-function scatter(g, x, y, w, h, ch, density, seed) { let s = seed; for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) { s = (s * 9301 + 49297) % 233280; if (s / 233280 < density && g[j][i] === '.') g[j][i] = ch; } }
 
-// ===================== MANCSFALVA =====================
+// ===================== MANCSFALVA (34 × 28) =====================
 function buildMancsfalva() {
-  const W = 32, H = 26; const g = grid(W, H);
+  const g = grid(34, 28);
   border(g);
-  rect(g, 15, 0, 2, 2, '_');               // északi kijárat
-  rect(g, 15, 0, 2, 23, '_');              // főút
-  rect(g, 3, 8, 26, 1, '_');               // felső utca
-  rect(g, 3, 17, 26, 1, '_');              // alsó utca
-  // ajtókhoz vezető kis utak
-  rect(g, 6, 7, 1, 1, '_'); rect(g, 26, 7, 1, 1, '_'); rect(g, 6, 16, 1, 1, '_'); rect(g, 26, 16, 1, 1, '_'); rect(g, 11, 16, 1, 1, '_');
-  // tó
-  rect(g, 3, 20, 9, 4, 's'); rect(g, 4, 21, 7, 2, '~');
-  // virágok, kerítés
-  rect(g, 19, 20, 9, 1, 'F'); rect(g, 19, 21, 2, 2, 'f'); rect(g, 23, 21, 2, 2, 'g'); rect(g, 26, 21, 2, 2, 'f');
-  rect(g, 18, 10, 2, 2, 'f'); rect(g, 12, 3, 2, 2, 'g'); rect(g, 19, 3, 2, 2, 'f');
-  scatter(g, 2, 2, 28, 22, 'b', 0.015, 7);
-  g[2][17] = 'S'; g[18][13] = 'S';
-  // ne legyen akadály az utakon/ajtók előtt
+  // utak
+  rect(g, 17, 0, 2, 22, '=');          // főút észak felé
+  rect(g, 3, 11, 29, 2, '=');          // felső utca
+  rect(g, 3, 20, 29, 2, '=');          // alsó utca
+  // kőburkolatos főtér a két utca között
+  rect(g, 15, 13, 6, 7, 'c');
+  // északi rét: virágágyások
+  rect(g, 4, 3, 5, 2, 'f'); rect(g, 23, 3, 5, 2, 'w'); rect(g, 11, 3, 3, 1, 'w');
+  // déli rész: tó homokparttal
+  rect(g, 3, 22, 11, 4, 's'); rect(g, 4, 23, 9, 2, '~');
+  // bekerített virágoskert
+  rect(g, 21, 23, 10, 1, 'F'); g[23][25] = '.'; g[23][26] = '.';
+  rect(g, 21, 24, 5, 2, 'f'); rect(g, 26, 24, 5, 2, 'w');
+  // díszbokrok a házak között (szimmetrikusan)
+  for (const [x, y] of [[3, 14], [9, 14], [21, 14], [31, 14], [3, 5], [31, 5]]) g[y][x] = 'b';
   return g;
 }
 
-// ===================== MEXI-ÖSVÉNY =====================
+// ===================== MEXI-ÖSVÉNY (30 × 56) =====================
 function buildOsveny() {
-  const W = 28, H = 50; const g = grid(W, H);
+  const g = grid(30, 56);
   border(g);
-  // kanyargó út dél→észak
-  rect(g, 13, 44, 2, 6, '_');
-  rect(g, 8, 40, 7, 4, '_'); rect(g, 8, 30, 2, 10, '_'); rect(g, 8, 28, 12, 2, '_'); rect(g, 18, 16, 2, 12, '_'); rect(g, 11, 14, 9, 2, '_'); rect(g, 11, 2, 2, 12, '_'); rect(g, 11, 0, 2, 2, '_');
-  // magas füves területek
-  rect(g, 3, 42, 4, 5, '"'); rect(g, 16, 40, 8, 6, '"'); rect(g, 11, 31, 6, 6, '"'); rect(g, 3, 22, 7, 5, '"'); rect(g, 13, 18, 4, 8, '"'); rect(g, 21, 18, 4, 5, '"'); rect(g, 3, 4, 7, 7, '"'); rect(g, 14, 4, 6, 6, '"');
-  // tó homokkal
-  rect(g, 20, 30, 6, 6, 's'); rect(g, 21, 31, 4, 4, '~');
+  // ligetek, fasorok – ezek adják az útvonal „falait”
+  rect(g, 2, 48, 7, 3, 'T');           // bal alsó liget
+  rect(g, 16, 47, 6, 3, 'T');          // jobb alsó liget
+  rect(g, 24, 44, 4, 6, 'T');          // jobb alsó sarok
+  rect(g, 9, 24, 5, 5, 'T');           // középső liget
+  rect(g, 2, 14, 9, 2, 'T');           // északi fasor
+  rect(g, 24, 2, 1, 12, 'T'); rect(g, 24, 12, 4, 2, 'T'); // a titkos rét fala
+  // magas füves területek (vad Mexik)
+  rect(g, 9, 48, 4, 5, '"');           // A – a bejárat mellett
+  rect(g, 10, 34, 6, 9, '"');          // C – középen
+  rect(g, 18, 36, 9, 7, '"');          // B – nagy mező
+  rect(g, 15, 20, 5, 9, '"');          // E – a kanyar mellett
+  rect(g, 3, 4, 8, 8, '"');            // F – északnyugati mező (erősebb Mexik)
+  rect(g, 16, 4, 5, 7, '"');           // G – északkeleti mező
+  rect(g, 25, 3, 3, 9, '"');           // titkos rét
+  // tó homokparttal
+  rect(g, 23, 21, 5, 9, 's'); rect(g, 24, 22, 3, 7, '~');
   // virágos rét
-  rect(g, 3, 32, 4, 4, 'f'); rect(g, 4, 33, 2, 2, 'g'); rect(g, 21, 25, 4, 2, 'g');
-  // fasorok, sziklák
-  rect(g, 2, 37, 5, 1, 'T'); rect(g, 10, 22, 3, 1, 'T'); rect(g, 14, 12, 12, 1, 'T'); rect(g, 2, 15, 7, 2, 'T');
-  g[39][17] = 'R'; g[27][4] = 'R'; g[10][17] = 'R'; g[20][11] = 'R';
-  scatter(g, 2, 2, 24, 46, 'b', 0.02, 13);
-  // titkos terület (jobb felső), csak a gyanús bokron át
-  rect(g, 21, 2, 5, 10, 'T'); rect(g, 22, 3, 3, 8, '"'); g[6][21] = 'h'; g[6][20] = '.'; g[6][19] = '.';
-  rect(g, 22, 3, 1, 1, '.');
-  // táblák
-  g[46][15] = 'S'; g[2][13] = 'S';
-  // az útvonalak maradjanak szabadok
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (g[y][x] === 'b' && [[13, 44, 2, 6], [8, 40, 7, 4], [8, 30, 2, 10], [8, 28, 12, 2], [18, 16, 2, 12], [11, 14, 9, 2], [11, 2, 2, 12]].some(([a, b2, w, h]) => x >= a && x < a + w && y >= b2 && y < b2 + h)) g[y][x] = '_';
+  rect(g, 2, 34, 3, 6, 'f'); rect(g, 3, 36, 1, 2, 'w');
+  // az ösvény (2 széles, kanyarog dél → észak)
+  rect(g, 14, 46, 2, 10, '=');
+  rect(g, 6, 45, 10, 2, '=');
+  rect(g, 6, 32, 2, 15, '=');
+  rect(g, 6, 31, 17, 2, '=');
+  rect(g, 21, 17, 2, 16, '=');
+  rect(g, 13, 16, 10, 2, '=');
+  rect(g, 13, 0, 2, 17, '=');
+  // sziklák és a gyanús bokor
+  for (const [x, y] of [[17, 44], [4, 21], [19, 13], [27, 33]]) g[y][x] = 'r';
+  g[7][24] = 'h';
   return g;
 }
 
@@ -63,70 +73,81 @@ export const MAPS = {
   mancsfalva: {
     name: 'Mancsfalva',
     tiles: buildMancsfalva(),
-    music: 'village',
+    // x: bal szél, y: az ajtó sora (az épület alja)
     buildings: [
-      { key: 'lab',  x: 3,  y: 3,  door: { x: 6, y: 6 },  action: 'lab',  name: 'Mexi-kutató labor' },
-      { key: 'heal', x: 23, y: 3,  door: { x: 26, y: 6 }, action: 'heal', name: 'Mexi-gyógyítóállomás' },
-      { key: 'home', x: 3,  y: 12, door: { x: 6, y: 15 }, action: 'home', name: 'Otthon' },
-      { key: 'house',x: 9,  y: 12, door: { x: 11, y: 15 }, action: 'house', name: 'Szomszéd háza' },
-      { key: 'shop', x: 23, y: 12, door: { x: 26, y: 15 }, action: 'shop', name: 'Teniszlabda- és felszerelésbolt' },
+      { key: 'lab',    x: 4,  y: 10,  action: 'lab',   name: 'Mexi-kutató labor' },
+      { key: 'gym',    x: 10, y: 10, action: 'gym',   name: 'Mexi Gym' },
+      { key: 'heal',   x: 22, y: 10, action: 'heal',  name: 'Mexi-gyógyítóállomás' },
+      { key: 'house2', x: 27, y: 10, action: 'house2', name: 'Kék ház' },
+      { key: 'home',   x: 4,  y: 19, action: 'home',  name: 'Otthon' },
+      { key: 'house',  x: 10, y: 19, action: 'house', name: 'Szomszéd háza' },
+      { key: 'shop',   x: 22, y: 19, doorDx: 1, action: 'shop',  name: 'Teniszlabda- és felszerelésbolt' },
+    ],
+    props: [
+      { k: 'tree_pink', x: 10, y: 3 }, { k: 'tree_pink', x: 15, y: 3 }, { k: 'tree_pink', x: 21, y: 3 },
+      { k: 'well', x: 19, y: 16 }, { k: 'bench', x: 15, y: 14 }, { k: 'bench', x: 15, y: 18 },
+      { k: 'flowerbox', x: 20, y: 14 }, { k: 'flowerbox', x: 20, y: 18 },
+      { k: 'lamp', x: 14, y: 13 }, { k: 'lamp', x: 21, y: 13 }, { k: 'lamp', x: 14, y: 19 }, { k: 'lamp', x: 21, y: 19 },
+      { k: 'doghouse', x: 29, y: 16 }, { k: 'hay', x: 31, y: 18 }, { k: 'crate', x: 27, y: 18 },
+      { k: 'stump', x: 31, y: 25 }, { k: 'mushroom', x: 2, y: 22, solid: false },
     ],
     signs: [
-      { x: 17, y: 2, text: 'Észak: Mexi-ösvény ↑\nVigyázat, magas fűben vad Mexik élnek!' },
-      { x: 13, y: 18, text: 'MANCSFALVA\nA Mexi-kalandok kezdőpontja.' },
+      { x: 19, y: 3, text: 'Észak: Mexi-ösvény ↑\nVigyázat, a magas fűben vad Mexik élnek!' },
+      { x: 16, y: 10, text: 'MANCSFALVA\nA Mexi-kalandok kezdőpontja.' },
     ],
     npcs: [
-      { id: 'prof', sprite: 'professzor', x: 8, y: 9, dir: 'down', wander: 0, talk: 'prof' },
-      { id: 'anya', sprite: 'anya', x: 4, y: 18, dir: 'right', wander: 2, talk: ['Szia kincsem! Ha elfáradtál, gyere haza pihenni.', 'A Mexik a gyógyítóállomáson ingyen meggyógyulnak!'] },
-      { id: 'bacsi', sprite: 'bacsi', x: 20, y: 9, dir: 'left', wander: 3, talk: ['Fiatal koromban én is Mexiket gyűjtöttem...', 'Mondják, a magas fűben éjjel Szellem Mexik suhannak át.', 'Próbáltál már szimatolni? (Space / mobilon a mancs gomb)'] },
-      { id: 'kisfiu', sprite: 'kisfiu', x: 13, y: 21, dir: 'up', wander: 3, talk: ['Ha egy vad Mexinek kevés a HP-ja, könnyebb elkapni!', 'A Profi Teniszlabda sokkal jobban tapad!'] },
-      { id: 'boltos_kint', sprite: 'boltos', x: 28, y: 18, dir: 'left', wander: 2, talk: ['A bolt nyitva! Teniszlabdák, gyógyitalok, minden, ami kell.'] },
+      { id: 'prof', sprite: 'professzor', x: 8, y: 13, dir: 'down', wander: 0, talk: 'prof' },
+      { id: 'anya', sprite: 'anya', x: 6, y: 13, dir: 'down', wander: 1, talk: ['Szia kincsem! Ha elfáradtál, gyere haza pihenni.', 'A Mexik a gyógyítóállomáson ingyen meggyógyulnak!'] },
+      { id: 'bacsi', sprite: 'bacsi', x: 16, y: 16, dir: 'right', wander: 0, talk: ['Fiatal koromban én is Mexiket gyűjtöttem...', 'Mondják, a magas fűben éjjel Szellem Mexik suhannak át.', 'Próbáltál már szimatolni? (Space / mobilon a mancs gomb)'] },
+      { id: 'kisfiu', sprite: 'kisfiu', x: 15, y: 23, dir: 'left', wander: 2, talk: ['Ha egy vad Mexinek kevés a HP-ja, könnyebb elkapni!', 'A Profi Teniszlabda sokkal jobban tapad!'] },
+      { id: 'boltos_kint', sprite: 'boltos', x: 28, y: 13, dir: 'down', wander: 2, talk: ['A bolt nyitva! Teniszlabdák, gyógyitalok, minden, ami kell.'] },
+      { id: 'apolo_kint', sprite: 'apolo', x: 25, y: 13, dir: 'down', wander: 1, talk: ['Ha megsérültek a Mexijeid, gyere be a gyógyítóállomásra!'] },
     ],
     warps: [
-      { x: 15, y: 0, to: 'osveny', tx: 13, ty: 48, dir: 'up' },
-      { x: 16, y: 0, to: 'osveny', tx: 14, ty: 48, dir: 'up' },
+      { x: 17, y: 0, to: 'osveny', tx: 14, ty: 54, dir: 'up' },
+      { x: 18, y: 0, to: 'osveny', tx: 15, ty: 54, dir: 'up' },
     ],
-    triggers: [
-      { x: 15, y: 2, w: 2, h: 1, id: 'needStarter' },
-    ],
-    hidden: [
-      { id: 'mf_labda', x: 29, y: 10, item: 'sima_labda', qty: 3 },
-    ],
+    triggers: [{ x: 17, y: 2, w: 2, h: 1, id: 'needStarter' }],
+    hidden: [{ id: 'mf_labda', x: 31, y: 3, item: 'sima_labda', qty: 3 }],
     encounters: null,
   },
   osveny: {
     name: 'Mexi-ösvény',
     tiles: buildOsveny(),
-    music: 'route',
     buildings: [],
+    props: [
+      { k: 'cave', x: 4, y: 18 }, { k: 'log', x: 11, y: 30 }, { k: 'mushroom', x: 12, y: 29, solid: false },
+      { k: 'stump', x: 26, y: 33 }, { k: 'pawstone', x: 22, y: 9 }, { k: 'tree_orange', x: 3, y: 31 },
+      { k: 'tree_orange', x: 27, y: 18 }, { k: 'flowers', x: 2, y: 40, solid: false }, { k: 'tree', x: 20, y: 52 },
+    ],
     signs: [
-      { x: 15, y: 46, text: 'MEXI-ÖSVÉNY\nDél: Mancsfalva ↓   Észak: Titokzatos Erdő ↑' },
-      { x: 13, y: 2, text: 'TITOKZATOS ERDŐ\nAz út még le van zárva. Hamarosan megnyílik!' },
+      { x: 16, y: 52, text: 'MEXI-ÖSVÉNY\nDél: Mancsfalva ↓   Észak: Titokzatos Erdő ↑' },
+      { x: 15, y: 2, text: 'TITOKZATOS ERDŐ\nAz út még le van zárva. Hamarosan megnyílik!' },
+      { x: 6, y: 19, text: 'KRISTÁLYBARLANG\nA bejáratot beomlott kövek zárják el. (Hamarosan!)' },
+      { x: 22, y: 9, text: 'Egy mancsnyomos kő. Ez áll rajta:\n„Aki szimatol, az utat talál.”', noPost: true },
     ],
     npcs: [
-      { id: 'edzo_bence', sprite: 'edzo1', x: 10, y: 35, dir: 'left', wander: 0, trainer: 'bence' },
-      { id: 'edzo_lili', sprite: 'edzo2', x: 20, y: 22, dir: 'left', wander: 0, trainer: 'lili' },
-      { id: 'gyujto', sprite: 'gyujto', x: 10, y: 15, dir: 'down', wander: 2, talk: ['Ritka Mexiket keresek... Azt beszélik, valahol errefelé van egy titkos rét.', 'Egy bokor itt északkeleten furcsa szagot áraszt. Próbálj meg szimatolni!'] },
-      { id: 'erdo_or', sprite: 'bacsi', x: 12, y: 1, dir: 'down', wander: 0, talk: ['Állj! A Titokzatos Erdő még veszélyes.', 'Gyere vissza a következő frissítés után!'] },
+      { id: 'edzo_bence', sprite: 'edzo1', x: 8, y: 40, dir: 'left', wander: 0, trainer: 'bence' },
+      { id: 'edzo_lili', sprite: 'edzo2', x: 20, y: 24, dir: 'right', wander: 0, trainer: 'lili' },
+      { id: 'gyujto', sprite: 'gyujto', x: 11, y: 18, dir: 'down', wander: 2, talk: ['Ritka Mexiket keresek... Azt beszélik, valahol errefelé van egy titkos rét.', 'Északkeleten, a fák mögött egy bokor furcsa szagot áraszt. Próbálj meg szimatolni mellette!'] },
+      { id: 'erdo_or', sprite: 'bacsi', x: 14, y: 1, dir: 'down', wander: 0, talk: ['Állj! A Titokzatos Erdő még veszélyes.', 'Gyere vissza a következő frissítés után!'] },
     ],
     warps: [
-      { x: 13, y: 49, to: 'mancsfalva', tx: 15, ty: 1, dir: 'down' },
-      { x: 14, y: 49, to: 'mancsfalva', tx: 16, ty: 1, dir: 'down' },
+      { x: 14, y: 55, to: 'mancsfalva', tx: 17, ty: 1, dir: 'down' },
+      { x: 15, y: 55, to: 'mancsfalva', tx: 18, ty: 1, dir: 'down' },
     ],
-    triggers: [
-      { x: 11, y: 2, w: 2, h: 1, id: 'forestClosed' },
-    ],
+    triggers: [{ x: 13, y: 2, w: 2, h: 1, id: 'forestClosed' }],
     hidden: [
-      { id: 'os_labda1', x: 4, y: 34, item: 'sima_labda', qty: 2 },
-      { id: 'os_ital', x: 24, y: 41, item: 'nagy_ital', qty: 1 },
-      { id: 'os_profi', x: 4, y: 12, item: 'profi_labda', qty: 2 },
-      { id: 'os_arany', x: 24, y: 10, item: 'arany_labda', qty: 1 },
-      { id: 'os_falat', x: 22, y: 27, item: 'jutalomfalat', qty: 1 },
+      { id: 'os_labda1', x: 3, y: 36, item: 'sima_labda', qty: 2 },
+      { id: 'os_ital', x: 27, y: 40, item: 'nagy_ital', qty: 1 },
+      { id: 'os_profi', x: 4, y: 6, item: 'profi_labda', qty: 2 },
+      { id: 'os_arany', x: 26, y: 5, item: 'arany_labda', qty: 1 },
+      { id: 'os_falat', x: 10, y: 29, item: 'jutalomfalat', qty: 1 },
     ],
-    secretBush: { x: 21, y: 6 },
+    secretBush: { x: 24, y: 7 },
     roamers: [
-      { species: 'kacsa', area: [20, 36, 6, 4], level: [4, 6] },
-      { species: 'alap', area: [3, 28, 5, 3], level: [3, 5] },
+      { species: 'kacsa', area: [23, 30, 5, 3], level: [4, 6] },
+      { species: 'alap', area: [2, 41, 3, 4], level: [3, 5] },
     ],
     encounters: {
       default: {
@@ -135,9 +156,9 @@ export const MAPS = {
         levels: [2, 5],
       },
       zones: [
-        { rect: [3, 4, 7, 7], levels: [5, 8] },
-        { rect: [14, 4, 6, 6], levels: [5, 8] },
-        { rect: [22, 3, 3, 8], id: 'titkos', day: [['kiber', 40], ['banyasz', 45], ['lang', 15]], night: [['kiber', 35], ['banyasz', 35], ['szellem', 30]], levels: [6, 9] },
+        { rect: [3, 4, 8, 8], levels: [5, 8] },
+        { rect: [16, 4, 5, 7], levels: [5, 8] },
+        { rect: [25, 3, 3, 9], id: 'titkos', day: [['kiber', 40], ['banyasz', 45], ['lang', 15]], night: [['kiber', 35], ['banyasz', 35], ['szellem', 30]], levels: [6, 9] },
       ],
     },
   },

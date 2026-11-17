@@ -3,7 +3,6 @@ import { el, UI, pushKeys } from '../ui/ui.js';
 import { G, hasSave, load, newGameState, deleteSave, save, syncFromCloud, adoptGuestSave, guestSaveExists } from '../systems/state.js';
 import { Account } from '../systems/account.js';
 import { choose, toast } from '../ui/ui.js';
-import { T } from '../art/placeholders.js';
 
 export class TitleScene extends Phaser.Scene {
   constructor() { super('Title'); }
@@ -22,25 +21,11 @@ export class TitleScene extends Phaser.Scene {
   drawBackground() {
     this.children.removeAll(true);
     const { width: W, height: H } = this.scale;
-    const z = Math.max(2, Math.round(Math.min(W, H) / 200));
-    const cols = Math.ceil(W / (T * z)) + 1, rows = Math.ceil(H / (T * z)) + 1;
-    for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
-      const pathRow = Math.floor(rows * 0.72);
-      let f = 'grass' + ((x * 7 + y * 13) % 4);
-      if (y === pathRow || y === pathRow + 1) f = 'path';
-      else if (y < 2) f = 'tree';
-      else if ((x * 31 + y * 17) % 23 === 0) f = 'flower0';
-      else if ((x * 11 + y * 5) % 29 === 0) f = 'tall0';
-      this.add.image(x * T * z, y * T * z, 'tiles', f).setOrigin(0).setScale(z);
-    }
-    this.add.rectangle(0, 0, W, H, 0x1b1430, 0.45).setOrigin(0);
-    const py = Math.floor(rows * 0.72) * T * z + 2;
-    const runners = ['alap', 'beka', 'mehecske', 'lang', 'kacsa', 'nindzsa'];
-    runners.forEach((sp, i) => {
-      const s = this.add.sprite(-60 - i * 70 * z / 3, py, 'mm_' + sp, 6).setOrigin(0).setScale(z);
-      this.tweens.add({ targets: s, x: W + 60, duration: 9000 + i * 400, repeat: -1, delay: i * 500 });
-      let fr = 0; this.time.addEvent({ delay: 160, loop: true, callback: () => { fr = (fr + 1) % 3; s.setFrame(6 + fr); } });
-    });
+    const bg = this.add.image(W / 2, H / 2, 'title_bg');
+    const sc = Math.max(W / bg.width, H / bg.height);
+    bg.setScale(sc);
+    this.tweens.add({ targets: bg, scale: sc * 1.05, duration: 14000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    this.add.rectangle(0, 0, W, H, 0x1b1430, 0.28).setOrigin(0);
   }
 
   showMenu() {

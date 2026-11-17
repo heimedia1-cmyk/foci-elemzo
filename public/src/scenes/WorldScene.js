@@ -3,8 +3,7 @@ import { MAPS, SOLID, TRAINERS } from '../data/maps.js';
 import { MEXIS } from '../data/mexis.js';
 import { ITEMS } from '../data/items.js';
 import { CONFIG } from '../data/config.js';
-import { T, BUILDINGS } from '../art/placeholders.js';
-import { DIR_ROW } from '../art/registerArt.js';
+import { DIR_ROW, TS as T, BUILDING_INFO, PROP_INFO } from '../art/registerArt.js';
 import { G, save, markSeen } from '../systems/state.js';
 import { createMexi, healFull, rand, randInt, displayName } from '../systems/mexi.js';
 import { dialog, choose, toast, UI, el } from '../ui/ui.js';
@@ -39,23 +38,23 @@ export class WorldScene extends Phaser.Scene {
 
     // játékos
     const gender = s.player.gender === 'lany' ? 'lany' : 'fiu';
-    this.player = { x: s.pos.x, y: s.pos.y, dir: s.pos.dir || 'down', sprite: this.add.sprite(0, 0, 'p_' + gender, 0).setOrigin(0).setDepth(10) };
+    this.player = { x: s.pos.x, y: s.pos.y, dir: s.pos.dir || 'down', sprite: this.add.sprite(0, 0, 'p_' + gender, 0).setOrigin(0.5, 1) };
     this.placeSprite(this.player);
     this.setFacing(this.player, this.player.dir);
     // követő Mexi
-    this.follower = { x: this.player.x, y: this.player.y, dir: this.player.dir, sprite: this.add.sprite(0, 0, 'px').setOrigin(0).setDepth(9) };
+    this.follower = { x: this.player.x, y: this.player.y, dir: this.player.dir, sprite: this.add.sprite(0, 0, 'px').setOrigin(0.5, 1) };
     this.refreshFollower();
     this.placeSprite(this.follower);
 
     // kamera
     const cam = this.cameras.main;
     cam.setBounds(0, 0, this.W * T, this.H * T);
-    cam.startFollow(this.player.sprite, true, 0.2, 0.2, -T / 2, -T / 2);
+    cam.startFollow(this.player.sprite, true, 0.2, 0.2, 0, T / 2);
     this.fitZoom();
     this.scale.on('resize', this.fitZoom, this);
 
     // napszak-réteg
-    this.nightLayer = this.add.rectangle(0, 0, this.W * T, this.H * T, 0x1a1050, 0).setOrigin(0).setDepth(50);
+    this.nightLayer = this.add.rectangle(-T * 8, -T * 8, (this.W + 16) * T, (this.H + 16) * T, 0x1a1050, 0).setOrigin(0).setDepth(100000);
     this.updateDaylight();
     this.time.addEvent({ delay: 30000, loop: true, callback: () => this.updateDaylight() });
 
@@ -93,7 +92,7 @@ export class WorldScene extends Phaser.Scene {
 
   fitZoom() {
     const { width: w, height: h } = this.scale;
-    const z = Math.max(2, Math.min(5, Math.round(Math.min(w, h) / (T * 13))));
+    const z = Math.max(1, Math.min(4, Math.round(Math.min(w, h) / (T * 11))));
     this.cameras.main.setZoom(z);
     const vw = w / z, vh = h / z;
     // kis térképnél középre
@@ -110,55 +109,90 @@ export class WorldScene extends Phaser.Scene {
   }
 
   frameFor(ch, x, y) {
-    const v = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+    const v = (x * 7 + y * 13) % 17;
     switch (ch) {
       case '"': return 'tall0';
-      case '_': return 'path';
+      case '=': case 'p': return 'dirt';
+      case 'c': return 'cobble';
       case '~': return 'water0';
-      case 's': return 'sand';
-      case 'f': return 'flower0';
-      case 'g': return 'flower1';
-      case 'T': return 'tree';
-      case 'b': return 'bush';
-      case 'h': return 'hbush';
-      case 'R': return 'rock';
-      case 'F': return 'fence';
-      case 'S': return 'sign';
-      case 'p': return 'passage';
-      default: return 'grass' + (v % 7 === 0 ? 3 : v % 4);
+      case 's': return (x + y) % 3 ? 'sand' : 'sand2';
+      case 'f': return 'flowerp';
+      case 'w': return 'flowerw';
+      default: return v === 0 ? 'grass3' : v === 5 ? 'grass2' : v === 11 ? 'grass4' : 'grass';
     }
   }
+
+  isPath(x, y) { const c = this.tileAt(x, y); return c === '=' || c === 'p' || c === 'c' || c === '#'; }
 
   buildMap() {
     this.waterImgs = [];
     this.tileImgs = [];
+    this.tileProps = {};
+    const propFor = { T: 'tree', b: 'bush', r: 'rock', F: 'fence_h', h: 'bush_berry' };
     for (let y = 0; y < this.H; y++) {
       this.tileImgs[y] = [];
       for (let x = 0; x < this.W; x++) {
         const ch = this.tiles[y][x];
-        if (['T', 'b', 'R', 'F', 'S', 'h', 'f', 'g'].includes(ch)) this.add.image(x * T, y * T, 'tiles', this.frameFor('.', x, y)).setOrigin(0);
-        const img = this.add.image(x * T, y * T, 'tiles', this.frameFor(ch, x, y)).setOrigin(0);
+        const img = this.add.image(x * T, y * T, 'tiles', this.frameFor(ch, x, y)).setOrigin(0).setDepth(-10);
         if (ch === '~') this.waterImgs.push(img);
-        if (ch === 'T') img.setDepth(1);
         this.tileImgs[y][x] = img;
+        if (ch === '=' || ch === 'p') this.addFringe(x, y);
+        if (propFor[ch]) {
+          let key = propFor[ch];
+          if (ch === 'T' && (x * 5 + y * 3) % 23 === 0) key = 'tree_orange';
+          this.tileProps[x + ',' + y] = this.addProp(key, x, y);
+        }
       }
     }
-    // a térképen kívüli terület: sötét erdő
-    const pad = 12;
-    for (let y = -pad; y < this.H + pad; y++) for (let x = -pad; x < this.W + pad; x++) {
+    // a térképen kívül sűrű erdő
+    for (let y = -6; y < this.H + 6; y++) for (let x = -6; x < this.W + 6; x++) {
       if (x >= 0 && y >= 0 && x < this.W && y < this.H) continue;
-      this.add.image(x * T, y * T, 'tiles', 'treetop').setOrigin(0);
+      if ((x + y) % 2) continue;
+      this.add.image(x * T, y * T, 'tiles', 'grassdark').setOrigin(0).setDepth(-10).setDisplaySize(T * 2, T * 2);
     }
+    for (let y = -4; y < this.H + 4; y++) for (let x = -4; x < this.W + 4; x++) {
+      if (x >= 0 && y >= 0 && x < this.W && y < this.H) continue;
+      this.addProp('tree', x, y);
+    }
+    // egyedi tárgyak
+    this.solidProps = new Set();
+    for (const pr of this.map.props || []) {
+      this.addProp(pr.k, pr.x, pr.y);
+      if (pr.solid !== false) this.solidProps.add(pr.x + ',' + pr.y);
+    }
+    for (const sg of this.map.signs) {
+      if (!sg.noPost) this.addProp('signpost', sg.x, sg.y);
+      this.solidProps.add(sg.x + ',' + sg.y);
+    }
+  }
+
+  addFringe(x, y) {
+    const sides = [[0, -1, 0], [0, 1, 1], [-1, 0, 2], [1, 0, 3]];
+    for (const [dx, dy, f] of sides) {
+      const n = this.tileAt(x + dx, y + dy);
+      if (n === '=' || n === 'p' || n === 'c' || n === '#') continue;
+      this.add.image(x * T, y * T, 'fringe', f).setOrigin(0).setDepth(-9);
+    }
+  }
+
+  addProp(key, x, y) {
+    const info = PROP_INFO[key];
+    const img = this.add.image(x * T + T / 2, y * T + T + (key.startsWith('tree') ? 4 : 0), 'pr_' + key).setOrigin(0.5, 1);
+    img.setDepth(y * T + T - 1);
+    return img;
   }
 
   buildBuildings() {
     this.blocked = new Set();
     this.doors = [];
     for (const b of this.map.buildings) {
-      const def = BUILDINGS[b.key];
-      this.add.image(b.x * T, b.y * T, 'b_' + b.key).setOrigin(0).setDepth(2);
-      for (let j = 0; j < def.h; j++) for (let i = 0; i < def.w; i++) {
-        const X = b.x + i, Y = b.y + j;
+      const info = BUILDING_INFO[b.key];
+      const tw = info.tw, th = Math.max(3, Math.round(info.h / T) - 1);
+      const top = b.y - th + 1;
+      this.add.image(b.x * T + (tw * T) / 2, (b.y + 1) * T + 4, 'b_' + b.key).setOrigin(0.5, 1).setDepth((b.y + 1) * T - 1);
+      b.door = { x: b.x + Math.floor(tw / 2) + (b.doorDx || 0), y: b.y };
+      for (let j = 0; j < th; j++) for (let i = 0; i < tw; i++) {
+        const X = b.x + i, Y = top + j;
         if (X === b.door.x && Y === b.door.y) continue;
         this.blocked.add(X + ',' + Y);
       }
@@ -170,7 +204,7 @@ export class WorldScene extends Phaser.Scene {
     this.npcs = [];
     for (const n of this.map.npcs) {
       const tr = n.trainer ? TRAINERS[n.trainer] : null;
-      const npc = { ...n, home: { x: n.x, y: n.y }, sprite: this.add.sprite(0, 0, 'p_' + n.sprite, 0).setOrigin(0).setDepth(8), talkIdx: 0, tr };
+      const npc = { ...n, home: { x: n.x, y: n.y }, sprite: this.add.sprite(0, 0, 'p_' + n.sprite, 0).setOrigin(0.5, 1), talkIdx: 0, tr };
       this.placeSprite(npc); this.setFacing(npc, n.dir);
       this.npcs.push(npc);
     }
@@ -188,7 +222,7 @@ export class WorldScene extends Phaser.Scene {
       if (this.isSolid(x, y) || (this.player && this.player.x === x && this.player.y === y)) continue;
       const mon = createMexi(def.species, randInt(def.level[0], def.level[1]));
       const key = 'mm_' + mon.species + (mon.shiny ? '_s' : '');
-      const r = { def, mon, x, y, dir: 'down', sprite: this.add.sprite(0, 0, key, 0).setOrigin(0).setDepth(8) };
+      const r = { def, mon, x, y, dir: 'down', sprite: this.add.sprite(0, 0, key, 0).setOrigin(0.5, 1) };
       this.placeSprite(r);
       if (mon.shiny) this.tweens.add({ targets: r.sprite, alpha: 0.6, yoyo: true, repeat: -1, duration: 400 });
       this.roamers.push(r);
@@ -224,7 +258,9 @@ export class WorldScene extends Phaser.Scene {
   }
 
   // ---------------- Segédek ----------------
-  placeSprite(o) { o.sprite.setPosition(o.x * T, o.y * T - 3); }
+  placeSprite(o) { o.sprite.setPosition(this.px(o.x), this.py(o.y)); o.sprite.setDepth(o.sprite.y); }
+  px(x) { return x * T + T / 2; }
+  py(y) { return y * T + T - 2; }
   setFacing(o, dir, frame = 0) { o.dir = dir; o.sprite.setFrame(DIR_ROW[dir] * 3 + frame); }
   refreshFollower() {
     const lead = G.state.party.find(m => m.hp > 0) || G.state.party[0];
@@ -236,6 +272,7 @@ export class WorldScene extends Phaser.Scene {
   isSolid(x, y, ignore = null) {
     if (SOLID.has(this.tileAt(x, y))) return true;
     if (this.blocked.has(x + ',' + y)) return true;
+    if (this.solidProps?.has(x + ',' + y)) return true;
     if (this.npcs.some(n => n !== ignore && n.x === x && n.y === y)) return true;
     if (this.roamers?.some(r => r !== ignore && r.x === x && r.y === y)) return true;
     return false;
@@ -255,6 +292,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   update() {
+    for (const o of [this.player, this.follower, ...this.npcs, ...this.roamers]) if (o?.sprite) o.sprite.setDepth(o.sprite.y);
     if (!this.canControl()) return;
     const K = this.keys;
     let dir = null;
@@ -296,14 +334,14 @@ export class WorldScene extends Phaser.Scene {
       const fdir = fdx > 0 ? 'right' : fdx < 0 ? 'left' : fdy > 0 ? 'down' : fdy < 0 ? 'up' : f.dir;
       this.setFacing(f, fdir);
       if (fdx || fdy) {
-        this.tweens.add({ targets: f.sprite, x: fx * T, y: fy * T - 3, duration: dur });
+        this.tweens.add({ targets: f.sprite, x: this.px(fx), y: this.py(fy), duration: dur });
         this.animateWalk(f, dur);
       }
       f.x = fx; f.y = fy;
     }
     p.x = nx; p.y = ny;
     this.animateWalk(p, dur);
-    this.tweens.add({ targets: p.sprite, x: nx * T, y: ny * T - 3, duration: dur, onComplete: () => { this.moving = false; this.setFacing(p, p.dir); this.onStep(warp); } });
+    this.tweens.add({ targets: p.sprite, x: this.px(nx), y: this.py(ny), duration: dur, onComplete: () => { this.moving = false; this.setFacing(p, p.dir); this.onStep(warp); } });
   }
 
   bump() {
@@ -355,6 +393,8 @@ export class WorldScene extends Phaser.Scene {
     const img = this.tileImgs[y][x];
     img.setFrame('tall1');
     this.time.delayedCall(250, () => img.setFrame('tall0'));
+    const leaf = this.add.image(this.px(x), this.py(y) - 6, 'tiles', 'tall0').setDisplaySize(T, T * 0.45).setDepth(this.py(y) + 1).setCrop(0, 18, 32, 14);
+    this.time.delayedCall(220, () => leaf.destroy());
   }
 
   // ---------------- Találkozások ----------------
@@ -454,14 +494,14 @@ export class WorldScene extends Phaser.Scene {
 
   async trainerChallenge(n, dist) {
     this.cutscene = true;
-    const ex = this.add.text(n.x * T + 5, n.y * T - 14, '!', { fontFamily: 'Arial Black', fontSize: '14px', color: '#ff3030', stroke: '#fff', strokeThickness: 3 }).setDepth(60);
+    const ex = this.add.text(this.px(n.x) - 5, this.py(n.y) - 58, '!', { fontFamily: 'Arial Black', fontSize: '22px', color: '#ff3030', stroke: '#fff', strokeThickness: 4 }).setDepth(99999);
     await new Promise(r => this.time.delayedCall(600, r));
     ex.destroy();
     const [dx, dy] = DV[n.dir];
     for (let i = 1; i < dist; i++) {
       n.x += dx; n.y += dy;
       this.animateWalk(n, 180);
-      await new Promise(r => this.tweens.add({ targets: n.sprite, x: n.x * T, y: n.y * T - 3, duration: 180, onComplete: r }));
+      await new Promise(r => this.tweens.add({ targets: n.sprite, x: this.px(n.x), y: this.py(n.y), duration: 180, onComplete: r }));
     }
     this.setFacing(this.player, OPP[n.dir]);
     await dialog(n.tr.intro, n.tr.name);
@@ -489,7 +529,7 @@ export class WorldScene extends Phaser.Scene {
       if (this.tileAt(nx, ny) === '"') continue;
       n.x = nx; n.y = ny;
       this.animateWalk(n, 300);
-      this.tweens.add({ targets: n.sprite, x: nx * T, y: ny * T - 3, duration: 300 });
+      this.tweens.add({ targets: n.sprite, x: this.px(nx), y: this.py(ny), duration: 300 });
     }
   }
 
@@ -506,7 +546,7 @@ export class WorldScene extends Phaser.Scene {
       if (nx === this.player.x && ny === this.player.y) { this.startWildBattle(r.mon, r); return; }
       r.x = nx; r.y = ny;
       this.animateWalk(r, 260);
-      this.tweens.add({ targets: r.sprite, x: nx * T, y: ny * T - 3, duration: 260 });
+      this.tweens.add({ targets: r.sprite, x: this.px(nx), y: this.py(ny), duration: 260 });
     }
   }
 
@@ -596,6 +636,10 @@ export class WorldScene extends Phaser.Scene {
       s.lastHeal = { map: this.mapKey, x: b.door.x, y: b.door.y };
     } else if (b.action === 'lab') {
       await dialog(s.flags.starter ? 'A laborban gőzerővel folyik a kutatás. A professzor kint van a téren.' : 'A labor zárva. A professzor kint van a téren, a labor előtt!');
+    } else if (b.action === 'gym') {
+      await dialog(['MEXI GYM', 'Az aréna kapuja még zárva van.', 'Hamarosan itt harcolhatsz a Napmancs, Holdmancs és Viharmancs frakciókért!']);
+    } else if (b.action === 'house2') {
+      await dialog(['Kék ház lakója: Ó, egy Mexi-edző!', 'A tó partján néha Kacsa Mexik totyognak... de az csak az ösvényen van, nem itt.']);
     } else if (b.action === 'house') {
       await dialog(['Szomszéd: Hallottad? Az ösvényen túl van egy Titokzatos Erdő...', 'Állítólag ott Mágus Mexik varázsolnak a fák között!']);
     }
@@ -642,8 +686,8 @@ export class WorldScene extends Phaser.Scene {
     const p = this.player; const R = CONFIG.sniffRadius;
     let found = 0;
     const mark = (x, y, color) => {
-      const c = this.add.circle(x * T + 8, y * T + 8, 6, color, 0.55).setDepth(40);
-      const t = this.add.text(x * T + 2, y * T - 2, '🐾', { fontSize: '10px' }).setDepth(41);
+      const c = this.add.circle(x * T + T / 2, y * T + T / 2, 12, color, 0.55).setDepth(99990);
+      const t = this.add.text(x * T + 6, y * T + 4, '🐾', { fontSize: '18px' }).setDepth(99991);
       this.tweens.add({ targets: c, scale: 1.6, alpha: 0.1, yoyo: true, repeat: -1, duration: 500 });
       this.sniffMarks.push(c, t); found++;
     };
@@ -666,7 +710,8 @@ export class WorldScene extends Phaser.Scene {
 
   async openSecret(x, y) {
     this.tiles[y][x] = 'p';
-    this.tileImgs[y][x].setFrame('passage');
+    this.tileImgs[y][x].setFrame('dirt');
+    this.tileProps[x + ',' + y]?.destroy();
     G.state.flags['secret_' + this.mapKey] = true;
     this.cameras.main.shake(200, 0.003);
     await dialog([`${displayName(this.follower.mon)} kiszimatolt egy rejtett átjárót a bokor mögött!`, 'Egy titkos rét tárult fel... Itt ritka Mexik élnek!']);

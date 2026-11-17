@@ -61,14 +61,14 @@ export class BattleScene extends Phaser.Scene {
     g.fillEllipse(this.mePos.x, this.mePos.y + 2 * this.sc, 72 * this.sc, 18 * this.sc);
     // fűcsomók
     g.fillStyle(Phaser.Display.Color.ValueToColor(ground).lighten(12).color, 1);
-    for (let i = 0; i < 40; i++) { const x = (i * 97) % W, y = this.fieldH * 0.6 + ((i * 53) % Math.max(1, H - this.fieldH * 0.6)); g.fillRect(x, y, 3 * this.sc / 2, 6 * this.sc / 2); }
+    for (let i = 0; i < 40; i++) { const x = (i * 97) % W, y = this.fieldH * 0.6 + ((i * 53) % Math.max(1, H - this.fieldH * 0.6)); g.fillRect(x, y, 3 * this.sc / 4, 6 * this.sc / 4); }
     this.bg = g;
   }
 
   onResize() {
     this.layout();
-    if (this.foeSpr) { this.foeSpr.setPosition(this.foePos.x, this.foePos.y).setScale(this.sc); }
-    if (this.meSpr) { this.meSpr.setPosition(this.mePos.x, this.mePos.y).setScale(this.sc * 1.15); }
+    if (this.foeSpr) { this.foeSpr.setPosition(this.foePos.x, this.foePos.y).setScale(this.sc / 4); }
+    if (this.meSpr) { this.meSpr.setPosition(this.mePos.x, this.mePos.y).setScale(this.sc * 0.27); }
   }
 
   texFor(m, back) { return (back ? 'mb_' : 'mf_') + m.species + (m.shiny ? '_s' : ''); }
@@ -130,23 +130,23 @@ export class BattleScene extends Phaser.Scene {
     const e = this.engine, o = this.opts;
     this.meSpr = null; this.foeSpr = null;
     if (o.isTrainer) {
-      const tr = this.add.sprite(this.foePos.x, this.foePos.y, o.trainerSprite, 0).setOrigin(0.5, 1).setScale(this.sc * 2.4).setAlpha(0);
+      const tr = this.add.sprite(this.foePos.x, this.foePos.y, o.trainerSprite, 0).setOrigin(0.5, 1).setScale(this.sc * 1.1).setAlpha(0);
       await tween(this, { targets: tr, alpha: 1, x: { from: this.scale.width + 100, to: this.foePos.x }, duration: 500 });
       await this.say(`${o.trainerName} kihívott egy Mexi-csatára!`);
       await tween(this, { targets: tr, x: this.scale.width + 120, alpha: 0, duration: 400 });
       tr.destroy();
       this.foeSpr = this.add.sprite(this.foePos.x, this.foePos.y, this.texFor(e.fm, false)).setOrigin(0.5, 1).setScale(0);
-      await tween(this, { targets: this.foeSpr, scale: this.sc, duration: 350, ease: 'Back.out' });
+      await tween(this, { targets: this.foeSpr, scale: this.sc / 4, duration: 350, ease: 'Back.out' });
       this.renderInfo('f');
       await this.say(`${o.trainerName} előhívta: ${displayName(e.fm)}!`);
     } else {
-      this.foeSpr = this.add.sprite(this.scale.width + 100, this.foePos.y, this.texFor(e.fm, false)).setOrigin(0.5, 1).setScale(this.sc);
+      this.foeSpr = this.add.sprite(this.scale.width + 100, this.foePos.y, this.texFor(e.fm, false)).setOrigin(0.5, 1).setScale(this.sc / 4);
       await tween(this, { targets: this.foeSpr, x: this.foePos.x, duration: 600, ease: 'Cubic.out' });
       this.renderInfo('f');
       if (e.fm.shiny) { this.sparkle(this.foePos.x, this.foePos.y - 24 * this.sc); await this.say('✨ Csillog! Ez egy SHINY Mexi! ✨'); }
       await this.say(`Egy vad ${displayName(e.fm)} jelent meg!`);
     }
-    this.meSpr = this.add.sprite(-100, this.mePos.y, this.texFor(e.pm, true)).setOrigin(0.5, 1).setScale(this.sc * 1.15);
+    this.meSpr = this.add.sprite(-100, this.mePos.y, this.texFor(e.pm, true)).setOrigin(0.5, 1).setScale(this.sc * 0.27);
     await tween(this, { targets: this.meSpr, x: this.mePos.x, duration: 450, ease: 'Cubic.out' });
     this.renderInfo('p');
     await this.say(`Rajta, ${displayName(e.pm)}!`);
@@ -268,13 +268,13 @@ export class BattleScene extends Phaser.Scene {
     if (side === 'p') {
       if (this.meSpr) { await tween(this, { targets: this.meSpr, x: -100, duration: 250 }); this.meSpr.destroy(); }
       this.meSpr = this.add.sprite(this.mePos.x, this.mePos.y, this.texFor(e.pm, true)).setOrigin(0.5, 1).setScale(0);
-      await tween(this, { targets: this.meSpr, scale: this.sc * 1.15, duration: 300, ease: 'Back.out' });
+      await tween(this, { targets: this.meSpr, scale: this.sc * 0.27, duration: 300, ease: 'Back.out' });
       this.renderInfo('p');
     } else {
       this.foeSpr?.destroy();
       this.foeSpr = this.add.sprite(this.foePos.x, this.foePos.y, this.texFor(e.fm, false)).setOrigin(0.5, 1).setScale(0);
       markSeen(e.fm.species);
-      await tween(this, { targets: this.foeSpr, scale: this.sc, duration: 300, ease: 'Back.out' });
+      await tween(this, { targets: this.foeSpr, scale: this.sc / 4, duration: 300, ease: 'Back.out' });
       this.renderInfo('f');
     }
   }
@@ -292,7 +292,7 @@ export class BattleScene extends Phaser.Scene {
     await tween(this, { targets: att, x: att.x + dx, yoyo: true, duration: 120 });
     const cy = tgt.y - 22 * this.sc;
     if (cat === 'spec') {
-      const orb = this.add.circle(att.x, att.y - 20 * this.sc, 6 * this.sc / 2, color).setDepth(20);
+      const orb = this.add.circle(att.x, att.y - 20 * this.sc, 6 * this.sc / 4, color).setDepth(20);
       await tween(this, { targets: orb, x: tgt.x, y: cy, duration: 280 });
       orb.destroy();
     }
@@ -308,7 +308,7 @@ export class BattleScene extends Phaser.Scene {
 
   sparkle(x, y, color = 0xffffa0) {
     for (let i = 0; i < 12; i++) {
-      const st = this.add.star(x, y, 4, 2, 5 * (this.sc / 2), color).setDepth(30);
+      const st = this.add.star(x, y, 4, 2, 5 * (this.sc / 4), color).setDepth(30);
       const a = (i / 12) * Math.PI * 2, r = (20 + Math.random() * 14) * this.sc;
       this.tweens.add({ targets: st, x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, alpha: 0, angle: 360, duration: 700, onComplete: () => st.destroy() });
     }
@@ -318,7 +318,7 @@ export class BattleScene extends Phaser.Scene {
     const ball = this.add.image(this.mePos.x, this.mePos.y - 30 * this.sc, 'ball_' + itemId).setScale(this.sc * 0.9).setDepth(25);
     const tx = this.foePos.x, ty = this.foePos.y - 20 * this.sc;
     const sx = ball.x, sy = ball.y;
-    await tween(this, { targets: { t: 0 }, t: 1, duration: 550, onUpdate: (tw, obj) => { const t = obj.t; ball.x = sx + (tx - sx) * t; ball.y = sy + (ty - sy) * t - Math.sin(t * Math.PI) * 90 * (this.sc / 2); ball.angle = t * 720; } });
+    await tween(this, { targets: { t: 0 }, t: 1, duration: 550, onUpdate: (tw, obj) => { const t = obj.t; ball.x = sx + (tx - sx) * t; ball.y = sy + (ty - sy) * t - Math.sin(t * Math.PI) * 90 * (this.sc / 4); ball.angle = t * 720; } });
     // Mexi bekerül a labdába
     const beam = this.add.circle(tx, ty, 8 * this.sc, 0xffffff, 0.8).setDepth(24);
     this.foeSpr.setTintFill(0xffffff);
@@ -340,7 +340,7 @@ export class BattleScene extends Phaser.Scene {
       ball.destroy();
       const pop = this.add.circle(tx, this.foePos.y - 10 * this.sc, 10 * this.sc, 0xffffff, 0.9).setDepth(24);
       this.foeSpr.clearTint().setPosition(this.foePos.x, this.foePos.y);
-      await Promise.all([tween(this, { targets: this.foeSpr, scale: this.sc, duration: 300, ease: 'Back.out' }), tween(this, { targets: pop, scale: 2.5, alpha: 0, duration: 300 })]);
+      await Promise.all([tween(this, { targets: this.foeSpr, scale: this.sc / 4, duration: 300, ease: 'Back.out' }), tween(this, { targets: pop, scale: 2.5, alpha: 0, duration: 300 })]);
       pop.destroy();
     }
   }
@@ -382,7 +382,7 @@ export class BattleScene extends Phaser.Scene {
     this.ui.classList.add('hidden');
     const { width: W, height: H } = this.scale;
     const dim = this.add.rectangle(0, 0, W, H, 0x000000, 0.8).setOrigin(0).setDepth(40);
-    const spr = this.add.sprite(W / 2, H / 2 + 24 * this.sc, this.texFor(m, false)).setOrigin(0.5, 1).setScale(this.sc * 1.3).setDepth(41);
+    const spr = this.add.sprite(W / 2, H / 2 + 24 * this.sc, this.texFor(m, false)).setOrigin(0.5, 1).setScale(this.sc * 0.33).setDepth(41);
     const txt = el('div', { class: 'panel', style: 'position:absolute;left:50%;bottom:20px;transform:translateX(-50%);padding:12px 18px;font-weight:800;font-size:18px' }, `Mi történik? ${displayName(m)} fejlődik!`);
     document.getElementById('ui').append(txt);
     const toKey = 'mf_' + to + (m.shiny ? '_s' : '');
