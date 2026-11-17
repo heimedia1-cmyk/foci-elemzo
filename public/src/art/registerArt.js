@@ -7,6 +7,13 @@ import { MEXIS } from '../data/mexis.js';
 import { ITEMS } from '../data/items.js';
 
 export const TS = 32; // a világ csempemérete
+const FX_TYPES = ['semleges', 'tuz', 'viz', 'noveny', 'villam', 'fold', 'jeg', 'arnyek', 'feny', 'gep'];
+export const FX_FILES = [
+  'hit1', 'hit2', 'hit3', 'crit1', 'crit2', 'crit3', 'up1', 'up2', 'down1', 'down2', 'heal1', 'heal2', 'lvl1', 'lvl2',
+  ...['eges', 'mereg', 'benitas', 'alvas', 'fagyas'].flatMap(s => [`st_${s}1`, `st_${s}2`]),
+  ...FX_TYPES.flatMap(t => [1, 2, 3].map(k => `fx_${t}${k}`)),
+  'c_fly1', 'c_fly2', 'c_fly3', 'c_open1', 'c_open2', 'c_beam1', 'c_beam2', 'c_wob1', 'c_wob2', 'c_ok1', 'c_ok2', 'c_ok3', 'c_esc1', 'c_esc2', 'c_shiny1', 'c_shiny2', 'c_shiny3', 'c_evo1', 'c_evo2', 'c_evo3',
+];
 export const DIR_ROW = { down: 0, left: 1, right: 2, up: 3 };
 
 // A sprite-lapok sorrendje
@@ -28,6 +35,7 @@ export function preloadArt(scene) {
   L.image('src_map', 'assets/mexi_map.png');
   L.image('src_evo', 'assets/mexi_evo.png');
   L.image('src_anim_a', 'assets/anim_a.png');
+  for (const n of FX_FILES) L.image('bfx_' + n, `assets/battle/${n}.png`);
   for (const n of ['pet1', 'pet2', 'pet3', 'eat1', 'eat2', 'eat3', 'happy1', 'happy2', 'happy3', 'sleep1', 'sleep2', 'sleep3']) L.image('ia_' + n, `assets/ui/ia_${n}.png`);
   for (const n of ['heart', 'note', 'dizzy', 'excl', 'q', 'sweat', 'angry', 'sparkle']) L.image('emo_' + n, `assets/ui/emo_${n}.png`);
   for (const n of ['rain', 'ripple', 'snow1', 'snow2', 'fog', 'leaves', 'fireflies', 'sunbeam']) L.image('w_' + n, `assets/ui/w_${n}.png`);
