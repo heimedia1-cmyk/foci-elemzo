@@ -8,6 +8,8 @@ import { TYPES } from '../data/types.js';
 import { CONFIG } from '../data/config.js';
 import { displayName, ivPercent, xpForLevel, relearnable } from '../systems/mexi.js';
 import { Sfx } from '../systems/sfx.js';
+import { familyOf, bonesOf, powerUp, canPowerUp, powerUpCost, evolveCost, transfer, canTransfer, transferReward, duplicatePlan, BONES } from '../systems/bones.js';
+import { evolve } from '../systems/mexi.js';
 import { mexiIconDataURL } from '../art/placeholders.js';
 import { getArtURL } from '../art/registerArt.js';
 import { Net } from '../systems/net.js';
@@ -37,6 +39,65 @@ function mexiRow(m, onClick, extra = null) {
       el('div', { style: 'margin:3px 0' }, ...MEXIS[m.species].types.map(typeBadge), ' ', rarityBadge(MEXIS[m.species].rarity)),
       hpBar(m.hp, m.stats.hp), el('div', { style: 'font-size:12px;text-align:right;font-weight:700' }, `${m.hp} / ${m.stats.hp} HP`), xpBar(m)),
     extra);
+}
+
+// ===================== CSONTOK =====================
+const boneCache = {};
+/** Pixel-art csont ikon a család típusszínével (amíg nincs saját grafika). */
+export function boneIcon(species, px = 3) {
+  const fam = familyOf(species); const key = fam + px;
+  if (boneCache[key]) return boneCache[key];
+  const url = `assets/bones/${fam}.png`;
+  const G_ = [
+    '.XX......XX.',
+    'XooX....XooX',
+    'XoooXXXXoooX',
+    '.XoooooooooX',
+    '.XoooooooooX',
+    'XoooXXXXoooX',
+    'XooX....XooX',
+    '.XX......XX.'];
+  const c = document.createElement('canvas'); c.width = 12 * px; c.height = 8 * px; const g = c.getContext('2d');
+  const col = TYPES[MEXIS[fam].types[0]].color;
+  G_.forEach((row, y) => [...row].forEach((ch, x) => { if (ch === '.') return; g.fillStyle = ch === 'X' ? '#3a2a1a' : (y <= 2 ? '#fffaf0' : '#f1e6cf'); g.fillRect(x * px, y * px, px, px); }));
+  g.fillStyle = col; g.fillRect(4 * px, 3 * px, 4 * px, 2 * px); // családszínű csík
+  const fallback = c.toDataURL();
+  // ha később megérkezik a saját grafika (assets/bones/<család>.png), azt használjuk
+  const img = new Image(); img.onload = () => { boneCache[key] = url; }; img.src = url;
+  return (boneCache[key] = fallback);
+}
+const boneTag = (species, n = bonesOf(species)) => el('span', { style: 'display:inline-flex;align-items:center;gap:4px;font-weight:800' }, el('img', { src: boneIcon(species), style: 'height:18px;image-rendering:pixelated' }), `${n} ${MEXIS[familyOf(species)].name}-csont`);
+
+/** Professzor: átadás csontért (egyes + tömeges duplikátumok). */
+export function openTransfer() {
+  return new Promise((resolve) => openWindow('Átadás a Professzornak 🦴', (w) => {
+    const draw = () => w.render((body) => {
+      const s = G.state;
+      const plan = duplicatePlan();
+      const total = plan.reduce((a, m) => a + transferReward(m), 0);
+      body.append(el('p', { style: 'margin:0 0 8px' }, 'Az átadott Mexi a professzor laborjába költözik, te pedig a családjához tartozó csontot kapsz. Csonttal erősítheted (szintlépés) és fejlesztheted a Mexijeidet.'));
+      body.append(el('div', { class: 'row', style: 'cursor:default' },
+        el('div', { class: 'grow' }, el('b', {}, `Duplikátumok gyors átadása: ${plan.length} Mexi`), el('div', { style: 'font-size:13px' }, `Fajonként a legjobbat megtartja. Shiny, zárolt 🔒 és csapattag sosem kerül bele. Jutalom: ${total} csont.`)),
+        el('button', { class: 'btn primary', disabled: !plan.length, onclick: async () => {
+          const ok = await choose([`Igen, mind a ${plan.length} átadása`, 'Mégse'], { question: `Biztos? ${plan.map(m => displayName(m) + ' Sz.' + m.level).slice(0, 8).join(', ')}${plan.length > 8 ? '…' : ''}` });
+          if (ok !== 0) return;
+          const got = {}; for (const m of plan) { const r = transfer(m); if (!r.err) got[familyOf(m.species)] = (got[familyOf(m.species)] || 0) + r.bones; }
+          Sfx.play('coin'); save(); toast('Kaptál: ' + Object.entries(got).map(([f, n]) => `${n} ${MEXIS[f].name}-csont`).join(', ')); draw();
+        } }, '📤 Átadás')));
+      body.append(el('h4', { style: 'margin:12px 0 4px' }, 'Egyenként (koppints egy Mexire)'));
+      const all = [...s.party.map(m => ({ m, p: true })), ...s.storage.map(m => ({ m, p: false }))].sort((a, b) => MEXIS[a.m.species].no - MEXIS[b.m.species].no || a.m.level - b.m.level);
+      const g = el('div', { class: 'grid' });
+      for (const { m, p } of all) g.append(el('div', { class: 'card', style: m.locked ? 'opacity:.55' : '', onclick: async () => {
+        const err = canTransfer(m); if (err) { toast(err); return; }
+        const warn = m.shiny ? ' ✨ SHINY!' : ivPercent(m) >= 85 ? ` (kiváló adottság: ${ivPercent(m)}%)` : '';
+        const ok = await choose([`Igen, átadom (+${transferReward(m)} csont)`, 'Mégse'], { question: `Átadod: ${displayName(m)} (Sz. ${m.level})?${warn}` });
+        if (ok !== 0) return;
+        const r = transfer(m); Sfx.play('coin'); save(); toast(`Viszlát, ${displayName(m)}! +${r.bones} ${MEXIS[familyOf(m.species)].name}-csont`); draw();
+      } }, m.shiny ? el('span', { class: 'star' }, '✨') : null, el('img', { src: iconFor(m.species, m.shiny) }), el('div', { class: 'nm' }, (m.locked ? '🔒 ' : '') + displayName(m)), el('div', { class: 'sub' }, `Sz. ${m.level} • ${ivPercent(m)}%${p ? ' • csapat' : ''}`)));
+      body.append(g);
+    });
+    draw();
+  }, { onClose: resolve }));
 }
 
 // ===================== HANG =====================
@@ -124,7 +185,29 @@ export function openMexiDetail(m, { inParty = false, inStorage = false, index = 
           ...m.moves.map(mv => { const d = MOVES[mv.id]; return el('div', { style: 'display:flex;gap:6px;align-items:center;font-size:14px;margin:2px 0' }, typeBadge(d.type), el('b', {}, d.name), el('span', { style: 'opacity:.75' }, `${d.cat === 'fiz' ? 'Fizikai' : d.cat === 'spec' ? 'Speciális' : 'Státusz'} • Erő ${d.power || '–'} • Pont. ${d.acc}% • PP ${mv.pp}/${d.pp}`)); }),
           sp.evolve ? el('div', { style: 'margin-top:8px;font-size:14px' }, '🌟 Fejlődés: ', el('b', {}, MEXIS[sp.evolve.to].name), ` (${sp.evolve.level}. szinten)`) : null,
           m.caughtWhere ? el('div', { style: 'font-size:12px;margin-top:6px;opacity:.75' }, `Megszerezve: ${m.caughtWhere}, ${new Date(m.caughtAt).toLocaleString('hu-HU')}`) : null,
+          el('div', { style: 'margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center' }, boneTag(m.species)),
           el('div', { class: 'actions' },
+            (() => { const c = powerUpCost(m); const err = canPowerUp(m); return el('button', { class: 'btn primary', disabled: !!err, title: err || '', onclick: async () => {
+              const r = powerUp(m); if (r.err) { toast(r.err); return; }
+              Sfx.play('levelup'); toast(`${displayName(m)} erősödött: ${m.level}. szint!`);
+              for (const e of r.events) if (e.type === 'canLearn') await offerMove(m, e.move); else if (e.type === 'learned') await dialog(`${displayName(m)} megtanulta: ${MOVES[e.move].name}!`);
+              save(); draw(); onChange?.();
+            } }, `💪 Erősítés +1 szint (${c.bones} 🦴 + ${c.coins} 🪙)`); })(),
+            sp.evolve ? el('button', { class: 'btn', disabled: bonesOf(m.species) < evolveCost(m), onclick: async () => {
+              const to = sp.evolve.to; const cost = evolveCost(m);
+              const ok = await choose([`Igen, fejlődjön (${cost} csont)`, 'Mégse'], { question: `${displayName(m)} → ${MEXIS[to].name}?` }); if (ok !== 0) return;
+              G.state.bones[familyOf(m.species)] -= cost; const old = displayName(m);
+              const pend = evolve(m, to); G.state.dex.seen[to] = G.state.dex.caught[to] = true; if (m.shiny) G.state.dex.shiny[to] = true;
+              Sfx.play('evolve'); await dialog(`Mi történik?! ${old} fejlődött: ${MEXIS[to].name}! 🌟`);
+              for (const mv of pend) await offerMove(m, mv);
+              save(); w.close(); onChange?.();
+            } }, `🌟 Fejlesztés csonttal (${evolveCost(m)} 🦴)`) : null,
+            el('button', { class: 'btn', onclick: () => { m.locked = !m.locked; save(); toast(m.locked ? '🔒 Zárolva – nem adható át.' : 'Zárolás feloldva.'); draw(); } }, m.locked ? '🔓 Feloldás' : '🔒 Zárolás'),
+            el('button', { class: 'btn', onclick: async () => {
+              const err = canTransfer(m); if (err) { toast(err); return; }
+              const ok = await choose([`Igen, átadom (+${transferReward(m)} csont)`, 'Mégse'], { question: `Átadod ${displayName(m)}-t a professzornak?${m.shiny ? ' ✨ Ez egy SHINY!' : ''}` }); if (ok !== 0) return;
+              const r = transfer(m); Sfx.play('coin'); save(); toast(`+${r.bones} ${MEXIS[familyOf(m.species)].name}-csont`); w.close(); onChange?.();
+            } }, '📤 Átadás (csont)'),
             el('button', { class: 'btn', onclick: async () => { const n = await askText('Új becenév (üresen: eredeti név):', m.nickname || ''); if (n !== null) { m.nickname = n.trim().slice(0, 14) || null; save(); draw(); onChange?.(); } } }, '✏️ Becenév'),
             inParty && index > 0 ? el('button', { class: 'btn', onclick: () => { const p = G.state.party; p.splice(index, 1); p.unshift(m); index = 0; save(); toast(`${displayName(m)} a csapat élén!`); w.close(); onChange?.(); } }, '⬆️ Csapat élére') : null,
             inParty && G.state.party.length > 1 ? el('button', { class: 'btn', onclick: () => { const p = G.state.party; p.splice(p.indexOf(m), 1); G.state.storage.push(m); save(); toast('Tárolóba került.'); w.close(); onChange?.(); } }, '📦 Tárolóba') : null,
@@ -234,6 +317,13 @@ export function openBag({ inBattle = false, isTrainer = false } = {}) {
         body.append(el('div', { style: 'font-weight:700;margin-bottom:8px' }, `💰 ${G.state.money} Mexi-érme`));
         const ids = Object.keys(inv).filter(k => inv[k] > 0 && ITEMS[k]);
         if (!ids.length) body.append(el('p', {}, 'A táskád üres.'));
+        const bones = Object.entries(G.state.bones || {}).filter(([, n]) => n > 0);
+        if (bones.length && !inBattle) {
+          body.append(el('h4', { style: 'margin:4px 0' }, '🦴 Csontok'));
+          const bg = el('div', { style: 'display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px' });
+          for (const [f, n] of bones) bg.append(el('div', { class: 'row', style: 'flex:1 1 200px;cursor:default' }, el('img', { src: iconFor(f, false), style: 'width:36px;height:36px' }), boneTag(f, n)));
+          body.append(bg, el('div', { style: 'font-size:12px;opacity:.75;margin-bottom:8px' }, 'Csontot a Mexi adatlapján használhatsz: erősítés (+1 szint) vagy fejlesztés.'));
+        }
         const groups = [['ball', 'Teniszlabdák'], ['heal', 'Gyógyítás'], ['revive', 'Gyógyítás'], ['cure', 'Gyógyszerek'], ['misc', 'Egyéb']];
         for (const id of ids.sort((a, b) => groups.findIndex(g => g[0] === ITEMS[a].kind) - groups.findIndex(g => g[0] === ITEMS[b].kind))) {
           const it = ITEMS[id];

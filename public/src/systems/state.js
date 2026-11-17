@@ -1,6 +1,7 @@
 // Játékállapot + SaveManager (verziózott helyi mentés).
 import { CONFIG } from '../data/config.js';
 import { calcStats } from './mexi.js';
+import { MEXIS } from '../data/mexis.js';
 import { Account } from './account.js';
 
 // Vendég: egy helyi mentés. Belépve: a fiókhoz tartozó helyi másolat + felhős mentés.
@@ -16,6 +17,7 @@ export function newGameState(name = 'Kalandor', gender = 'fiu') {
     party: [],
     storage: [],
     dex: { seen: {}, caught: {}, shiny: {} },
+    bones: {},
     flags: {},
     map: 'mancsfalva',
     pos: { x: 6, y: 20, dir: 'down' },
@@ -51,6 +53,7 @@ function migrate(s) {
   s.stats ??= { caught: 0, shinyCaught: 0, battles: 0, wins: 0, steps: 0 };
   s.foundItems ??= [];
   s.defeatedTrainers ??= [];
+  s.bones ??= {};
   if (!s.lastHeal || s.lastHeal.map === 'mancsfalva') s.lastHeal = { map: 'int_heal', x: 5, y: 3 };
   for (const m of [...s.party, ...s.storage]) m.stats = calcStats(m);
   return s;
@@ -92,6 +95,7 @@ export function guestSaveExists() { try { return !!localStorage.getItem(GUEST_KE
 export function markSeen(species) { G.state.dex.seen[species] = true; }
 
 /** Elkapott Mexi felvétele: csapatba, ha van hely, egyébként a tárolóba. */
+function familyRoot(sp) { for (const [k, d] of Object.entries(MEXIS)) if (d.evolve && d.evolve.to === sp) return familyRoot(k); return sp; }
 export function addCaught(m, where) {
   const s = G.state;
   m.caughtAt = Date.now();
@@ -101,6 +105,7 @@ export function addCaught(m, where) {
   s.dex.caught[m.species] = true;
   if (m.shiny) { s.dex.shiny[m.species] = true; s.stats.shinyCaught++; }
   s.stats.caught++;
+  s.bones ??= {}; const fam = familyRoot(m.species); s.bones[fam] = (s.bones[fam] || 0) + 3;
   if (s.party.length < CONFIG.partySize) { s.party.push(m); return 'party'; }
   s.storage.push(m); return 'storage';
 }

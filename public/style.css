@@ -70,7 +70,7 @@ html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; f
 
 .detail { display: grid; grid-template-columns: 180px 1fr; gap: 14px; }
 .detail .pic { background: #fff; border: 3px solid var(--line); border-radius: 8px; text-align: center; padding: 8px; }
-.detail .pic img { width: 160px; height: 160px; image-rendering: pixelated; }
+.detail .pic > img { width: 160px; height: 160px; image-rendering: pixelated; }
 table.stats { width: 100%; border-collapse: collapse; font-size: 14px; }
 table.stats td { padding: 3px 6px; border-bottom: 1px solid #e0d2b0; }
 .statbar { height: 8px; background: #e0d6c0; border-radius: 4px; overflow: hidden; } .statbar > i { display: block; height: 100%; background: var(--blue); }

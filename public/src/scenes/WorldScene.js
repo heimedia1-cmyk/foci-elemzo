@@ -15,9 +15,11 @@ import { coopDaily } from '../ui/menus.js';
 import { addCaught } from '../systems/state.js';
 import { canEvolve, evolve } from '../systems/mexi.js';
 import { MOVES } from '../data/moves.js';
-import { offerMove, moveReminder } from '../ui/menus.js';
+import { offerMove, moveReminder, openTransfer } from '../ui/menus.js';
+import { BONES } from '../systems/bones.js';
 import { Sfx } from '../systems/sfx.js';
 
+const CHAR_SCALE = 0.76; // ember-sprite méret a világban (~1,25 mező magas)
 const DV = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
 
@@ -46,7 +48,7 @@ export class WorldScene extends Phaser.Scene {
 
     // játékos
     const gender = s.player.gender === 'lany' ? 'lany' : 'fiu';
-    this.player = { x: s.pos.x, y: s.pos.y, dir: s.pos.dir || 'down', sprite: this.add.sprite(0, 0, 'p_' + gender, 0).setOrigin(0.5, 1) };
+    this.player = { x: s.pos.x, y: s.pos.y, dir: s.pos.dir || 'down', sprite: this.add.sprite(0, 0, 'p_' + gender, 0).setOrigin(0.5, 1).setScale(CHAR_SCALE) };
     this.placeSprite(this.player);
     this.setFacing(this.player, this.player.dir);
     // követő Mexi
@@ -250,7 +252,7 @@ export class WorldScene extends Phaser.Scene {
     this.npcs = [];
     for (const n of this.map.npcs) {
       const tr = n.trainer ? TRAINERS[n.trainer] : null;
-      const npc = { ...n, home: { x: n.x, y: n.y }, sprite: this.add.sprite(0, 0, 'p_' + n.sprite, 0).setOrigin(0.5, 1), talkIdx: 0, tr };
+      const npc = { ...n, home: { x: n.x, y: n.y }, sprite: this.add.sprite(0, 0, 'p_' + n.sprite, 0).setOrigin(0.5, 1).setScale(CHAR_SCALE), talkIdx: 0, tr };
       this.placeSprite(npc); this.setFacing(npc, n.dir);
       this.npcs.push(npc);
     }
@@ -344,7 +346,7 @@ export class WorldScene extends Phaser.Scene {
     const show = Net.party && pr && pos && pos.map === this.mapKey && pr.online !== false;
     if (!show) { if (this.partnerObj) { this.partnerObj.sprite.destroy(); this.partnerObj.label.destroy(); this.partnerObj.mexi.destroy(); this.partnerObj = null; } return; }
     if (!this.partnerObj) {
-      const sprite = this.add.sprite(this.px(pos.x), this.py(pos.y), 'p_' + (pr.gender === 'lany' ? 'lany' : 'fiu'), 0).setOrigin(0.5, 1).setTint(0xd8e8ff);
+      const sprite = this.add.sprite(this.px(pos.x), this.py(pos.y), 'p_' + (pr.gender === 'lany' ? 'lany' : 'fiu'), 0).setOrigin(0.5, 1).setScale(CHAR_SCALE).setTint(0xd8e8ff);
       const label = this.add.text(0, 0, pr.name, { fontFamily: 'Trebuchet MS, sans-serif', fontSize: '11px', color: '#fff', stroke: '#1b1430', strokeThickness: 3 }).setOrigin(0.5, 1).setDepth(99990);
       const mexi = this.add.sprite(this.px(pos.x), this.py(pos.y + 1), 'px').setOrigin(0.5, 1);
       this.partnerObj = { sprite, label, mexi, x: pos.x, y: pos.y, lead: null };
@@ -928,6 +930,15 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     const caught = Object.keys(s.dex.caught).length;
+    if (!s.flags.boneIntro) {
+      s.flags.boneIntro = true; s.bones ??= {}; s.bones.alap = (s.bones.alap || 0) + 5;
+      await dialog(['Ja, és egy fontos dolog: a Mexi-csontok! 🦴', 'Minden elkapott Mexi után 3 csontot kapsz a családjából.', 'Ha több egyforma Mexid van, add át nekem őket a kutatáshoz – cserébe csontot adok!', 'Csonttal erősítheted a Mexijeidet (+1 szint), sőt fejleszteni is tudod őket. Itt van 5 Alap-csont kezdésnek!'], who);
+      save();
+    }
+    const c = await choose(['📤 Mexik átadása (csontért)', '🦴 Hogyan működnek a csontok?', '💬 Beszélgetés', 'Viszlát'], { question: 'Miben segíthetek?' });
+    if (c === 0) { this.cutscene = true; await openTransfer(); this.cutscene = false; this.refreshFollower(); this.updateHud(); return; }
+    if (c === 1) { await dialog(['Elkapás: +3 csont a Mexi családjából. Átadás: +1 csont, minden 10. szint után +1, shiny +2.', 'Erősítés: a Mexi adatlapján – csont + érme = +1 szint (legfeljebb 40-ig).', `Fejlesztés: ${BONES.evolveCost} csontért bármikor fejlődhet, ha van fejlett formája.`, 'Tipp: a kedvenceidet zárold le 🔒, így véletlenül sem adod át őket!'], who); return; }
+    if (c !== 2) return;
     if (caught >= 4 && !s.flags.profGift1) {
       s.flags.profGift1 = true; s.inventory.profi_labda = (s.inventory.profi_labda || 0) + 3;
       await dialog([`Hű, már ${caught} különböző Mexit szereztél!`, 'Itt van 3 Profi Teniszlabda jutalmul. Csak így tovább!'], who); save(); return;
