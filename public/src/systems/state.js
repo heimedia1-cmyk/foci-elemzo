@@ -1,8 +1,11 @@
 // Játékállapot + SaveManager (verziózott helyi mentés).
 import { CONFIG } from '../data/config.js';
 import { calcStats } from './mexi.js';
+import { Account } from './account.js';
 
-const KEY = 'mexiverse_save';
+// Vendég: egy helyi mentés. Belépve: a fiókhoz tartozó helyi másolat + felhős mentés.
+const keyFor = () => Account.loggedIn ? 'mexiverse_save_u_' + Account.current.username.toLowerCase() : 'mexiverse_save';
+export const GUEST_KEY = 'mexiverse_save';
 
 export function newGameState(name = 'Kalandor', gender = 'fiu') {
   return {
@@ -29,14 +32,15 @@ export function newGameState(name = 'Kalandor', gender = 'fiu') {
 export const G = { state: null };
 
 export function hasSave() {
-  try { return !!localStorage.getItem(KEY); } catch { return false; }
+  try { return !!localStorage.getItem(keyFor()); } catch { return false; }
 }
 
 export function save() {
   if (!G.state) return false;
   try {
     G.state.savedAt = Date.now();
-    localStorage.setItem(KEY, JSON.stringify(G.state));
+    localStorage.setItem(keyFor(), JSON.stringify(G.state));
+    Account.pushSave(G.state);
     return true;
   } catch (e) { console.warn('Mentés sikertelen', e); return false; }
 }
@@ -53,14 +57,36 @@ function migrate(s) {
 
 export function load() {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(keyFor());
     if (!raw) return null;
     G.state = migrate(JSON.parse(raw));
     return G.state;
   } catch (e) { console.warn('Betöltés sikertelen', e); return null; }
 }
 
-export function deleteSave() { try { localStorage.removeItem(KEY); } catch {} }
+export function deleteSave() { try { localStorage.removeItem(keyFor()); } catch {} }
+
+/** Belépés után: a felhős és a helyi mentés közül az újabb marad. Visszaadja: 'cloud' | 'local' | 'none' | 'offline'. */
+export async function syncFromCloud() {
+  if (!Account.loggedIn) return 'none';
+  const cloud = await Account.fetchSave();
+  if (cloud === 'auth') { Account.current = null; return 'auth'; }
+  if (cloud === 'offline') return 'offline';
+  let local = null; try { local = JSON.parse(localStorage.getItem(keyFor()) || 'null'); } catch {}
+  if (cloud && (!local || (cloud.savedAt || 0) >= (local.savedAt || 0))) { localStorage.setItem(keyFor(), JSON.stringify(cloud)); return 'cloud'; }
+  if (local) { Account.pushSave(local, true); return 'local'; }
+  return 'none';
+}
+
+/** A vendégként elkezdett játék áthozása a fiókba. */
+export function adoptGuestSave() {
+  const raw = localStorage.getItem(GUEST_KEY);
+  if (!raw) return false;
+  localStorage.setItem(keyFor(), raw);
+  Account.pushSave(JSON.parse(raw), true);
+  return true;
+}
+export function guestSaveExists() { try { return !!localStorage.getItem(GUEST_KEY); } catch { return false; } }
 
 export function markSeen(species) { G.state.dex.seen[species] = true; }
 

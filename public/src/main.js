@@ -24,3 +24,6 @@ document.addEventListener('gesturestart', (e) => e.preventDefault());
 // Fejlesztői segédlet (konzolból / automata tesztekhez)
 import { G } from './systems/state.js';
 window.MEXI_DEBUG = { G, game };
+
+import { toast } from './ui/ui.js';
+window.addEventListener('mexi-auth-expired', () => toast('Lejárt a belépésed – a mentés csak ezen az eszközön van. Lépj be újra a főmenüben.', 5000));

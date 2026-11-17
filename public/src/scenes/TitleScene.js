@@ -1,6 +1,8 @@
 // Főmenü.
 import { el, UI, pushKeys } from '../ui/ui.js';
-import { G, hasSave, load, newGameState, deleteSave, save } from '../systems/state.js';
+import { G, hasSave, load, newGameState, deleteSave, save, syncFromCloud, adoptGuestSave, guestSaveExists } from '../systems/state.js';
+import { Account } from '../systems/account.js';
+import { choose, toast } from '../ui/ui.js';
 import { T } from '../art/placeholders.js';
 
 export class TitleScene extends Phaser.Scene {
@@ -14,6 +16,7 @@ export class TitleScene extends Phaser.Scene {
     this.scale.on('resize', this.drawBackground, this);
     this.events.once('shutdown', () => { this.scale.off('resize', this.drawBackground, this); this.ui?.remove(); this.offKeys?.(); });
     this.showMenu();
+    if (Account.loggedIn) syncFromCloud().then((r) => { if (r === 'auth') { Account.current = null; toast('Lejárt a belépésed, lépj be újra.'); } if (this.scene.isActive()) this.showMenu(); });
   }
 
   drawBackground() {
@@ -47,17 +50,66 @@ export class TitleScene extends Phaser.Scene {
     const btns = [];
     if (saveExists) btns.push(el('button', { class: 'btn primary', onclick: () => this.continueGame() }, '▶ Folytatás'));
     btns.push(el('button', { class: 'btn' + (saveExists ? '' : ' primary'), onclick: () => this.newGameForm() }, '✨ Új játék'));
+    const acct = Account.current;
+    const bar = acct
+      ? el('div', { class: 'acctbar panel' }, el('span', {}, '👤 Belépve: ', el('b', {}, acct.username), ' • a mentésed a fiókodban van'),
+          el('button', { class: 'btn', onclick: () => { Account.logout(); toast('Kijelentkeztél.'); this.showMenu(); } }, 'Kilépés'))
+      : el('div', { class: 'acctbar panel' }, el('span', {}, 'Vendégként játszol (a mentés csak ezen az eszközön van)'),
+          el('button', { class: 'btn primary', onclick: () => this.loginForm('login') }, 'Belépés / Regisztráció'));
     this.ui = el('div', { id: 'title' },
       el('h1', {}, 'Mexi', el('span', {}, 'Verse')),
       el('h3', {}, 'Az elveszett Mexik'),
       el('div', { class: 'btns' }, ...btns),
+      bar,
       el('div', { class: 'ver' }, 'v0.1 – első játszható verzió'));
     root.append(this.ui);
     this.offKeys?.();
     this.offKeys = pushKeys((e) => { if (e.key === 'Enter') saveExists ? this.continueGame() : this.newGameForm(); });
   }
 
-  continueGame() {
+  loginForm(mode = 'login') {
+    this.offKeys?.();
+    this.ui?.remove();
+    const user = el('input', { autocomplete: 'username', maxlength: 24 });
+    const pass = el('input', { type: 'password', autocomplete: mode === 'login' ? 'current-password' : 'new-password' });
+    const email = el('input', { type: 'email', autocomplete: 'email' });
+    const err = el('div', { style: 'color:#c03030;font-weight:700;min-height:20px' });
+    const submit = el('button', { class: 'btn primary', style: 'flex:1' }, mode === 'login' ? 'Belépés' : 'Fiók létrehozása');
+    const go = async () => {
+      if (!user.value.trim() || !pass.value) { err.textContent = 'Add meg a felhasználónevet és a jelszót.'; return; }
+      submit.disabled = true; err.textContent = '';
+      try {
+        await Account.login(mode, user.value.trim(), pass.value, email.value.trim());
+        const r = await syncFromCloud();
+        if (r === 'none' && guestSaveExists()) {
+          const c = await choose(['Igen, hozd át', 'Nem, új játék lesz'], { question: 'Ezen az eszközön van egy vendégként elkezdett MexiVerse-játékod. Áthozod a fiókodba?', cancel: false });
+          if (c === 0) adoptGuestSave();
+        }
+        if (r === 'offline') toast('A felhős mentés most nem érhető el, később szinkronizálunk.');
+        toast(`Szia, ${Account.current.username}!`);
+        this.showMenu();
+      } catch (e) { err.textContent = e.message; submit.disabled = false; }
+    };
+    submit.onclick = go;
+    for (const i of [user, pass, email]) i.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+    this.ui = el('div', { id: 'title' },
+      el('div', { class: 'panel newgame' },
+        el('div', { class: 'gpick' },
+          el('button', { class: 'btn' + (mode === 'login' ? ' sel' : ''), onclick: () => this.loginForm('login') }, 'Belépés'),
+          el('button', { class: 'btn' + (mode === 'register' ? ' sel' : ''), onclick: () => this.loginForm('register') }, 'Regisztráció')),
+        el('p', { style: 'margin:0 0 8px;font-size:14px' }, 'A Mexi Survivors (és Anime Battlegrounds) fiókod itt is működik – ugyanazzal a névvel és jelszóval lépj be.'),
+        el('label', { style: 'font-weight:700' }, 'Felhasználónév'), user,
+        el('label', { style: 'font-weight:700' }, 'Jelszó'), pass,
+        mode === 'register' ? el('label', { style: 'font-weight:700' }, 'E-mail (nem kötelező, jelszó-visszaállításhoz)') : null,
+        mode === 'register' ? email : null,
+        err,
+        el('div', { style: 'display:flex;gap:8px' }, el('button', { class: 'btn', onclick: () => this.showMenu() }, 'Vissza'), submit)));
+    document.getElementById('ui').append(this.ui);
+    setTimeout(() => user.focus(), 50);
+  }
+
+  async continueGame() {
+    if (Account.loggedIn) { const r = await syncFromCloud(); if (r === 'auth') { toast('Lejárt a belépésed, lépj be újra.'); this.loginForm('login'); return; } }
     if (!load()) { this.newGameForm(); return; }
     this.offKeys?.();
     this.scene.start('World');
