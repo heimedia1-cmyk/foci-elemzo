@@ -42,7 +42,7 @@ const RESIST = {
   arnyek: ['arnyek', 'gep'],
   feny: ['feny', 'tuz', 'gep'],
   gep: ['tuz', 'gep', 'villam'],
-  semleges: ['arnyek'],
+  semleges: [],
 };
 
 const IMMUNE = { villam: ['fold'] };

@@ -167,7 +167,7 @@ export const MAPS = {
 export const TRAINERS = {
   bence: {
     name: 'Bence, a kezdő edző', sprite: 'edzo1', reward: 300, sight: 4,
-    team: [['alap', 4], ['beka', 5]],
+    team: [['alap', 5], ['beka', 6]],
     intro: 'Hé! Te is Mexi-edző vagy? Mérkőzzünk meg!', lose: 'Jaj, ez gyors volt! Még gyakorolnom kell.', after: 'A Béka Mexi ellen a Növény-támadások nagyon hatékonyak!',
   },
   lili: {

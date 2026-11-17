@@ -344,6 +344,7 @@ export class BattleEngine {
       if (r.caught) {
         ev.push({ t: 'msg', text: `Megvan! ${MEXIS[this.fm.species].name} a tiéd!` });
         this.caught = this.fm;
+        this.awardXp(ev);
         this.finish(ev, 'caught');
       } else {
         const lines = ['Jaj, kiugrott a labdából!', 'Majdnem sikerült!', 'Úgy tűnt, megvan... de kiszökött!', 'Hajszálon múlt!'];

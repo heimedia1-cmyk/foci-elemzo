@@ -248,7 +248,13 @@ export class WorldScene extends Phaser.Scene {
 
   buildRoamers() {
     this.roamers = [];
-    for (const r of this.map.roamers || []) this.spawnRoamer(r);
+    const cd = G.state.roamerCD || {};
+    (this.map.roamers || []).forEach((r, i) => {
+      r._id = this.mapKey + ':' + i;
+      const left = (cd[r._id] || 0) - Date.now();
+      if (left > 0) this.time.delayedCall(left, () => this.spawnRoamer(r));
+      else this.spawnRoamer(r);
+    });
   }
 
   spawnRoamer(def) {
@@ -571,9 +577,22 @@ export class WorldScene extends Phaser.Scene {
     this.encounterCooldown = CONFIG.encounterCooldownSteps;
     if (opts.roamer) {
       const r = opts.roamer;
-      if (res === 'win' || res === 'caught') { r.sprite.destroy(); this.roamers.splice(this.roamers.indexOf(r), 1); this.time.delayedCall(45000, () => this.spawnRoamer(r.def)); }
+      if (res === 'win' || res === 'caught') {
+        r.sprite.destroy(); this.roamers.splice(this.roamers.indexOf(r), 1);
+        // a legyőzött vándorló Mexi 3 percig nem tér vissza, akkor sem, ha közben elhagyod a területet
+        s.roamerCD = s.roamerCD || {}; s.roamerCD[r.def._id] = Date.now() + 180000;
+        this.time.delayedCall(180000, () => this.spawnRoamer(r.def));
+      } else {
+        // elfutás vagy vereség után a vad Mexi kipiheni magát
+        healFull(r.mon);
+      }
     }
     if (res === 'win') s.stats.wins++;
+    if (res === 'win' && !opts.isTrainer) {
+      const coins = Math.max(10, Math.round(opts.foeParty[0].level * 12));
+      s.money += coins;
+      toast(`A vad Mexi elejtett ${coins} érmét!`);
+    }
     if (res === 'lose') {
       this.cutscene = true;
       const lost = Math.floor(s.money * 0.1);
@@ -601,6 +620,7 @@ export class WorldScene extends Phaser.Scene {
 
   // ---------------- Edzők ----------------
   async checkTrainerSight() {
+    if (!G.state.party.some(m => m.hp > 0)) return false;
     for (const n of this.npcs) {
       if (!n.tr || G.state.defeatedTrainers.includes(n.trainer)) continue;
       const [dx, dy] = DV[n.dir];
