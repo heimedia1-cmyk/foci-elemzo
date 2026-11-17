@@ -3,7 +3,7 @@ import { MAPS, SOLID, TRAINERS } from '../data/maps.js';
 import { MEXIS } from '../data/mexis.js';
 import { ITEMS } from '../data/items.js';
 import { CONFIG } from '../data/config.js';
-import { DIR_ROW, TS as T, BUILDING_INFO, PROP_INFO } from '../art/registerArt.js';
+import { DIR_ROW, TS as T, BUILDING_INFO, PROP_INFO, FURNITURE_INFO } from '../art/registerArt.js';
 import { G, save, markSeen } from '../systems/state.js';
 import { createMexi, healFull, rand, randInt, displayName } from '../systems/mexi.js';
 import { dialog, choose, toast, UI, el, askText } from '../ui/ui.js';
@@ -128,6 +128,9 @@ export class WorldScene extends Phaser.Scene {
     this.waterImgs = [];
     this.tileImgs = [];
     this.tileProps = {};
+    this.solidProps = new Set();
+    this.furniture = [];
+    if (this.map.interior) { this.buildInterior(); return; }
     const propFor = { T: 'tree', b: 'bush', r: 'rock', F: 'fence_h', h: 'bush_berry' };
     for (let y = 0; y < this.H; y++) {
       this.tileImgs[y] = [];
@@ -155,7 +158,6 @@ export class WorldScene extends Phaser.Scene {
       this.addProp('tree', x, y);
     }
     // egyedi tárgyak
-    this.solidProps = new Set();
     for (const pr of this.map.props || []) {
       this.addProp(pr.k, pr.x, pr.y);
       if (pr.solid !== false) this.solidProps.add(pr.x + ',' + pr.y);
@@ -165,6 +167,34 @@ export class WorldScene extends Phaser.Scene {
       this.solidProps.add(sg.x + ',' + sg.y);
     }
   }
+
+  buildInterior() {
+    const th = this.map.theme;
+    const RUG = { 1: 'rugTL', 2: 'rugT', 3: 'rugTR', 4: 'rugL', 5: 'rugC', 6: 'rugR', 7: 'rugBL', 8: 'rugB', 9: 'rugBR' };
+    this.cameras.main.setBackgroundColor('#140e20');
+    for (let y = 0; y < this.H; y++) {
+      this.tileImgs[y] = [];
+      for (let x = 0; x < this.W; x++) {
+        const ch = this.tiles[y][x];
+        const f = ch === 'W' ? th.wall : ch === 'w' ? th.win : ch === 'P' ? th.pic : ch === 'E' ? 'exitmat' : RUG[ch] || th.floor;
+        this.tileImgs[y][x] = this.add.image(x * T, y * T, 'itiles', f).setOrigin(0).setDepth(-10);
+      }
+    }
+    // a szoba sötét kerete
+    const g = this.add.graphics().setDepth(-9);
+    g.lineStyle(6, 0x2a1a10, 1).strokeRect(-3, -3, this.W * T + 6, this.H * T + 6);
+    for (const fu of this.map.furniture || []) {
+      const w = fu.w || 1, h = fu.h || 1;
+      const img = this.add.image(fu.x * T + (w * T) / 2, (fu.y + 1) * T + (fu.wall ? 0 : 2), 'fu_' + fu.k).setOrigin(0.5, 1);
+      img.setDepth(fu.wall ? -8 : (fu.solid === false ? -8 : (fu.y + 1) * T - 1));
+      const tiles = [];
+      for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) tiles.push([fu.x + i, fu.y - j]);
+      if (fu.solid !== false && !fu.wall) for (const [x, y] of tiles) this.solidProps.add(x + ',' + y);
+      this.furniture.push({ ...fu, tiles });
+    }
+  }
+
+  furnitureAt(x, y) { return this.furniture.find(f => f.tiles.some(([a, b]) => a === x && b === y)); }
 
   addFringe(x, y) {
     const sides = [[0, -1, 0], [0, 1, 1], [-1, 0, 2], [1, 0, 3]];
@@ -250,6 +280,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   updateDaylight() {
+    if (this.map.interior) { this.nightLayer.setFillStyle(0x000000, 0); return; }
     const h = new Date().getHours() + new Date().getMinutes() / 60;
     let a = 0;
     if (h >= 21 || h < 5) a = 0.45; else if (h >= 19) a = (h - 19) / 2 * 0.45; else if (h < 7) a = (7 - h) / 2 * 0.45;
@@ -459,7 +490,7 @@ export class WorldScene extends Phaser.Scene {
       s.money -= lost;
       await dialog([`Minden Mexid kimerült... Elvesztettél ${lost} érmét.`, 'Gyorsan visszasiettél a gyógyítóállomásra.']);
       for (const m of s.party) healFull(m);
-      s.map = s.lastHeal.map; s.pos = { x: s.lastHeal.x, y: s.lastHeal.y + 1, dir: 'down' };
+      s.map = s.lastHeal.map; s.pos = { x: s.lastHeal.x, y: s.lastHeal.y, dir: 'down' };
       save();
       this.cutscene = false;
       this.scene.restart();
@@ -572,6 +603,47 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     if (this.tileAt(tx, ty) === '~') { await dialog('Csillogó, tiszta víz. Mexi szívesen pancsolna benne.'); return; }
+    const fu = this.furniture?.find(f => f.act && f.tiles.some(([a, b]) => a === tx && b === ty));
+    if (fu) { await this.useFurniture(fu); return; }
+  }
+
+  async useFurniture(fu) {
+    if (fu.act === 'heal') return this.doHeal();
+    if (fu.act === 'shop') return this.doShop();
+    if (fu.act === 'pc') {
+      await dialog('Bekapcsoltad a gépet. Megnyílik a Mexi-tároló...');
+      const { openStorage } = await import('../ui/menus.js');
+      openStorage(); return;
+    }
+    if (fu.act === 'bed') {
+      this.cutscene = true;
+      this.cameras.main.fadeOut(400, 0, 0, 0);
+      await new Promise(r => this.time.delayedCall(700, r));
+      for (const m of G.state.party) healFull(m);
+      G.state.lastHeal = { map: this.mapKey, x: this.player.x, y: this.player.y };
+      this.cameras.main.fadeIn(400, 0, 0, 0);
+      await dialog('Kipihented magad. A Mexijeid is teljesen meggyógyultak! 💤');
+      save(); this.cutscene = false; return;
+    }
+    await dialog(fu.act);
+  }
+
+  async doHeal() {
+    const s = G.state; const who = 'Nővér Mancsi';
+    this.cutscene = true;
+    await dialog(['Üdv a Mexi-gyógyítóállomáson! 💖', 'Add ide a Mexijeidet, mindegyiket meggyógyítom...'], who);
+    for (const m of s.party) healFull(m);
+    this.cameras.main.flash(400, 255, 200, 220);
+    s.lastHeal = { map: this.mapKey, x: this.player.x, y: this.player.y };
+    await dialog(`Kész! Mind a(z) ${s.party.length} Mexid újra teljesen egészséges. Gyere vissza bármikor!`, who);
+    save(); this.updateHud(); this.cutscene = false;
+  }
+
+  async doShop() {
+    this.cutscene = true;
+    await dialog('Üdv a boltban! Teniszlabdák, gyógyitalok – minden, ami egy kalandhoz kell!', 'Boltos Bandi');
+    await openShop();
+    save(); this.updateHud(); this.cutscene = false;
   }
 
   async talkTo(n) {
@@ -582,6 +654,15 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     if (n.talk === 'prof') { await this.profTalk(); return; }
+    if (n.talk === 'heal') return this.doHeal();
+    if (n.talk === 'shop') return this.doShop();
+    if (n.talk === 'mom') {
+      this.cutscene = true;
+      await dialog(['Anya: Szia kincsem! Pihenj egy kicsit...', '(A Mexijeid kipihenték magukat.)']);
+      for (const m of G.state.party) healFull(m);
+      G.state.lastHeal = { map: this.mapKey, x: this.player.x, y: this.player.y };
+      save(); this.cutscene = false; return;
+    }
     const lines = n.talk;
     await dialog(lines[n.talkIdx % lines.length]);
     n.talkIdx++;
@@ -618,6 +699,13 @@ export class WorldScene extends Phaser.Scene {
   }
 
   async enterBuilding(b) {
+    const inner = MAPS['int_' + b.key];
+    if (inner) {
+      let mx = 0, my = 0;
+      inner.tiles.forEach((row, y) => row.forEach((c, x) => { if (c === 'E') { mx = x; my = y; } }));
+      this.warpTo({ to: 'int_' + b.key, tx: mx, ty: my - 1, dir: 'up' });
+      return;
+    }
     this.cutscene = true;
     const s = G.state;
     const out = () => { this.player.y += 1; this.setFacing(this.player, 'down'); this.placeSprite(this.player); s.pos = { x: this.player.x, y: this.player.y, dir: 'down' }; };

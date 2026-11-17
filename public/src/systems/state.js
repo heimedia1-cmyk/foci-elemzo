@@ -19,7 +19,7 @@ export function newGameState(name = 'Kalandor', gender = 'fiu') {
     flags: {},
     map: 'mancsfalva',
     pos: { x: 6, y: 20, dir: 'down' },
-    lastHeal: { map: 'mancsfalva', x: 24, y: 10 },
+    lastHeal: { map: 'int_heal', x: 5, y: 3 },
     defeatedTrainers: [],
     foundItems: [],
     stats: { caught: 0, shinyCaught: 0, battles: 0, wins: 0, steps: 0 },
@@ -51,6 +51,7 @@ function migrate(s) {
   s.stats ??= { caught: 0, shinyCaught: 0, battles: 0, wins: 0, steps: 0 };
   s.foundItems ??= [];
   s.defeatedTrainers ??= [];
+  if (!s.lastHeal || s.lastHeal.map === 'mancsfalva') s.lastHeal = { map: 'int_heal', x: 5, y: 3 };
   for (const m of [...s.party, ...s.storage]) m.stats = calcStats(m);
   return s;
 }

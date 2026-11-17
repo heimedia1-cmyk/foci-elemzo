@@ -4,7 +4,7 @@
 //  ~  víz         s  homok           f  rózsaszín virág         w  fehér virág
 //  T  fa          b  bokor           r  szikla                  F  kerítés
 //  h  gyanús bokor (szimatolással nyitható)                     p  feltárt ösvény
-export const SOLID = new Set(['~', 'T', 'b', 'r', 'F', 'h', '#']);
+export const SOLID = new Set(['~', 'T', 'b', 'r', 'F', 'h', '#', 'W', 'w', 'P']);
 
 function grid(w, h, ch = '.') { return Array.from({ length: h }, () => Array(w).fill(ch)); }
 function rect(g, x, y, w, h, ch) { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (g[j] && g[j][i] !== undefined) g[j][i] = ch; }
@@ -176,3 +176,151 @@ export const TRAINERS = {
     intro: 'Az én csapatom gyors és trükkös! Készen állsz?', lose: 'Hűha, ügyes vagy! A Titokzatos Erdőben találkozunk.', after: 'Az alvó Mexit sokkal könnyebb elkapni!',
   },
 };
+
+// ===================== BELSŐ TEREK =====================
+// Csempekódok: W fal, w fal ablakkal, P fal képpel, . padló, E kijárati lábtörlő, 1–9 szőnyeg (3×3)
+// furniture: { k: bútor, x, y: a lábnyom bal alsó csempéje, w, h: méret csempében, solid, act }
+// act: 'heal' | 'shop' | 'pc' | 'bed' | szöveg
+function room(rows) { return rows.map(r => r.split('')); }
+const exitTo = (x, H, tx, ty) => [{ x, y: H, to: 'mancsfalva', tx, ty, dir: 'down' }, { x: x + 1, y: H, to: 'mancsfalva', tx, ty, dir: 'down' }];
+
+Object.assign(MAPS, {
+  int_home: {
+    name: 'Otthon', interior: true,
+    theme: { floor: 'wood1', wall: 'hwall', win: 'hwall_win', pic: 'hwall_pic' },
+    tiles: room([
+      'WwWWPWWwWW',
+      '..........',
+      '..........',
+      '....123...',
+      '....456...',
+      '....789...',
+      '..........',
+      '.....E....',
+    ]),
+    furniture: [
+      { k: 'wardrobe', x: 0, y: 1 }, { k: 'bed', x: 1, y: 2, w: 2, h: 2, act: 'bed' }, { k: 'nightstand', x: 3, y: 1 },
+      { k: 'plant2', x: 4, y: 1 }, { k: 'stove', x: 5, y: 1 }, { k: 'kcounter', x: 6, y: 1, w: 2 }, { k: 'fridge', x: 8, y: 1 }, { k: 'sink', x: 9, y: 1 },
+      { k: 'clock', x: 2, y: 0, solid: false, wall: true },
+      { k: 'tv', x: 1, y: 4, act: 'Egy Mexi-dokumentumfilm megy: „A Sárkányhegy legendái”.' }, { k: 'sofa', x: 1, y: 6, w: 2 }, { k: 'floorlamp', x: 0, y: 4 },
+      { k: 'dining', x: 7, y: 4, w: 2, h: 2 }, { k: 'plant', x: 9, y: 3 },
+      { k: 'dogbed', x: 8, y: 6, w: 2, act: 'Mexi kedvenc fekhelye. Puha és meleg!' }, { k: 'bowls', x: 7, y: 6 }, { k: 'toybox', x: 0, y: 6, act: 'Tele van teniszlabdákkal és rágócsontokkal.' },
+    ],
+    signs: [], props: [], buildings: [], hidden: [], triggers: [], encounters: null,
+    npcs: [{ id: 'anya_bent', sprite: 'anya', x: 3, y: 3, dir: 'down', wander: 1, talk: 'mom' }],
+    warps: exitTo(5, 8, 6, 20).slice(0, 1),
+  },
+  int_house: {
+    name: 'Szomszéd háza', interior: true,
+    theme: { floor: 'parquet', wall: 'hwall', win: 'hwall_win', pic: 'hwall_pic' },
+    tiles: room([
+      'WWwWWWPWW',
+      '.........',
+      '.........',
+      '.........',
+      '.........',
+      '.........',
+      '....E....',
+    ]),
+    furniture: [
+      { k: 'bookshelf', x: 0, y: 1, act: 'Régi könyvek: „Mexi-gondozás kezdőknek”, „A teniszlabda titkai”...' }, { k: 'fireplace', x: 3, y: 1, w: 2 },
+      { k: 'armchair', x: 5, y: 2 }, { k: 'bed', x: 7, y: 2, w: 2, h: 2, act: 'bed' }, { k: 'table', x: 1, y: 4, w: 2 }, { k: 'chair', x: 3, y: 4 },
+      { k: 'plant', x: 8, y: 5 }, { k: 'picture', x: 6, y: 0, solid: false, wall: true },
+      { k: 'roundrug', x: 5, y: 5, w: 2, h: 2, solid: false },
+    ],
+    signs: [], props: [], buildings: [], hidden: [], triggers: [], encounters: null,
+    npcs: [{ id: 'szomszed', sprite: 'bacsi', x: 2, y: 2, dir: 'down', wander: 1, talk: ['Szomszéd: Hallottad? Az ösvényen túl van egy Titokzatos Erdő...', 'Állítólag ott Mágus Mexik varázsolnak a fák között!'] }],
+    warps: exitTo(4, 7, 12, 20).slice(0, 1),
+  },
+  int_house2: {
+    name: 'Kék ház', interior: true,
+    theme: { floor: 'wood2', wall: 'hwall', win: 'hwall_win', pic: 'hwall_pic' },
+    tiles: room([
+      'WwWWWWWwW',
+      '.........',
+      '.........',
+      '.........',
+      '.........',
+      '.........',
+      '....E....',
+    ]),
+    furniture: [
+      { k: 'bed', x: 0, y: 2, w: 2, h: 2, act: 'bed' }, { k: 'nightstand', x: 2, y: 1 }, { k: 'tv', x: 4, y: 1, act: 'Mexi-rajzfilm megy. A kisfiú imádja!' },
+      { k: 'sofa', x: 4, y: 3, w: 2 }, { k: 'toybox', x: 8, y: 1, act: 'Plüss Mexik és egy kopott teniszlabda.' }, { k: 'dogbed', x: 7, y: 5, w: 2 },
+      { k: 'plant2', x: 0, y: 5 }, { k: 'floorlamp', x: 6, y: 1 },
+    ],
+    signs: [], props: [], buildings: [], hidden: [], triggers: [], encounters: null,
+    npcs: [{ id: 'kisfiu_bent', sprite: 'kisfiu', x: 2, y: 4, dir: 'down', wander: 1, talk: ['Ha nagy leszek, én leszek a legjobb Mexi-edző!', 'Tudtad? A Kacsa Mexi az egyik leggyorsabb!'] }],
+    warps: exitTo(4, 7, 29, 11).slice(0, 1),
+  },
+  int_shop: {
+    name: 'Teniszlabda- és felszerelésbolt', interior: true,
+    theme: { floor: 'greencheck', wall: 'swall', win: 'swall2', pic: 'swall2' },
+    tiles: room([
+      'WWPWWWWWWW',
+      '..........',
+      '..........',
+      '..........',
+      '..........',
+      '..........',
+      '..........',
+      '.....E....',
+    ]),
+    furniture: [
+      { k: 'packages', x: 0, y: 1 }, { k: 'counter', x: 1, y: 2, w: 3, act: 'shop' }, { k: 'poster', x: 2, y: 0, solid: false, wall: true },
+      { k: 'shelf_balls', x: 5, y: 1 }, { k: 'shelf_balls', x: 6, y: 1 }, { k: 'shelf_potions', x: 7, y: 1 }, { k: 'shelf_potions', x: 8, y: 1 },
+      { k: 'basket', x: 9, y: 2, act: 'Egy kosárnyi teniszlabda. A pultnál lehet venni!' }, { k: 'showcase', x: 8, y: 5, w: 2 },
+      { k: 'pawrug', x: 4, y: 5, w: 2, solid: false }, { k: 'plant', x: 0, y: 4 }, { k: 'bin', x: 0, y: 6 }, { k: 'bell', x: 6, y: 0, solid: false, wall: true },
+    ],
+    signs: [], props: [], buildings: [], hidden: [], triggers: [], encounters: null,
+    npcs: [{ id: 'boltos_bent', sprite: 'boltos', x: 2, y: 1, dir: 'down', wander: 0, talk: 'shop' }],
+    warps: exitTo(5, 8, 25, 20).slice(0, 1),
+  },
+  int_heal: {
+    name: 'Mexi-gyógyítóállomás', interior: true,
+    theme: { floor: 'pinkcheck', wall: 'cwall', win: 'cwall2', pic: 'cwall2' },
+    tiles: room([
+      'WWWWWPWWWWW',
+      '...........',
+      '...........',
+      '...........',
+      '...........',
+      '...........',
+      '...........',
+      '.....E.....',
+    ]),
+    furniture: [
+      { k: 'palm', x: 0, y: 2 }, { k: 'cabinet', x: 2, y: 1 }, { k: 'healcounter', x: 4, y: 2, w: 3, act: 'heal' },
+      { k: 'healmachine', x: 7, y: 1, w: 2 }, { k: 'pc', x: 9, y: 1, act: 'pc' }, { k: 'water', x: 10, y: 2 },
+      { k: 'bench_in', x: 1, y: 5, w: 2 }, { k: 'bench_in', x: 8, y: 5, w: 2 }, { k: 'pawrug', x: 5, y: 5, w: 2, solid: false },
+      { k: 'stretcher', x: 0, y: 7, w: 2 }, { k: 'lamp_in', x: 10, y: 6 },
+    ],
+    signs: [], props: [], buildings: [], hidden: [], triggers: [], encounters: null,
+    npcs: [{ id: 'apolo_bent', sprite: 'apolo', x: 5, y: 1, dir: 'down', wander: 0, talk: 'heal' }],
+    warps: exitTo(5, 8, 24, 11).slice(0, 1),
+  },
+  int_lab: {
+    name: 'Mexi-kutató labor', interior: true,
+    theme: { floor: 'metal1', wall: 'lwall', win: 'lwall2', pic: 'lwall2' },
+    tiles: room([
+      'WWWWWPWWWWW',
+      '...........',
+      '...........',
+      '...........',
+      '...........',
+      '...........',
+      '...........',
+      '.....E.....',
+    ]),
+    furniture: [
+      { k: 'pc', x: 1, y: 1, act: 'pc' }, { k: 'pc_off', x: 2, y: 1, act: 'A gép frissítést tölt le... „MexiDex 2.0 – hamarosan”.' },
+      { k: 'bookshelf', x: 4, y: 1, act: 'Kutatási jegyzetek: „A Mexik típusai és a típuselőnyök”.' }, { k: 'bookshelf', x: 5, y: 1, act: 'Kutatási jegyzetek: „Shiny Mexik – 1:512 esély?”' },
+      { k: 'herbshelf', x: 6, y: 1 }, { k: 'packages', x: 10, y: 1 },
+      { k: 'podium', x: 8, y: 2, w: 2, act: 'Egy kísérleti teleport-platform. Még nem működik.' },
+      { k: 'table', x: 3, y: 4, w: 2 }, { k: 'chair', x: 2, y: 4 }, { k: 'plant', x: 0, y: 6 }, { k: 'plant2', x: 10, y: 6 },
+    ],
+    signs: [], props: [], buildings: [], hidden: [], triggers: [], encounters: null,
+    npcs: [{ id: 'asszisztens', sprite: 'gyujto', x: 7, y: 4, dir: 'down', wander: 1, talk: ['Kutatóasszisztens: A professzor kint van a téren, ő adja a kezdő Mexiket.', 'A számítógépen eléred a Mexi-tárolódat!'] }],
+    warps: exitTo(5, 8, 6, 11).slice(0, 1),
+  },
+});

@@ -14,6 +14,8 @@ for (const [key, m] of Object.entries(MAPS)) {
     doors.push({ ...door, name: b.name });
   }
   for (const p of m.props || []) if (p.solid !== false) blocked.add(p.x + ',' + p.y);
+  for (const f of m.furniture || []) if (f.solid !== false && !f.wall) for (let j = 0; j < (f.h || 1); j++) for (let i = 0; i < (f.w || 1); i++) blocked.add((f.x + i) + ',' + (f.y - j));
+  const acts = (m.furniture || []).filter(f => f.act);
   for (const s of m.signs) blocked.add(s.x + ',' + s.y);
   const npcAt = new Set(m.npcs.map(n => n.x + ',' + n.y));
   const solid = (x, y) => x < 0 || y < 0 || x >= W || y >= H || (SOLID.has(m.tiles[y][x]) && m.tiles[y][x] !== 'h') || blocked.has(x + ',' + y) || npcAt.has(x + ',' + y);
@@ -26,6 +28,7 @@ for (const [key, m] of Object.entries(MAPS)) {
   for (const s of m.signs) assert.ok(near(s.x, s.y), `${key}: tábla elérhetetlen: ${s.x},${s.y}`);
   for (const h of m.hidden) assert.ok(seen.has(h.x + ',' + h.y) || near(h.x, h.y), `${key}: rejtett tárgy elérhetetlen: ${h.id}`);
   for (const w of m.warps) assert.ok(near(w.x, w.y) || seen.has(w.x + ',' + w.y), `${key}: kijárat elérhetetlen`);
+  for (const f of acts) { let ok = false; for (let j = 0; j < (f.h || 1); j++) for (let i = 0; i < (f.w || 1); i++) if (near(f.x + i, f.y - j)) ok = true; assert.ok(ok, `${key}: bútor elérhetetlen: ${f.k}`); }
   if (m.secretBush) assert.ok(near(m.secretBush.x, m.secretBush.y), `${key}: titkos bokor elérhetetlen`);
   for (const t of m.triggers) assert.ok(seen.has(t.x + ',' + t.y), `${key}: esemény-zóna elérhetetlen ${t.id}`);
   console.log(`✓ ${key}: ${seen.size} bejárható mező, minden fontos pont elérhető`);

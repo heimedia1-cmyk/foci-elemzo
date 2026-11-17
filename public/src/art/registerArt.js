@@ -2,7 +2,7 @@
 // A végleges grafikák a public/assets mappából jönnek (feldarabolt ChatGPT-s sprite-lapok).
 // Ahol még nincs kép (pl. fejlődési alakok), ott a meglévőből készül változat, vagy a kódból rajzolt helyettesítő.
 import { drawMexiBattle, drawBall, hueShift } from './placeholders.js';
-import { TILE_INDEX, BUILDING_INFO, PROP_INFO } from './assetIndex.js';
+import { TILE_INDEX, BUILDING_INFO, PROP_INFO, ITILE_INDEX, FURNITURE_INFO } from './assetIndex.js';
 import { MEXIS } from '../data/mexis.js';
 import { ITEMS } from '../data/items.js';
 
@@ -30,6 +30,8 @@ export function preloadArt(scene) {
   L.image('title_bg', 'assets/title.jpg');
   for (const k of Object.keys(BUILDING_INFO)) L.image('b_' + k, `assets/b_${k}.png`);
   for (const k of Object.keys(PROP_INFO)) L.image('pr_' + k, `assets/p_${k}.png`);
+  L.image('src_itiles', 'assets/itiles.png');
+  for (const k of Object.keys(FURNITURE_INFO)) L.image('fu_' + k, `assets/f_${k}.png`);
 }
 
 function cv(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
@@ -83,6 +85,9 @@ export function registerArt(scene) {
   const tilesImg = img(scene, 'src_tiles');
   const tex = scene.textures.addCanvas('tiles', crop(tilesImg, 0, 0, tilesImg.width, tilesImg.height));
   for (const [name, i] of Object.entries(TILE_INDEX)) tex.add(name, 0, i * TS, 0, TS, TS);
+  const it = img(scene, 'src_itiles');
+  const itex = scene.textures.addCanvas('itiles', crop(it, 0, 0, it.width, it.height));
+  for (const [name, i] of Object.entries(ITILE_INDEX)) itex.add(name, 0, i * TS, 0, TS, TS);
   addSheet(scene, 'fringe', crop(img(scene, 'src_fringe'), 0, 0, 128, 32), TS, TS);
 
   // ---- játékos (6 oszlop: fiú 0-2, lány 3-5; 4 sor irányonként), 32×44
@@ -141,4 +146,4 @@ export function registerArt(scene) {
   addCanvas(scene, 'px', px);
 }
 
-export { BUILDING_INFO, PROP_INFO, hueShift };
+export { BUILDING_INFO, PROP_INFO, FURNITURE_INFO, hueShift };
