@@ -3,7 +3,7 @@ import { el, openWindow, choose, dialog, toast, hpBar, UI, askText } from './ui.
 import { G, save } from '../systems/state.js';
 import { MEXIS, RARITY, SPECIES_ORDER, NATURES, STAT_NAMES } from '../data/mexis.js';
 import { MOVES, STATUS } from '../data/moves.js';
-import { ITEMS, SHOP_STOCK } from '../data/items.js';
+import { ITEMS, SHOP_STOCK, itemIcon } from '../data/items.js';
 import { TYPES } from '../data/types.js';
 import { CONFIG } from '../data/config.js';
 import { displayName, ivPercent, xpForLevel } from '../systems/mexi.js';
@@ -15,9 +15,10 @@ export function iconFor(species, shiny = false) {
   const k = species + (shiny ? '_s' : '');
   return iconCache[k] ??= (getArtURL(species, shiny) || mexiIconDataURL(species, shiny));
 }
-export const typeBadge = (t) => el('span', { class: 'type', style: `background:${TYPES[t].color}` }, TYPES[t].name);
+export const typeIcon = (t) => el('img', { class: 'ico', src: `assets/ui/t_${t}.png`, alt: '' });
+export const typeBadge = (t) => el('span', { class: 'type', style: `background:${TYPES[t].color}` }, typeIcon(t), TYPES[t].name);
 export function rarityBadge(r) { const R = RARITY[r]; return el('span', { class: 'rar' + (R.color === 'rainbow' ? ' rainbow' : ''), style: R.color === 'rainbow' ? '' : `background:${R.color}` }, R.name); }
-const statusBadge = (s) => s ? el('span', { class: 'rar', style: `background:${STATUS[s].color}` }, STATUS[s].short) : null;
+const statusBadge = (s) => s ? el('span', { class: 'rar', style: `background:${STATUS[s].color}` }, el('img', { class: 'ico', src: `assets/ui/s_${s}.png` }), STATUS[s].short) : null;
 
 function xpBar(m) {
   const a = xpForLevel(m.level), b = xpForLevel(m.level + 1);
@@ -40,17 +41,17 @@ function mexiRow(m, onClick, extra = null) {
 export function openMainMenu(world) {
   openWindow('Menü', (w) => {
     const s = G.state;
-    const b = (label, fn) => el('button', { class: 'btn', onclick: () => { w.close(); fn(); } }, label);
+    const b = (label, fn) => el('button', { class: 'btn', onclick: () => { w.close(); fn(); } }, ...[].concat(label));
     w.body.append(
       el('div', { style: 'margin-bottom:10px;font-weight:700' }, `${s.player.name} • 💰 ${s.money} • Mexidex: ${Object.keys(s.dex.caught).length}/${SPECIES_ORDER.length} • Elkapva: ${s.stats.caught}`),
       el('div', { class: 'mainmenu' },
-        b('📖 Mexidex (J)', () => openDex()),
-        b('🐶 Csapat (P)', () => openParty()),
-        b('🎒 Táska (I)', () => openBag()),
-        b('📦 Mexi-tároló', () => openStorage()),
-        b('💾 Mentés', () => { save() ? toast('Játék elmentve!') : toast('Mentés sikertelen'); }),
-        b('❓ Irányítás', () => dialog(['WASD / nyilak: mozgás\nE: beszélgetés, interakció\nSpace: szimatolás', 'I: táska • J: Mexidex • P: csapat\nEsc: menü\nMobilon: joystick + A gomb + 🐾 + ☰'])),
-        b('🏠 Főmenü', () => world.scene.start('Title')),
+        b([el('img', { class: 'mico', src: 'assets/ui/m_dex.png' }), 'Mexidex (J)'], () => openDex()),
+        b([el('img', { class: 'mico', src: 'assets/ui/m_party.png' }), 'Csapat (P)'], () => openParty()),
+        b([el('img', { class: 'mico', src: 'assets/ui/m_bag.png' }), 'Táska (I)'], () => openBag()),
+        b([el('img', { class: 'mico', src: 'assets/ui/m_map.png' }), 'Mexi-tároló'], () => openStorage()),
+        b([el('img', { class: 'mico', src: 'assets/ui/m_save.png' }), 'Mentés'], () => { save() ? toast('Játék elmentve!') : toast('Mentés sikertelen'); }),
+        b([el('img', { class: 'mico', src: 'assets/ui/m_settings.png' }), 'Irányítás'], () => dialog(['WASD / nyilak: mozgás\nE: beszélgetés, interakció\nSpace: szimatolás', 'I: táska • J: Mexidex • P: csapat\nEsc: menü\nMobilon: joystick + A gomb + 🐾 + ☰'])),
+        b([el('img', { class: 'mico', src: 'assets/ui/m_exit.png' }), 'Főmenü'], () => world.scene.start('Title')),
       ));
   });
 }
@@ -224,7 +225,7 @@ export function openBag({ inBattle = false, isTrainer = false } = {}) {
             if (inBattle) { result = { itemId: id, target: idx }; w.close(); return; }
             useItemOutside(id, G.state.party[idx]); draw();
           } },
-            el('div', { style: `width:40px;height:40px;border-radius:50%;background:${it.color || '#e8d8b8'};border:3px solid #3a2a4a;display:flex;align-items:center;justify-content:center;font-size:20px` }, it.kind === 'ball' ? '🎾' : it.kind === 'misc' ? '🍪' : '🧪'),
+            el('img', { src: itemIcon(id), style: 'width:44px;height:44px;image-rendering:pixelated' }),
             el('div', { class: 'grow' }, el('b', {}, it.name), el('div', { style: 'font-size:13px' }, it.desc)), el('b', {}, `×${inv[id]}`)));
         }
       });
@@ -258,7 +259,7 @@ export function openShop() {
             const buy = (n) => { const cost = it.price * n; if (s.money < cost) { toast('Nincs elég pénzed.'); return; } s.money -= cost; s.inventory[id] = (s.inventory[id] || 0) + n;
               if (id === 'sima_labda' && n >= 10) { s.inventory.profi_labda = (s.inventory.profi_labda || 0) + 1; toast('Ajándék: 1 Profi Teniszlabda!'); } else toast(`Megvetted: ${n}× ${it.name}`); save(); draw(); };
             body.append(el('div', { class: 'row', style: 'cursor:default' },
-              el('div', { style: 'font-size:24px' }, it.kind === 'ball' ? '🎾' : '🧪'),
+              el('img', { src: itemIcon(id), style: 'width:40px;height:40px;image-rendering:pixelated' }),
               el('div', { class: 'grow' }, el('b', {}, it.name), el('div', { style: 'font-size:13px' }, `${it.desc} • Nálad: ${s.inventory[id] || 0}`)),
               el('b', {}, `${it.price} 💰`),
               el('button', { class: 'btn', onclick: () => buy(1) }, '+1'), el('button', { class: 'btn', onclick: () => buy(10) }, '+10')));

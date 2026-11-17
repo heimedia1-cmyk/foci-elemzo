@@ -9,6 +9,7 @@ import { createMexi, healFull, rand, randInt, displayName } from '../systems/mex
 import { dialog, choose, toast, UI, el, askText } from '../ui/ui.js';
 import { openMainMenu, openParty, openBag, openDex, openShop } from '../ui/menus.js';
 import { setupTouch } from '../ui/touch.js';
+import { getWeather, weatherTable, WEATHER } from '../systems/weather.js';
 
 const DV = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 const OPP = { up: 'down', down: 'up', left: 'right', right: 'left' };
@@ -57,6 +58,8 @@ export class WorldScene extends Phaser.Scene {
     this.nightLayer = this.add.rectangle(-T * 8, -T * 8, (this.W + 16) * T, (this.H + 16) * T, 0x1a1050, 0).setOrigin(0).setDepth(100000);
     this.updateDaylight();
     this.time.addEvent({ delay: 30000, loop: true, callback: () => this.updateDaylight() });
+    this.weather = getWeather(this.mapKey, this.map.interior);
+    this.buildWeather();
 
     // irányítás
     this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,E,SPACE,ESC,I,J,P,SHIFT,ENTER');
@@ -278,8 +281,9 @@ export class WorldScene extends Phaser.Scene {
     this.hud.append(
       el('div', { class: 'chip' }, '📍 ' + this.map.name),
       el('div', { class: 'chip' }, (isNight(now) ? '🌙 ' : '☀️ ') + now.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })),
-      el('div', { class: 'chip' }, '💰 ' + G.state.money),
-      el('div', { class: 'chip' }, '🎾 ' + ['sima_labda', 'profi_labda', 'arany_labda', 'hos_labda'].reduce((a, k) => a + (G.state.inventory[k] || 0), 0)));
+      this.map.interior ? null : el('div', { class: 'chip' }, WEATHER[this.weather].icon + ' ' + WEATHER[this.weather].name),
+      el('div', { class: 'chip' }, el('img', { src: 'assets/ui/coin.png', class: 'ico' }), ' ' + G.state.money),
+      el('div', { class: 'chip' }, el('img', { src: 'assets/ui/ball_sima.png', class: 'ico' }), ' ' + ['sima_labda', 'profi_labda', 'arany_labda', 'hos_labda'].reduce((a, k) => a + (G.state.inventory[k] || 0), 0)));
   }
 
   updateDaylight() {
@@ -289,6 +293,74 @@ export class WorldScene extends Phaser.Scene {
     if (h >= 21 || h < 5) a = 0.45; else if (h >= 19) a = (h - 19) / 2 * 0.45; else if (h < 7) a = (7 - h) / 2 * 0.45;
     const color = h >= 17 && h < 21 ? 0x5a2a6a : 0x1a1050;
     this.nightLayer.setFillStyle(color, a);
+  }
+
+  // ---------------- Időjárás ----------------
+  buildWeather() {
+    const w = this.weather; const cam = this.cameras.main; const { width: W, height: H } = this.scale;
+    const z = cam.zoom; const vw = W / z + 64, vh = H / z + 64;
+    this.wxLayers = [];
+    const tile = (key, alpha, speedX, speedY, scale = 1) => {
+      const ts = this.add.tileSprite(0, 0, vw, vh, key).setOrigin(0).setScrollFactor(0).setDepth(99000).setAlpha(alpha).setTileScale(scale);
+      this.wxLayers.push({ ts, speedX, speedY });
+    };
+    if (w === 'rain') {
+      tile('w_rain', 0.55, -0.6, 7);
+      tile('w_rain', 0.35, -0.4, 5, 0.7);
+      this.time.addEvent({ delay: 220, loop: true, callback: () => {
+        const x = cam.worldView.x + Math.random() * cam.worldView.width, y = cam.worldView.y + Math.random() * cam.worldView.height;
+        const r = this.add.image(x, y, 'w_ripple').setDepth(-5).setAlpha(0.7).setScale(0.6);
+        this.tweens.add({ targets: r, scale: 1.1, alpha: 0, duration: 600, onComplete: () => r.destroy() });
+      } });
+      this.time.addEvent({ delay: 15000, loop: true, callback: () => { if (Math.random() < 0.35) cam.flash(180, 255, 255, 230); } });
+    }
+    if (w === 'snow') { tile('w_snow2', 0.8, 0.3, 1.2); tile('w_snow1', 0.6, -0.2, 0.7, 1.4); }
+    if (w === 'fog') {
+      for (let i = 0; i < 7; i++) {
+        const f = this.add.image(Math.random() * vw, Math.random() * vh, 'w_fog').setScrollFactor(0).setDepth(99000).setAlpha(0.35).setScale(1.8 + Math.random());
+        this.tweens.add({ targets: f, x: f.x + 120, duration: 9000 + Math.random() * 6000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      }
+    }
+    if (w === 'wind') {
+      this.time.addEvent({ delay: 900, loop: true, callback: () => {
+        const l = this.add.image(-20, Math.random() * vh * 0.8, 'w_leaves').setScrollFactor(0).setDepth(99000).setScale(0.5);
+        this.tweens.add({ targets: l, x: vw + 40, y: l.y + 80, angle: 360, duration: 4000 + Math.random() * 2000, onComplete: () => l.destroy() });
+      } });
+    }
+    if (!this.map.interior && w !== 'rain' && isNight()) {
+      for (let i = 0; i < 4; i++) {
+        const f = this.add.image(Math.random() * vw, Math.random() * vh, 'w_fireflies').setScrollFactor(0).setDepth(99001).setScale(0.8).setAlpha(0);
+        this.tweens.add({ targets: f, alpha: 0.9, y: f.y - 20, duration: 1800 + i * 300, yoyo: true, repeat: -1, delay: i * 500 });
+      }
+    }
+  }
+
+  // ---------------- Interakció a Mexivel ----------------
+  emote(target, kind, ms = 1200) {
+    const e = this.add.image(target.sprite.x, target.sprite.y - 42, 'emo_' + kind).setDepth(99500).setScale(0.7);
+    this.tweens.add({ targets: e, y: e.y - 8, duration: 300, yoyo: true, repeat: 1 });
+    this.time.delayedCall(ms, () => e.destroy());
+    return e;
+  }
+
+  async playWithMexi() {
+    const m = this.follower.mon; const name = displayName(m);
+    const c = await choose(['🤚 Simogatás', '🦴 Etetés', '🎾 Játék', 'Mégse'], { question: `Mit csinálsz ${name}-val/-vel?` });
+    if (c < 0 || c === 3) return;
+    const kind = ['pet', 'eat', 'happy'][c];
+    this.cutscene = true;
+    const f = this.follower; f.sprite.setVisible(false);
+    const frames = m.species === 'alap' ? [1, 2, 3].map(i => `ia_${kind}${i}`) : null;
+    const spr = frames ? this.add.image(f.sprite.x, f.sprite.y + 6, frames[0]).setOrigin(0.5, 1).setDepth(f.sprite.y + 1).setScale(0.6) : null;
+    if (!spr) { f.sprite.setVisible(true); this.tweens.add({ targets: f.sprite, y: f.sprite.y - 10, yoyo: true, repeat: 3, duration: 150 }); }
+    if (frames) for (let i = 0; i < 6; i++) { spr.setTexture(frames[Math.min(2, Math.floor(i / 2))]); await new Promise(r => this.time.delayedCall(260, r)); }
+    else await new Promise(r => this.time.delayedCall(1000, r));
+    this.emote(f, ['heart', 'note', 'sparkle'][c]);
+    m.friendship = Math.min(255, (m.friendship || 0) + (c === 1 ? 3 : 2));
+    const lines = [`${name} boldogan behunyja a szemét. Imádja, ha simogatod!`, `${name} jóízűen megette a falatot. Nyamm!`, `${name} kergeti a teniszlabdát és hozza vissza. Vau!`];
+    await dialog(lines[c]);
+    spr?.destroy(); f.sprite.setVisible(true);
+    this.cutscene = false; save();
   }
 
   // ---------------- Segédek ----------------
@@ -325,7 +397,9 @@ export class WorldScene extends Phaser.Scene {
     else if (k === 'p') openParty();
   }
 
-  update() {
+  update(time, delta) {
+    for (const l of this.wxLayers || []) { l.ts.tilePositionX -= l.speedX * delta / 16; l.ts.tilePositionY -= l.speedY * delta / 16; }
+    this.idleCheck(time);
     for (const o of [this.player, this.follower, ...this.npcs, ...this.roamers]) if (o?.sprite) o.sprite.setDepth(o.sprite.y);
     if (!this.canControl()) return;
     const K = this.keys;
@@ -338,7 +412,20 @@ export class WorldScene extends Phaser.Scene {
     if (dir) this.tryMove(dir, K.SHIFT.isDown);
   }
 
+  idleCheck(time) {
+    if (this._lastActive === undefined) this._lastActive = time;
+    if (this.moving || UI.busy || this.inBattle) { this._lastActive = time; if (this._sleepSpr) { this._sleepSpr.destroy(); this._sleepSpr = null; this.follower.sprite.setVisible(true); } return; }
+    const f = this.follower;
+    if (!this._sleepSpr && time - this._lastActive > 25000 && f.mon?.species === 'alap' && f.sprite.visible) {
+      f.sprite.setVisible(false);
+      this._sleepSpr = this.add.image(f.sprite.x, f.sprite.y + 6, 'ia_sleep1').setOrigin(0.5, 1).setDepth(f.sprite.y).setScale(0.55);
+      let i = 0; this._sleepTimer = this.time.addEvent({ delay: 600, loop: true, callback: () => { if (!this._sleepSpr) { this._sleepTimer.remove(); return; } i = (i + 1) % 3; this._sleepSpr.setTexture('ia_sleep' + (i + 1)); } });
+    }
+  }
+
   tryMove(dir, run = false) {
+    this._lastActive = this.time.now;
+    if (this._sleepSpr) { this._sleepSpr.destroy(); this._sleepSpr = null; this.follower.sprite.setVisible(true); }
     const p = this.player;
     if (p.dir !== dir && !this._turnDone) {
       this.setFacing(p, dir);
@@ -436,7 +523,7 @@ export class WorldScene extends Phaser.Scene {
     const enc = this.map.encounters; const p = this.player;
     const zone = enc.zones.find(z => p.x >= z.rect[0] && p.x < z.rect[0] + z.rect[2] && p.y >= z.rect[1] && p.y < z.rect[1] + z.rect[3]);
     const night = isNight();
-    const table = (zone && (night ? zone.night : zone.day)) || (night ? enc.night : enc.day);
+    const table = weatherTable((zone && (night ? zone.night : zone.day)) || (night ? enc.night : enc.day), this.weather);
     const levels = zone?.levels || enc.levels;
     const total = table.reduce((a, [, w]) => a + w, 0);
     let r = rand() * total, species = table[0][0];
@@ -528,7 +615,7 @@ export class WorldScene extends Phaser.Scene {
 
   async trainerChallenge(n, dist) {
     this.cutscene = true;
-    const ex = this.add.text(this.px(n.x) - 5, this.py(n.y) - 58, '!', { fontFamily: 'Arial Black', fontSize: '22px', color: '#ff3030', stroke: '#fff', strokeThickness: 4 }).setDepth(99999);
+    const ex = this.emote(n, 'excl', 700);
     await new Promise(r => this.time.delayedCall(600, r));
     ex.destroy();
     const [dx, dy] = DV[n.dir];
@@ -591,10 +678,7 @@ export class WorldScene extends Phaser.Scene {
     const tx = p.x + dx, ty = p.y + dy;
     const npc = this.npcs.find(n => n.x === tx && n.y === ty);
     if (npc) { await this.talkTo(npc); return; }
-    if (this.follower.mon && this.follower.x === tx && this.follower.y === ty) {
-      const m = this.follower.mon; const lines = ['vidáman csóválja a farkát!', 'rád néz és ugat egyet. Vau!', 'szimatol valamit a földön...', 'boldogan ugrál körülötted!'];
-      await dialog(`${displayName(m)} ${lines[randInt(0, lines.length - 1)]}`); return;
-    }
+    if (this.follower.mon && this.follower.x === tx && this.follower.y === ty) { await this.playWithMexi(); return; }
     const sign = this.map.signs.find(s => s.x === tx && s.y === ty);
     if (sign) { await dialog(sign.text.split('\n').length > 2 ? sign.text.split('\n') : sign.text); return; }
     const hid = this.map.hidden.find(h => h.x === tx && h.y === ty && !G.state.foundItems.includes(h.id)) || this.map.hidden.find(h => h.x === p.x && h.y === p.y && !G.state.foundItems.includes(h.id));

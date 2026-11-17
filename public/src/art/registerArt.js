@@ -28,6 +28,10 @@ export function preloadArt(scene) {
   L.image('src_map', 'assets/mexi_map.png');
   L.image('src_evo', 'assets/mexi_evo.png');
   L.image('src_anim_a', 'assets/anim_a.png');
+  for (const n of ['pet1', 'pet2', 'pet3', 'eat1', 'eat2', 'eat3', 'happy1', 'happy2', 'happy3', 'sleep1', 'sleep2', 'sleep3']) L.image('ia_' + n, `assets/ui/ia_${n}.png`);
+  for (const n of ['heart', 'note', 'dizzy', 'excl', 'q', 'sweat', 'angry', 'sparkle']) L.image('emo_' + n, `assets/ui/emo_${n}.png`);
+  for (const n of ['rain', 'ripple', 'snow1', 'snow2', 'fog', 'leaves', 'fireflies', 'sunbeam']) L.image('w_' + n, `assets/ui/w_${n}.png`);
+  for (const n of ['ball_sima', 'ball_profi', 'ball_arany', 'ball_hos']) L.image('ico_' + n, `assets/ui/${n}.png`);
   L.image('src_anim_b', 'assets/anim_b.png');
   L.image('title_bg', 'assets/title.jpg');
   for (const k of Object.keys(BUILDING_INFO)) L.image('b_' + k, `assets/b_${k}.png`);
@@ -149,7 +153,11 @@ export function registerArt(scene) {
     addCanvas(scene, k, big);
   }
 
-  for (const [id, it] of Object.entries(ITEMS)) if (it.kind === 'ball') addCanvas(scene, 'ball_' + id, drawBall(it.color));
+  for (const [id, it] of Object.entries(ITEMS)) if (it.kind === 'ball') {
+    const key = 'ico_ball_' + id.replace('_labda', '');
+    if (scene.textures.exists(key)) { const c = cv(14, 14); const g = c.getContext('2d'); g.drawImage(img(scene, key), 0, 0, 14, 14); addCanvas(scene, 'ball_' + id, c); }
+    else addCanvas(scene, 'ball_' + id, drawBall(it.color));
+  }
   const px = cv(4, 4); const c = px.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, 4, 4);
   addCanvas(scene, 'px', px);
 }

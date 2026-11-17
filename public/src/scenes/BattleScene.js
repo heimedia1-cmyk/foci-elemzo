@@ -105,7 +105,7 @@ export class BattleScene extends Phaser.Scene {
     box.innerHTML = '';
     const pct = Math.max(0, m.hp / m.stats.hp * 100);
     box.append(...[
-      el('div', { class: 'top' }, el('span', {}, displayName(m), m.shiny ? ' ✨' : '', caughtMark, m.status ? el('span', { class: 'st', style: `background:${STATUS[m.status].color}` }, STATUS[m.status].short) : null), el('span', {}, 'Sz. ' + m.level)),
+      el('div', { class: 'top' }, el('span', {}, displayName(m), m.shiny ? ' ✨' : '', caughtMark, m.status ? el('span', { class: 'st', style: `background:${STATUS[m.status].color}` }, el('img', { class: 'ico', src: `assets/ui/s_${m.status}.png` }), STATUS[m.status].short) : null), el('span', {}, 'Sz. ' + m.level)),
       el('div', {}, ...MEXIS[m.species].types.map(typeBadge)),
       el('div', { class: 'hpbar ' + hpClass(m.hp, m.stats.hp), style: 'margin-top:4px' }, el('i', { style: `width:${pct}%` })),
       side === 'p' ? el('div', { class: 'hpnum' }, `${m.hp} / ${m.stats.hp}`) : null,
@@ -188,8 +188,8 @@ export class BattleScene extends Phaser.Scene {
         this.acts.className = 'acts panel'; this.acts.innerHTML = '';
         const b = [
           el('button', { class: 'btn primary', onclick: () => showMoves() }, '⚔️ Harc'),
-          el('button', { class: 'btn', onclick: () => doBag() }, '🎒 Táska'),
-          el('button', { class: 'btn', onclick: () => doSwitch() }, '🐶 Mexi'),
+          el('button', { class: 'btn', onclick: () => doBag() }, el('img', { class: 'ico', src: 'assets/ui/m_bag.png' }), ' Táska'),
+          el('button', { class: 'btn', onclick: () => doSwitch() }, el('img', { class: 'ico', src: 'assets/ui/m_party.png' }), ' Mexi'),
           el('button', { class: 'btn', onclick: () => resolve({ type: 'run' }) }, '🏃 Menekülés'),
         ];
         this.acts.append(...b);
@@ -212,7 +212,7 @@ export class BattleScene extends Phaser.Scene {
           const d = MOVES[mv.id]; const mult = d.power ? effectiveness(d.type, foeTypes) : 1;
           const hint = known && d.power ? (mult >= 2 ? el('span', { class: 'hint super' }, 'SZUPER') : mult === 0 ? el('span', { class: 'hint none' }, 'NINCS HATÁS') : mult < 1 ? el('span', { class: 'hint weak' }, 'GYENGE') : null) : null;
           return el('button', { class: 'btn', disabled: mv.pp <= 0, style: `border-left:10px solid ${TYPES[d.type].color}`, onclick: () => pick(i) },
-            d.name, hint, el('small', {}, `${TYPES[d.type].name} • ${d.cat === 'stat' ? 'Státusz' : 'Erő ' + d.power} • PP ${mv.pp}/${d.pp}`));
+            el('img', { class: 'ico', src: `assets/ui/t_${d.type}.png` }), ' ', d.name, hint, el('small', {}, `${TYPES[d.type].name} • ${d.cat === 'stat' ? 'Státusz' : 'Erő ' + d.power} • PP ${mv.pp}/${d.pp}`));
         });
         const back = el('button', { class: 'btn', onclick: () => { box.remove(); this.movesEl = null; showMain(); } }, '← Vissza');
         box.append(...btns, back);

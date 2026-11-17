@@ -17,3 +17,7 @@ export const ITEMS = {
 };
 
 export const SHOP_STOCK = ['sima_labda', 'profi_labda', 'kis_ital', 'nagy_ital', 'egeskenocs', 'ellenmereg', 'csodabalzsam', 'ebreszto'];
+
+// Ikonok (assets/ui)
+export const ITEM_ICON = {"sima_labda": "ball_sima", "profi_labda": "ball_profi", "arany_labda": "ball_arany", "hos_labda": "ball_hos", "kis_ital": "kis_ital", "nagy_ital": "nagy_ital", "ebreszto": "ebreszto", "csodabalzsam": "csodabalzsam", "egeskenocs": "egeskenocs", "ellenmereg": "ellenmereg", "jutalomfalat": "ebreszto", "ritka_szor": "ritka_szor"};
+export const itemIcon = (id) => `assets/ui/${ITEM_ICON[id] || 'coin'}.png`;
