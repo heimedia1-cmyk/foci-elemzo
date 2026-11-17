@@ -2,6 +2,7 @@
 export const CONFIG = {
   shinyChance: 1 / 512,
   encounterChanceTallGrass: 0.13,   // lépésenként a magas fűben
+  encounterChanceCave: 0.07,        // lépésenként a barlang padlóján
   encounterCooldownSteps: 2,         // ennyi lépés védett idő harc után
   maxLevel: 50,                      // később 100-ig bővíthető
   partySize: 6,

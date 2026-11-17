@@ -122,6 +122,10 @@ export function registerArt(scene) {
     for (let d = 0; d < 4; d++) for (let f = 0; f < 3; f++) ctx.drawImage(np, d * PW, row * PH, PW, PH, f * PW, d * PH, PW, PH);
     addSheet(scene, 'p_' + key, c, PW, PH);
   });
+  // további edző-változatok színezéssel
+  addSheet(scene, 'p_edzo3', hueCanvas(scene.textures.get('p_fiu').getSourceImage(), 220, 1.0), PW, PH);
+  addSheet(scene, 'p_edzo4', hueCanvas(scene.textures.get('p_gyujto').getSourceImage(), 90, 1.1), PW, PH);
+  addSheet(scene, 'p_edzo5', hueCanvas(scene.textures.get('p_kisfiu').getSourceImage(), 270, 1.0), PW, PH);
 
   // ---- Mexik: térkép (32×32, 4 irány × 3 fázis), harc elöl/hátul (96×96)
   const mp = img(scene, 'src_map'), fr = img(scene, 'src_front'), bk = img(scene, 'src_back');

@@ -4,7 +4,8 @@
 //  ~  víz         s  homok           f  rózsaszín virág         w  fehér virág
 //  T  fa          b  bokor           r  szikla                  F  kerítés
 //  h  gyanús bokor (szimatolással nyitható)                     p  feltárt ösvény
-export const SOLID = new Set(['~', 'T', 'b', 'r', 'F', 'h', '#', 'W', 'w', 'P']);
+//  :  barlangpadló (vad Mexik!)  K  sziklafal   g  kavics      d  sötét fű     B  híd
+export const SOLID = new Set(['~', 'T', 'b', 'r', 'F', 'h', '#', 'W', 'w', 'P', 'K']);
 
 function grid(w, h, ch = '.') { return Array.from({ length: h }, () => Array(w).fill(ch)); }
 function rect(g, x, y, w, h, ch) { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (g[j] && g[j][i] !== undefined) g[j][i] = ch; }
@@ -69,6 +70,75 @@ function buildOsveny() {
   return g;
 }
 
+
+// ===================== KRISTÁLYBARLANG (30 × 24) =====================
+function buildBarlang() {
+  const rows = [
+    'KKKKKKKKKKKKKKKKKKKKKKKKKKKKKK',
+    'KKKKKKKKKKKKKKKKKKKKK::::::KKK',
+    'KK:::::KKKKKKKKKKKKKK::::::KKK',
+    'KK:::::::::KKKK~~~~KK::::::KKK',
+    'KK::g::::::::KK~~~~~K:::::::KK',
+    'KKK::::KK:::::~~~~~~::::KK::KK',
+    'KKK:::KKKK::::~~~~~:::::KK::KK',
+    'KK::::KKKK:::::~~~::::::::::KK',
+    'KK:::::KK::::::::::KKKK:::::KK',
+    'KKK::::::::KKKK::::KKKK:::KKKK',
+    'KKKKK:::::KKKKK:::::KK::::KKKK',
+    'KKKKK::::::KKK::::::::::::KKKK',
+    'KK::::::g:::::::KKK::::g:::KKK',
+    'KK::KKKK::::::::KKK:::::::::KK',
+    'KK::KKKK:::KKK:::::::KKKK:::KK',
+    'KK:::::::::KKK::::::KKKKK:::KK',
+    'KKK:::::::::::::KK::::::::::KK',
+    'KKKK::::KKK:::::KK:::KKK:::KKK',
+    'KK::::::KKK::::::::::KKK:::KKK',
+    'KK::::::::::::KKKK:::::::::KKK',
+    'KK::::::::::::KKKK::::KKKKKKKK',
+    'KKK::::KKKK:::::::::::KKKKKKKK',
+    'KKK::::KKKK::::::KKKKKKKKKKKKK',
+    'KKK::KKKKKKKKKKKKKKKKKKKKKKKKK',
+  ];
+  return rows.map(r => r.split(''));
+}
+
+// ===================== TITOKZATOS ERDŐ + HOLDTISZTÁS (34 × 50) =====================
+function buildErdo() {
+  const g = grid(34, 50);
+  border(g);
+  // Holdtisztás falu (észak)
+  rect(g, 3, 11, 28, 2, 'c');            // főutca a házak előtt
+  rect(g, 16, 9, 2, 2, 'c');             // a templom elé
+  rect(g, 10, 4, 3, 2, 'w'); rect(g, 21, 4, 3, 2, 'f');
+  rect(g, 2, 14, 12, 3, 'T');            // a falu déli fasora (nyugat)
+  rect(g, 20, 13, 12, 2, 'T');           // (kelet)
+  // az ösvény dél felé kanyarog
+  rect(g, 16, 13, 2, 8, '=');
+  rect(g, 8, 19, 10, 2, '=');
+  rect(g, 8, 21, 2, 10, '=');
+  rect(g, 2, 31, 30, 2, '~');            // patak
+  rect(g, 8, 31, 2, 2, 'B');             // fahíd
+  rect(g, 8, 33, 2, 4, '=');
+  rect(g, 8, 37, 18, 2, '=');
+  rect(g, 24, 39, 2, 5, '=');
+  rect(g, 16, 44, 10, 2, '=');
+  rect(g, 16, 46, 2, 4, '=');
+  // magas fű
+  rect(g, 3, 22, 4, 8, '"');             // nyugati rét
+  rect(g, 11, 22, 8, 7, '"');            // középső rét
+  rect(g, 22, 16, 9, 10, '"');           // mély erdő (erősebb Mexik)
+  rect(g, 3, 40, 10, 5, '"');            // déli rét
+  rect(g, 19, 40, 4, 4, '"');            // kis rét az út mellett
+  // fák, tó, sötét aljnövényzet
+  rect(g, 20, 27, 11, 3, 'T');
+  rect(g, 12, 33, 4, 3, 'T'); rect(g, 2, 46, 6, 2, 'T'); rect(g, 26, 46, 6, 2, 'T');
+  rect(g, 26, 40, 5, 4, 's'); rect(g, 27, 41, 3, 2, '~');
+  rect(g, 18, 33, 10, 3, 'd'); rect(g, 3, 34, 4, 3, 'd'); rect(g, 19, 22, 2, 5, 'd');
+  for (const [x, y] of [[5, 38], [29, 34], [12, 41], [28, 18]]) g[y][x] = 'r';
+  for (const [x, y] of [[20, 9], [31, 9]]) g[y][x] = 'b';
+  return g;
+}
+
 export const MAPS = {
   mancsfalva: {
     name: 'Mancsfalva',
@@ -116,25 +186,28 @@ export const MAPS = {
     tiles: buildOsveny(),
     buildings: [],
     props: [
-      { k: 'cave_closed', x: 4, y: 18 }, { k: 'forestarch', x: 13.5, y: 1, solid: false }, { k: 'log', x: 11, y: 30 }, { k: 'mushroom', x: 12, y: 29, solid: false },
+      { k: 'cave', x: 4, y: 18 }, { k: 'forestarch', x: 13.5, y: 1, solid: false }, { k: 'log', x: 11, y: 30 }, { k: 'mushroom', x: 12, y: 29, solid: false },
       { k: 'stump', x: 26, y: 33 }, { k: 'pawstone', x: 22, y: 9 }, { k: 'tree_orange', x: 3, y: 31 },
       { k: 'tree_orange', x: 27, y: 18 }, { k: 'flowers', x: 2, y: 40, solid: false }, { k: 'tree', x: 20, y: 52 },
     ],
     signs: [
       { x: 16, y: 52, text: 'MEXI-ÖSVÉNY\nDél: Mancsfalva ↓   Észak: Titokzatos Erdő ↑' },
-      { x: 15, y: 2, text: 'TITOKZATOS ERDŐ\nAz út még le van zárva. Hamarosan megnyílik!' },
-      { x: 6, y: 19, text: 'KRISTÁLYBARLANG\nA bejáratot beomlott kövek zárják el. (Hamarosan!)' },
+      { x: 16, y: 3, text: 'TITOKZATOS ERDŐ ↑\nAz őr csak tapasztalt edzőket enged át.' },
+      { x: 6, y: 19, text: 'KRISTÁLYBARLANG\nSötét és mély. Csak felkészült csapattal lépj be!' },
       { x: 22, y: 9, text: 'Egy mancsnyomos kő. Ez áll rajta:\n„Aki szimatol, az utat talál.”', noPost: true },
     ],
     npcs: [
       { id: 'edzo_bence', sprite: 'edzo1', x: 8, y: 40, dir: 'left', wander: 0, trainer: 'bence' },
       { id: 'edzo_lili', sprite: 'edzo2', x: 20, y: 24, dir: 'right', wander: 0, trainer: 'lili' },
       { id: 'gyujto', sprite: 'gyujto', x: 11, y: 18, dir: 'down', wander: 2, talk: ['Ritka Mexiket keresek... Azt beszélik, valahol errefelé van egy titkos rét.', 'Északkeleten, a fák mögött egy bokor furcsa szagot áraszt. Próbálj meg szimatolni mellette!'] },
-      { id: 'erdo_or', sprite: 'bacsi', x: 14, y: 1, dir: 'down', wander: 0, talk: ['Állj! A Titokzatos Erdő még veszélyes.', 'Gyere vissza a következő frissítés után!'] },
+      { id: 'erdo_or', sprite: 'bacsi', x: 14, y: 1, dir: 'down', wander: 0, talk: ['Állj! A Titokzatos Erdő veszélyes.', 'Csak az mehet tovább, aki legyőzte Lilit, a kalandort!'], unlock: 'lili', unlockAt: { x: 16, y: 1, dir: 'left', talk: ['Legyőzted Lilit? Akkor menj csak! Vigyázz az erdőben.', 'Az erdő túloldalán van Holdtisztás falu.'] } },
     ],
     warps: [
       { x: 14, y: 55, to: 'mancsfalva', tx: 17, ty: 1, dir: 'down' },
       { x: 15, y: 55, to: 'mancsfalva', tx: 18, ty: 1, dir: 'down' },
+      { x: 13, y: 0, to: 'erdo', tx: 16, ty: 48, dir: 'up' },
+      { x: 14, y: 0, to: 'erdo', tx: 17, ty: 48, dir: 'up' },
+      { x: 4, y: 18, to: 'barlang', tx: 3, ty: 22, dir: 'up' },
     ],
     triggers: [{ x: 13, y: 2, w: 2, h: 1, id: 'forestClosed' }],
     hidden: [
@@ -151,7 +224,7 @@ export const MAPS = {
       { species: 'beka', area: [18, 30, 4, 3], level: [3, 6] },
       { species: 'mehecske', area: [2, 26, 4, 4], level: [4, 6] },
       { species: 'alap', area: [14, 12, 6, 3], level: [5, 7] },
-      { species: 'banyasz', area: [2, 17, 5, 2], level: [5, 7] },
+      { species: 'banyasz', area: [2, 19, 3, 2], level: [5, 7] },
     ],
     encounters: {
       default: {
@@ -166,6 +239,105 @@ export const MAPS = {
       ],
     },
   },
+  barlang: {
+    name: 'Kristálybarlang', cave: true,
+    tiles: buildBarlang(),
+    buildings: [],
+    props: [
+      { k: 'chest', x: 24, y: 2 }, { k: 'treasure', x: 22, y: 2 }, { k: 'rock2', x: 8, y: 4 }, { k: 'rock2', x: 26, y: 16 },
+      { k: 'boulder', x: 12, y: 16 }, { k: 'boulder', x: 20, y: 11 }, { k: 'mushroom', x: 3, y: 18, solid: false }, { k: 'mushroom', x: 27, y: 13, solid: false },
+    ],
+    signs: [{ x: 5, y: 21, text: 'KRISTÁLYBARLANG\nA mélyben egy régi kincsesláda rejtőzik...' }],
+    npcs: [
+      { id: 'edzo_kristof', sprite: 'edzo4', x: 9, y: 12, dir: 'down', wander: 0, trainer: 'kristof' },
+      { id: 'edzo_hanna', sprite: 'edzo2', x: 25, y: 12, dir: 'left', wander: 0, trainer: 'hanna' },
+      { id: 'kutato', sprite: 'gyujto', x: 3, y: 19, dir: 'right', wander: 0, talk: ['Barlangkutató vagyok. Itt bent nincs magas fű – a vad Mexik bárhol rád ugorhatnak!', 'A föld alatti tó körül Jég és Szellem Mexik élnek.', 'Szimatolj sokat! Rengeteg elrejtett kincs van a kövek között.'] },
+    ],
+    warps: [
+      { x: 3, y: 23, to: 'osveny', tx: 4, ty: 19, dir: 'down' },
+      { x: 4, y: 23, to: 'osveny', tx: 4, ty: 19, dir: 'down' },
+    ],
+    triggers: [],
+    hidden: [
+      { id: 'bl_lada', x: 24, y: 2, item: 'arany_labda', qty: 2 },
+      { id: 'bl_kincs', x: 22, y: 2, item: 'ebreszto', qty: 2 },
+      { id: 'bl_profi', x: 4, y: 4, item: 'profi_labda', qty: 3 },
+      { id: 'bl_ital', x: 27, y: 15, item: 'nagy_ital', qty: 2 },
+      { id: 'bl_balzsam', x: 13, y: 21, item: 'csodabalzsam', qty: 1 },
+    ],
+    roamers: [
+      { species: 'banyasz', area: [3, 15, 5, 3], level: [8, 10] },
+      { species: 'szellem', area: [21, 5, 3, 3], level: [10, 12] },
+    ],
+    encounters: {
+      cave: true,
+      default: {
+        day:   [['banyasz', 32], ['kiber', 20], ['szellem', 16], ['alap', 12], ['nindzsa', 10], ['jeg', 10]],
+        night: [['banyasz', 28], ['szellem', 26], ['kiber', 16], ['nindzsa', 14], ['jeg', 10], ['alap', 6]],
+        levels: [8, 11],
+      },
+      zones: [
+        { rect: [10, 2, 18, 7], id: 'to', day: [['jeg', 35], ['szellem', 25], ['banyasz', 20], ['kiber', 20]], night: [['szellem', 40], ['jeg', 35], ['banyasz', 15], ['kiber', 10]], levels: [10, 13] },
+      ],
+    },
+  },
+  erdo: {
+    name: 'Titokzatos Erdő',
+    tiles: buildErdo(),
+    buildings: [
+      { key: 'heal',   x: 4,  y: 10, action: 'heal',   name: 'Holdtisztási gyógyítóállomás' },
+      { key: 'temple', x: 14, y: 8,  action: 'temple', name: 'Holdmancs-templom' },
+      { key: 'shop',   x: 24, y: 10, doorDx: 1, action: 'shop', name: 'Holdtisztási bolt' },
+    ],
+    props: [
+      { k: 'lamp', x: 12, y: 10 }, { k: 'lamp', x: 21, y: 10 }, { k: 'well', x: 11, y: 7 }, { k: 'bench', x: 22, y: 7 },
+      { k: 'flowerbox', x: 3, y: 4 }, { k: 'tree_pink', x: 30, y: 4 }, { k: 'pawstone', x: 26, y: 5 },
+      { k: 'log', x: 5, y: 36 }, { k: 'stump', x: 14, y: 39 }, { k: 'mushroom', x: 21, y: 34, solid: false }, { k: 'mushroom', x: 4, y: 35, solid: false },
+      { k: 'tree_orange', x: 30, y: 36 }, { k: 'tree_orange', x: 2, y: 20 }, { k: 'flowers', x: 28, y: 44, solid: false },
+    ],
+    signs: [
+      { x: 18, y: 46, text: 'TITOKZATOS ERDŐ\nDél: Mexi-ösvény ↓   Észak: Holdtisztás ↑' },
+      { x: 10, y: 34, text: 'Figyelem! A patak mentén a Kacsa Mexik csapatban járnak.' },
+      { x: 15, y: 13, text: 'HOLDTISZTÁS\nA Holdmancs-rend faluja.' },
+      { x: 17, y: 3, text: 'Észak: Kőmancs-hegység\nAz út még járhatatlan. (Hamarosan!)' },
+    ],
+    npcs: [
+      { id: 'edzo_mate', sprite: 'edzo5', x: 12, y: 18, dir: 'down', wander: 0, trainer: 'mate' },
+      { id: 'edzo_reka', sprite: 'edzo3', x: 27, y: 37, dir: 'left', wander: 0, trainer: 'reka' },
+      { id: 'ht_apolo', sprite: 'apolo', x: 9, y: 12, dir: 'down', wander: 1, talk: ['Üdv Holdtisztáson! A gyógyítóállomás itt van mögöttem.'] },
+      { id: 'ht_bacsi', sprite: 'bacsi', x: 19, y: 11, dir: 'down', wander: 0, talk: ['A Holdmancs-templom a rend szentélye.', 'Egyszer itt lesz a környék legerősebb arénája. Addig készülj fel!', 'Éjjel a Mágus Mexik is előmerészkednek az erdő mélyéről...'] },
+      { id: 'ht_gyujto', sprite: 'gyujto', x: 28, y: 12, dir: 'left', wander: 2, talk: ['A keleti mély erdőben ritka Mexik élnek. Mágus Mexit láttam ott!', 'Az ösvényen lévő Kristálybarlangban Jég Mexik laknak.'] },
+      { id: 'ht_kisfiu', sprite: 'kisfiu', x: 6, y: 24, dir: 'right', wander: 2, talk: ['A híd alatt néha valami csillog...'] },
+    ],
+    warps: [
+      { x: 16, y: 49, to: 'osveny', tx: 13, ty: 1, dir: 'down' },
+      { x: 17, y: 49, to: 'osveny', tx: 14, ty: 1, dir: 'down' },
+    ],
+    triggers: [],
+    hidden: [
+      { id: 'er_hid', x: 10, y: 33, item: 'profi_labda', qty: 3 },
+      { id: 'er_mely', x: 30, y: 16, item: 'arany_labda', qty: 1 },
+      { id: 'er_to', x: 26, y: 40, item: 'nagy_ital', qty: 1 },
+      { id: 'er_falu', x: 31, y: 4, item: 'ebreszto', qty: 1 },
+      { id: 'er_ret', x: 3, y: 39, item: 'sima_labda', qty: 5 },
+    ],
+    roamers: [
+      { species: 'mehecske', area: [10, 22, 1, 6], level: [9, 11] },
+      { species: 'kacsa', area: [18, 30, 6, 1], level: [9, 11] },
+      { species: 'nindzsa', area: [22, 26, 6, 1], level: [10, 12] },
+      { species: 'lang', area: [14, 40, 4, 3], level: [9, 11] },
+    ],
+    encounters: {
+      default: {
+        day:   [['mehecske', 24], ['beka', 18], ['kacsa', 14], ['nindzsa', 14], ['lang', 12], ['alap', 12], ['magus', 6]],
+        night: [['szellem', 28], ['nindzsa', 24], ['magus', 10], ['beka', 14], ['kacsa', 12], ['mehecske', 12]],
+        levels: [8, 11],
+      },
+      zones: [
+        { rect: [22, 16, 9, 10], id: 'mely', day: [['nindzsa', 25], ['lang', 20], ['mehecske', 20], ['kiber', 20], ['magus', 15]], night: [['szellem', 35], ['nindzsa', 30], ['magus', 20], ['jeg', 15]], levels: [10, 13] },
+      ],
+    },
+  },
 };
 
 export const TRAINERS = {
@@ -177,7 +349,27 @@ export const TRAINERS = {
   lili: {
     name: 'Lili, a kalandor', sprite: 'edzo2', reward: 450, sight: 4,
     team: [['mehecske', 7], ['nindzsa', 7], ['kacsa', 8]],
-    intro: 'Az én csapatom gyors és trükkös! Készen állsz?', lose: 'Hűha, ügyes vagy! A Titokzatos Erdőben találkozunk.', after: 'Az alvó Mexit sokkal könnyebb elkapni!',
+    intro: 'Az én csapatom gyors és trükkös! Készen állsz?', lose: 'Hűha, ügyes vagy! Mostantól az erdő őre téged is átenged.', after: 'Az alvó Mexit sokkal könnyebb elkapni! Az erdő északon van, a barlang nyugaton.',
+  },
+  kristof: {
+    name: 'Kristóf, a bányász', sprite: 'edzo4', reward: 650, sight: 4,
+    team: [['banyasz', 10], ['kiber', 10], ['banyasz', 11]],
+    intro: 'Ebben a barlangban én vagyok a főnök! Lássuk, mit tudsz!', lose: 'Kő kövön nem marad... legyőztél!', after: 'A Víz és a Növény támadások ellen a Bányász Mexim gyenge.',
+  },
+  hanna: {
+    name: 'Hanna, a barlangkutató', sprite: 'edzo2', reward: 750, sight: 4,
+    team: [['szellem', 11], ['jeg', 11], ['nindzsa', 12]],
+    intro: 'Pszt! A tó körül a Mexik nagyon erősek. Készen állsz egy próbára?', lose: 'Hihetetlen! A kincsesláda a tó mögött vár rád.', after: 'A ládához a tó északi partján jutsz el.',
+  },
+  mate: {
+    name: 'Máté, a mágus-tanonc', sprite: 'edzo5', reward: 600, sight: 4,
+    team: [['mehecske', 11], ['lang', 12], ['beka', 12]],
+    intro: 'Az erdő szellemei megsúgták, hogy jössz! Harcoljunk!', lose: 'Ezt nem jósolták meg a szellemek...', after: 'A mély erdőben, keletre, Mágus Mexik is élnek.',
+  },
+  reka: {
+    name: 'Réka, az erdőjáró', sprite: 'edzo3', reward: 700, sight: 4,
+    team: [['nindzsa', 11], ['kacsa', 11], ['szellem', 12]],
+    intro: 'Senki sem jut át az erdőn úgy, hogy ne mérkőzne meg velem!', lose: 'Rendben, átengedlek. Holdtisztás északra van.', after: 'Éjjel a Szellem Mexik sokkal gyakoribbak.',
   },
 };
 
@@ -186,7 +378,7 @@ export const TRAINERS = {
 // furniture: { k: bútor, x, y: a lábnyom bal alsó csempéje, w, h: méret csempében, solid, act }
 // act: 'heal' | 'shop' | 'pc' | 'bed' | szöveg
 function room(rows) { return rows.map(r => r.split('')); }
-const exitTo = (x, H, tx, ty) => [{ x, y: H, to: 'mancsfalva', tx, ty, dir: 'down' }, { x: x + 1, y: H, to: 'mancsfalva', tx, ty, dir: 'down' }];
+const exitTo = (x, H, tx, ty) => [{ x, y: H, to: 'mancsfalva', tx, ty, dir: 'down', back: true }, { x: x + 1, y: H, to: 'mancsfalva', tx, ty, dir: 'down', back: true }];
 
 Object.assign(MAPS, {
   int_home: {

@@ -67,7 +67,7 @@ export class WorldScene extends Phaser.Scene {
     this.nightLayer = this.add.rectangle(-T * 8, -T * 8, (this.W + 16) * T, (this.H + 16) * T, 0x1a1050, 0).setOrigin(0).setDepth(100000);
     this.updateDaylight();
     this.time.addEvent({ delay: 30000, loop: true, callback: () => this.updateDaylight() });
-    this.weather = getWeather(this.mapKey, this.map.interior);
+    this.weather = getWeather(this.mapKey, this.map.interior || this.map.cave);
     this.buildWeather();
 
     // irányítás
@@ -133,6 +133,11 @@ export class WorldScene extends Phaser.Scene {
       case 's': return (x + y) % 3 ? 'sand' : 'sand2';
       case 'f': return 'flowerp';
       case 'w': return 'flowerw';
+      case ':': return v % 5 === 0 ? 'gravel' : 'dirtstone';
+      case 'g': return 'gravel';
+      case 'K': return 'cavefloor';
+      case 'd': return 'grassdark';
+      case 'B': return 'bridge2';
       default: return v === 0 ? 'grass3' : v === 5 ? 'grass2' : v === 11 ? 'grass4' : 'grass';
     }
   }
@@ -162,6 +167,16 @@ export class WorldScene extends Phaser.Scene {
         }
       }
     }
+    if (this.map.cave) {
+      // barlang: kívül tömör szikla, sötét háttér
+      this.cameras.main.setBackgroundColor('#0b0710');
+      for (let y = -8; y < this.H + 8; y++) for (let x = -10; x < this.W + 10; x++) {
+        if (x >= 0 && y >= 0 && x < this.W && y < this.H) continue;
+        this.add.image(x * T, y * T, 'tiles', 'cavefloor').setOrigin(0).setDepth(-10).setTint(0x8a7a90);
+      }
+      for (let y = 0; y < this.H; y++) for (let x = 0; x < this.W; x++) if (this.tiles[y][x] === 'K') this.tileImgs[y][x].setTint(0xa898a8);
+      this.buildDarkness();
+    } else {
     // a térképen kívül sűrű erdő
     for (let y = -6; y < this.H + 6; y++) for (let x = -6; x < this.W + 6; x++) {
       if (x >= 0 && y >= 0 && x < this.W && y < this.H) continue;
@@ -172,6 +187,7 @@ export class WorldScene extends Phaser.Scene {
       if (x >= 0 && y >= 0 && x < this.W && y < this.H) continue;
       this.addProp('tree', x, y);
     }
+    }
     // egyedi tárgyak
     for (const pr of this.map.props || []) {
       this.addProp(pr.k, pr.x, pr.y);
@@ -181,6 +197,21 @@ export class WorldScene extends Phaser.Scene {
       if (!sg.noPost) this.addProp('signpost', sg.x, sg.y);
       this.solidProps.add(sg.x + ',' + sg.y);
     }
+  }
+
+  /** Barlangi sötétség: a játékos körül fénykör (fáklya), máshol homály. */
+  buildDarkness() {
+    const key = 'cave_dark2';
+    if (!this.textures.exists(key)) {
+      const S = 1024; const c = document.createElement('canvas'); c.width = c.height = S;
+      const g = c.getContext('2d');
+      const gr = g.createRadialGradient(S / 2, S / 2, 30, S / 2, S / 2, 115);
+      gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.45, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0.94)');
+      g.fillStyle = gr; g.fillRect(0, 0, S, S);
+      this.textures.addCanvas(key, c);
+    }
+    this.darkness = this.add.image(0, 0, key).setDepth(98000).setScale(2.2).setTint(0x06030c);
+    this.darkness.setCrop(0, 0, 1024, 1024);
   }
 
   buildInterior() {
@@ -250,7 +281,8 @@ export class WorldScene extends Phaser.Scene {
 
   buildNpcs() {
     this.npcs = [];
-    for (const n of this.map.npcs) {
+    for (let n of this.map.npcs) {
+      if (n.unlock && G.state.defeatedTrainers.includes(n.unlock) && n.unlockAt) n = { ...n, ...n.unlockAt };
       const tr = n.trainer ? TRAINERS[n.trainer] : null;
       const npc = { ...n, home: { x: n.x, y: n.y }, sprite: this.add.sprite(0, 0, 'p_' + n.sprite, 0).setOrigin(0.5, 1).setScale(CHAR_SCALE), talkIdx: 0, tr };
       this.placeSprite(npc); this.setFacing(npc, n.dir);
@@ -413,7 +445,7 @@ export class WorldScene extends Phaser.Scene {
     if (r.result === 'lose') {
       await dialog('Mindkettőtök Mexijei kidőltek... Visszasiettél gyógyulni.');
       for (const m of s.party) healFull(m);
-      s.map = s.lastHeal.map; s.pos = { x: s.lastHeal.x, y: s.lastHeal.y, dir: 'down' };
+      s.map = s.lastHeal.map; s.pos = { x: s.lastHeal.x, y: s.lastHeal.y, dir: 'down' }; if (s.lastHeal.ret) s.returnTo = s.lastHeal.ret;
       save(); this.cutscene = false; this.scene.restart(); return;
     }
     this.encounterCooldown = CONFIG.encounterCooldownSteps;
@@ -527,6 +559,7 @@ export class WorldScene extends Phaser.Scene {
   update(time, delta) {
     for (const l of this.wxLayers || []) { l.ts.tilePositionX -= l.speedX * delta / 16; l.ts.tilePositionY -= l.speedY * delta / 16; }
     this.idleCheck(time);
+    if (this.darkness && this.player) { const sp = this.player.sprite; this.darkness.setPosition(sp.x, sp.y - 16); }
     if (this.partnerObj) this.partnerObj.label.setPosition(this.partnerObj.sprite.x, this.partnerObj.sprite.y - 44);
     for (const o of [this.player, this.follower, ...this.npcs, ...this.roamers]) if (o?.sprite) o.sprite.setDepth(o.sprite.y);
     if (!this.canControl()) return;
@@ -627,8 +660,8 @@ export class WorldScene extends Phaser.Scene {
 
     // magas fű
     const ch = this.tileAt(p.x, p.y);
-    if (ch === '"') {
-      this.rustle(p.x, p.y);
+    if (ch === '"' || (this.map.cave && ch === ':')) {
+      if (ch === '"') this.rustle(p.x, p.y);
       if (this.map.encounters && !s.flags.firstFrog && s.flags.starter) {
         s.flags.firstFrog = true;
         const frog = createMexi('beka', 3, { shiny: false });
@@ -636,7 +669,7 @@ export class WorldScene extends Phaser.Scene {
         return;
       }
       if (this.encounterCooldown > 0) this.encounterCooldown--;
-      else if (this.map.encounters && rand() < CONFIG.encounterChanceTallGrass) {
+      else if (this.map.encounters && rand() < (ch === ':' ? CONFIG.encounterChanceCave : CONFIG.encounterChanceTallGrass)) {
         if (this.partnerNear()) this.tryCoopEncounter(() => this.randomEncounter());
         else this.randomEncounter();
         return;
@@ -728,7 +761,7 @@ export class WorldScene extends Phaser.Scene {
       s.money -= lost;
       await dialog([`Minden Mexid kimerült... Elvesztettél ${lost} érmét.`, 'Gyorsan visszasiettél a gyógyítóállomásra.']);
       for (const m of s.party) healFull(m);
-      s.map = s.lastHeal.map; s.pos = { x: s.lastHeal.x, y: s.lastHeal.y, dir: 'down' };
+      s.map = s.lastHeal.map; s.pos = { x: s.lastHeal.x, y: s.lastHeal.y, dir: 'down' }; if (s.lastHeal.ret) s.returnTo = s.lastHeal.ret;
       save();
       this.cutscene = false;
       this.scene.restart();
@@ -856,7 +889,7 @@ export class WorldScene extends Phaser.Scene {
       this.cameras.main.fadeOut(400, 0, 0, 0);
       await new Promise(r => this.time.delayedCall(700, r));
       for (const m of G.state.party) healFull(m);
-      G.state.lastHeal = { map: this.mapKey, x: this.player.x, y: this.player.y };
+      G.state.lastHeal = { map: this.mapKey, x: this.player.x, y: this.player.y, ret: G.state.returnTo || null };
       this.cameras.main.fadeIn(400, 0, 0, 0);
       await dialog('Kipihented magad. A Mexijeid is teljesen meggyógyultak! 💤');
       save(); this.cutscene = false; return;
@@ -875,7 +908,7 @@ export class WorldScene extends Phaser.Scene {
     for (const m of s.party) healFull(m);
     Sfx.play('heal');
     this.cameras.main.flash(400, 255, 200, 220);
-    s.lastHeal = { map: this.mapKey, x: this.player.x, y: this.player.y };
+    s.lastHeal = { map: this.mapKey, x: this.player.x, y: this.player.y, ret: G.state.returnTo || null };
     await dialog(`Kész! Mind a(z) ${s.party.length} Mexid újra teljesen egészséges. Gyere vissza bármikor!`, who);
     save(); this.updateHud(); this.cutscene = false;
   }
@@ -901,7 +934,7 @@ export class WorldScene extends Phaser.Scene {
       this.cutscene = true;
       await dialog(['Anya: Szia kincsem! Pihenj egy kicsit...', '(A Mexijeid kipihenték magukat.)']);
       for (const m of G.state.party) healFull(m);
-      G.state.lastHeal = { map: this.mapKey, x: this.player.x, y: this.player.y };
+      G.state.lastHeal = { map: this.mapKey, x: this.player.x, y: this.player.y, ret: G.state.returnTo || null };
       save(); this.cutscene = false; return;
     }
     const lines = n.talk;
@@ -953,6 +986,7 @@ export class WorldScene extends Phaser.Scene {
     if (inner) {
       let mx = 0, my = 0;
       inner.tiles.forEach((row, y) => row.forEach((c, x) => { if (c === 'E') { mx = x; my = y; } }));
+      G.state.returnTo = { map: this.mapKey, x: b.door.x, y: b.door.y + 1 };
       this.warpTo({ to: 'int_' + b.key, tx: mx, ty: my - 1, dir: 'up' });
       return;
     }
@@ -978,6 +1012,8 @@ export class WorldScene extends Phaser.Scene {
       await dialog(['MEXI GYM', 'Az aréna kapuja még zárva van.', 'Hamarosan itt harcolhatsz a Napmancs, Holdmancs és Viharmancs frakciókért!']);
     } else if (b.action === 'house2') {
       await dialog(['Kék ház lakója: Ó, egy Mexi-edző!', 'A tó partján néha Kacsa Mexik totyognak... de az csak az ösvényen van, nem itt.']);
+    } else if (b.action === 'temple') {
+      await dialog(['HOLDMANCS-TEMPLOM', 'A kapu zárva. Bentről halk kántálás hallatszik...', 'Egy tábla: „A Holdmancs-aréna hamarosan megnyílik a bátor edzők előtt.”']);
     } else if (b.action === 'house') {
       await dialog(['Szomszéd: Hallottad? Az ösvényen túl van egy Titokzatos Erdő...', 'Állítólag ott Mágus Mexik varázsolnak a fák között!']);
     }
@@ -997,8 +1033,9 @@ export class WorldScene extends Phaser.Scene {
       return true;
     }
     if (id === 'forestClosed') {
+      if (s.defeatedTrainers.includes('lili')) return false;
       this.cutscene = true;
-      await dialog(['A Titokzatos Erdő bejárata még le van zárva.', 'Ez a terület a következő frissítésben nyílik meg!']);
+      await dialog(['Állj! A Titokzatos Erdő veszélyes.', 'Csak az mehet tovább, aki legyőzte Lilit, a kalandort! (Délre, a tó mellett találod.)'], 'Erdőőr');
       this.player.y += 1; this.placeSprite(this.player); this.setFacing(this.player, 'down');
       this.cutscene = false;
       return true;
@@ -1060,6 +1097,7 @@ export class WorldScene extends Phaser.Scene {
   warpTo(w) {
     Sfx.play('door');
     const s = G.state;
+    if (w.back && s.returnTo && MAPS[s.returnTo.map]) w = { to: s.returnTo.map, tx: s.returnTo.x, ty: s.returnTo.y, dir: 'down' };
     s.map = w.to; s.pos = { x: w.tx, y: w.ty, dir: w.dir };
     save();
     this.cutscene = true;
