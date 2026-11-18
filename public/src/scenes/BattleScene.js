@@ -12,6 +12,8 @@ import { CONFIG } from '../data/config.js';
 import { MAPS } from '../data/maps.js';
 import { Sfx } from '../systems/sfx.js';
 import { questEvent } from '../systems/quests.js';
+import { vibrate } from '../ui/touch.js';
+import { ensurePoses } from '../art/registerArt.js';
 
 const wait = (scene, ms) => new Promise(r => scene.time.delayedCall(ms, r));
 const tween = (scene, cfg) => new Promise(r => scene.tweens.add({ ...cfg, onComplete: r }));
@@ -115,6 +117,7 @@ export class BattleScene extends Phaser.Scene {
     const m = this.shownMon(side);
     if (!spr || !m) return;
     const back = side === 'p';
+    if (pose) ensurePoses(this, m.species, m.shiny);
     const key = pose ? `${back ? 'mbp' : 'ma'}_${m.species}_${pose}${m.shiny ? '_s' : ''}` : this.texFor(m, back);
     if (pose && !this.textures.exists(key)) return;
     spr.setTexture(key);
@@ -132,7 +135,8 @@ export class BattleScene extends Phaser.Scene {
     this.bbox = el('div', { class: 'bbox' }, this.msg, this.acts);
     this.ui.append(this.foeBox, this.meBox, this.bbox);
     document.getElementById('ui').append(this.ui);
-    this.msg.addEventListener('pointerdown', () => this._advance?.());
+    // véletlen dupla érintés ellen: döntés után egy rövid ideig nem léptetjük a szöveget
+    this.msg.addEventListener('pointerdown', () => { if (performance.now() - (this._lastAction || 0) < 350) return; this._advance?.(); });
     this.offKeys = pushKeys((e) => this.keyHandler?.(e));
   }
 
@@ -253,10 +257,11 @@ export class BattleScene extends Phaser.Scene {
           return el('button', { class: 'btn', disabled: mv.pp <= 0, style: `border-left:10px solid ${TYPES[d.type].color}`, onclick: () => pick(i) },
             el('img', { class: 'ico', src: `assets/ui/t_${d.type}.png` }), ' ', d.name, hint, el('small', {}, `${TYPES[d.type].name} • ${d.cat === 'stat' ? 'Státusz' : 'Erő ' + d.power} • PP ${mv.pp}/${d.pp}`));
         });
-        const back = el('button', { class: 'btn', onclick: () => { box.remove(); this.movesEl = null; showMain(); } }, '← Vissza');
+        const back = el('button', { class: 'btn back', onclick: () => { box.remove(); this.movesEl = null; showMain(); } }, '← Vissza');
         box.append(...btns, back);
         this.bbox.prepend(box); this.movesEl = box;
-        const pick = (i) => { box.remove(); this.movesEl = null; this.msg.classList.remove('hidden'); resolve({ type: 'move', index: m.moves.every(x => x.pp <= 0) ? -1 : i }); };
+        let picked = false;
+        const pick = (i) => { if (picked) return; picked = true; this._lastAction = performance.now(); box.remove(); this.movesEl = null; this.msg.classList.remove('hidden'); resolve({ type: 'move', index: m.moves.every(x => x.pp <= 0) ? -1 : i }); };
         if (m.moves.every(x => x.pp <= 0)) { pick(-1); return; }
         let sel = 0; const all = [...btns, back]; const paint = () => all.forEach((x, i) => x.classList.toggle('sel', i === sel)); paint();
         this.keyHandler = (ev) => {
@@ -291,7 +296,7 @@ export class BattleScene extends Phaser.Scene {
         case 'damage': {
           if (ev.side === 'f' && ev.eff > 1 && !ev.dot) questEvent('superHits');
           const spr = ev.side === 'p' ? this.meSpr : this.foeSpr;
-          Sfx.hit({ crit: ev.crit, eff: ev.dot ? 0.5 : ev.eff });
+          Sfx.hit({ crit: ev.crit, eff: ev.dot ? 0.5 : ev.eff }); if (!ev.dot) vibrate('hit');
           if (!ev.dot) { this.cameras.main.shake(ev.eff >= 2 ? 220 : 120, ev.eff >= 2 ? 0.008 : 0.004); }
           this.pose(ev.side, 'hurt');
           { const pos = ev.side === 'p' ? this.mePos : this.foePos; this.fx(ev.crit ? ['crit1', 'crit2', 'crit3'] : ['hit1', 'hit2', 'hit3'], pos.x, pos.y - 26 * this.sc, (ev.crit ? 44 : 30) * this.sc, 80, 23); }
@@ -404,7 +409,7 @@ export class BattleScene extends Phaser.Scene {
     }
     await wait(this, 350);
     if (caught) {
-      Sfx.play('catch');
+      Sfx.play('catch'); vibrate('catch');
       await this.fx(['c_ok1', 'c_ok2', 'c_ok3'], ball.x, ball.y, 40 * this.sc, 160, 26);
       ball.setTint(0xbbbbbb);
       this._caughtBall = ball;

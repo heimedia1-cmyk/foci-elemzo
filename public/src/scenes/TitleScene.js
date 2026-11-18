@@ -3,6 +3,8 @@ import { el, UI, pushKeys } from '../ui/ui.js';
 import { G, hasSave, load, newGameState, deleteSave, save, syncFromCloud, adoptGuestSave, guestSaveExists } from '../systems/state.js';
 import { Account } from '../systems/account.js';
 import { CONFIG } from '../data/config.js';
+import { IS_APP } from '../systems/api.js';
+import { openSaveTools } from '../ui/menus.js';
 import { choose, toast } from '../ui/ui.js';
 
 export class TitleScene extends Phaser.Scene {
@@ -37,6 +39,7 @@ export class TitleScene extends Phaser.Scene {
     if (saveExists) btns.push(el('button', { class: 'btn primary', onclick: () => this.continueGame() }, '▶ Folytatás'));
     if (saveExists && CONFIG.goModeEnabled) btns.push(el('button', { class: 'btn', onclick: () => { window.MEXI_OPEN_GO = true; this.continueGame(); } }, '🚶 Séta mód'));
     btns.push(el('button', { class: 'btn' + (saveExists ? '' : ' primary'), onclick: () => this.newGameForm() }, '✨ Új játék'));
+    btns.push(el('button', { class: 'btn', onclick: () => openSaveTools({ importOnly: true }) }, '📥 Mentés betöltése'));
     const acct = Account.current;
     const bar = window.MEXI_PREVIEW
       ? el('div', { class: 'acctbar panel' }, el('span', {}, 'Előzetes tesztverzió – a fiókos belépés a végleges oldalon lesz elérhető.'))
@@ -49,6 +52,10 @@ export class TitleScene extends Phaser.Scene {
       el('h1', {}, 'Mexi', el('span', {}, 'Verse')),
       el('h3', {}, 'Az elveszett Mexik'),
       el('div', { class: 'btns' }, ...btns),
+      (IS_APP && !saveExists) ? el('div', { class: 'acctbar panel', style: 'max-width:520px;text-align:left;font-size:14px;line-height:1.35' },
+        el('b', {}, '📱 Üdv az új MexiVerse appban! '), 'Ha korábban már játszottál: ',
+        el('b', {}, 'fiókkal'), ' egyszerűen lépj be, és visszajön a felhős mentésed. ',
+        el('b', {}, 'Vendégként'), ' a régi appban vagy böngészőben nyisd meg: Menü → Mentések → „Átviteli kód készítése”, majd itt a „📥 Mentés betöltése” gombbal írd be a kódot.') : null,
       bar,
       (CONFIG.goModeEnabled && /Android/i.test(navigator.userAgent) && !window.Capacitor?.isNativePlatform?.()) ? el('a', { class: 'btn', href: 'app/MexiVerse.apk', style: 'margin-top:10px;text-decoration:none', download: 'MexiVerse.apk' }, '📱 Android app letöltése') : null,
       el('div', { class: 'ver' }, 'v0.1 – első játszható verzió'));
@@ -112,7 +119,7 @@ export class TitleScene extends Phaser.Scene {
     const input = el('input', { maxlength: 12, value: 'Kalandor' });
     const gb = (g, t) => el('button', { class: 'btn' + (g === gender ? ' sel' : ''), onclick: (e) => { gender = g; [...e.target.parentNode.children].forEach(b => b.classList.remove('sel')); e.target.classList.add('sel'); } }, t);
     const start = async () => {
-      if (hasSave() && (await choose(['Igen, új játék', 'Mégse'], { question: 'Van már mentésed. Biztosan új játékot kezdesz? A régi mentés törlődik.' })) !== 0) return;
+      if (hasSave() && (await choose(['Igen, új játék', 'Mégse'], { question: 'Van már mentésed. Biztosan új játékot kezdesz? (A régiről biztonsági másolat készül: Menü → Mentések.)' })) !== 0) return;
       deleteSave();
       G.state = newGameState(input.value.trim() || 'Kalandor', gender);
       G.state.flags.intro = false;

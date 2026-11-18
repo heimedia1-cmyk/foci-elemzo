@@ -4,6 +4,7 @@ import { calcStats } from './mexi.js';
 import { MEXIS } from '../data/mexis.js';
 import { Account } from './account.js';
 import { questEvent } from './quests.js';
+import { addLocalBackup } from './saveTransfer.js';
 
 // Vendég: egy helyi mentés. Belépve: a fiókhoz tartozó helyi másolat + felhős mentés.
 export const keyFor = () => Account.loggedIn ? 'mexiverse_save_u_' + Account.current.username.toLowerCase() : 'mexiverse_save';
@@ -70,7 +71,7 @@ if (typeof window !== 'undefined') {
     const fmt = (s) => `${(s.party || []).map(m => MEXIS[m.species]?.name.replace(' Mexi', '') + ' ' + m.level).join(', ')} • ${s.money} 🪙`;
     const c = await choose([`☁️ A másik eszköz mentése (${fmt(cloud)})`, `📱 Ez a mostani (${fmt(G.state)})`], { question: 'Egy másik eszközön újabb mentés készült. Melyik maradjon meg? (A másikat biztonsági mentésként megőrizzük.)', cancel: false });
     window._mexiConflict = false;
-    if (c === 0) { localStorage.setItem(keyFor(), JSON.stringify(cloud)); location.reload(); }
+    if (c === 0) { addLocalBackup('Ütközés: másik eszköz mentése előtt'); localStorage.setItem(keyFor(), JSON.stringify(cloud)); location.reload(); }
     else { G.state.rev = cloud.rev; Account.pushSave(G.state, true, true); }
   });
 }
@@ -84,7 +85,7 @@ export function load() {
   } catch (e) { console.warn('Betöltés sikertelen', e); return null; }
 }
 
-export function deleteSave() { try { localStorage.removeItem(keyFor()); } catch {} }
+export function deleteSave() { try { addLocalBackup('Új játék előtt'); localStorage.removeItem(keyFor()); } catch {} }
 
 /** Belépés után: a felhős és a helyi mentés közül az újabb marad. Visszaadja: 'cloud' | 'local' | 'none' | 'offline'. */
 export async function syncFromCloud() {
@@ -93,7 +94,7 @@ export async function syncFromCloud() {
   if (cloud === 'auth') { Account.current = null; return 'auth'; }
   if (cloud === 'offline') return 'offline';
   let local = null; try { local = JSON.parse(localStorage.getItem(keyFor()) || 'null'); } catch {}
-  if (cloud && (!local || (cloud.savedAt || 0) >= (local.savedAt || 0))) { localStorage.setItem(keyFor(), JSON.stringify(cloud)); return 'cloud'; }
+  if (cloud && (!local || (cloud.savedAt || 0) >= (local.savedAt || 0))) { if (local) addLocalBackup('Felhős mentés betöltése előtt'); localStorage.setItem(keyFor(), JSON.stringify(cloud)); return 'cloud'; }
   if (local) { Account.pushSave(local, true); return 'local'; }
   return 'none';
 }

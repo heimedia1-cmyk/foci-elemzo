@@ -1,6 +1,7 @@
 // Kapcsolat a szerverrel (WebSocket) a közös játékhoz. Magától újrakapcsolódik.
 import { G } from './state.js';
 import { Account } from './account.js';
+import { wsUrl, isOnline } from './api.js';
 
 const listeners = {};
 let ws = null, sid = null, pid = null, retry = 0, queue = [];
@@ -16,8 +17,8 @@ export const Net = {
   send(msg) { if (ws?.readyState === 1) ws.send(JSON.stringify(msg)); else queue.push(msg); },
   connect() {
     if (window.MEXI_PREVIEW || ws) return;
-    const url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
-    ws = new WebSocket(url);
+    if (!isOnline()) { setTimeout(() => Net.connect(), 8000); return; }
+    ws = new WebSocket(wsUrl());
     ws.onopen = () => {
       retry = 0;
       ws.send(JSON.stringify({ t: 'hello', sid, token: Account.current?.token || null, name: Account.current?.username || G.state?.player?.name || 'Kalandor', gender: G.state?.player?.gender }));

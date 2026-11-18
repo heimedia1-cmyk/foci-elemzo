@@ -14,10 +14,16 @@ const game = new Phaser.Game({
   backgroundColor: '#1b1430',
   pixelArt: true,
   roundPixels: true,
+  antialias: false,
+  powerPreference: 'high-performance',
+  fps: { target: 60, min: 20, smoothStep: true },
+  input: { activePointers: 3 },
   scale: { mode: Phaser.Scale.RESIZE, width: window.innerWidth, height: window.innerHeight },
   scene: [BootScene, TitleScene, WorldScene, BattleScene, CoopBattleScene],
 });
 window.MEXI_GAME = game;
+import { initNative } from './systems/native.js';
+initNative(game);
 
 // Mobilon a böngésző görgetése ne zavarjon
 document.addEventListener('gesturestart', (e) => e.preventDefault());

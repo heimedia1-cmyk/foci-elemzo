@@ -2,7 +2,7 @@
 <html lang="hu">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#1b1430" />
   <title>MexiVerse – Az elveszett Mexik</title>
   <link rel="stylesheet" href="style.css" />
@@ -10,14 +10,8 @@
 <body>
   <div id="game"></div>
   <div id="ui"></div>
-  <div id="touch" class="hidden">
-    <div id="joy"><div id="joy-knob"></div></div>
-    <div id="tbtns">
-      <button id="tb-menu" class="tbtn small" aria-label="Menü"><img src="assets/ui/m_bag.png" alt=""></button>
-      <button id="tb-sniff" class="tbtn small" aria-label="Szimatolás"><img src="assets/ui/m_sniff.png" alt=""></button>
-      <button id="tb-a" class="tbtn big" aria-label="Interakció">A</button>
-    </div>
-  </div>
+  <div id="touch" class="hidden"></div>
+  <script src="app-config.js"></script>
   <script src="vendor/phaser.min.js"></script>
   <script type="module" src="src/main.js"></script>
 </body>

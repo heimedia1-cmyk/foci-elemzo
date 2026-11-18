@@ -4,11 +4,12 @@ android {
     namespace = "hu.mexiverse.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "hu.mexiverse.app"
+        // a teszt- és az éles változat külön appként települ (APP_ID), a verziószám a buildszámból jön
+        applicationId (System.getenv("APP_ID") ?: "hu.mexiverse.app")
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode ((System.getenv("VERSION_CODE") ?: "1") as Integer)
+        versionName (System.getenv("VERSION_NAME") ?: "1.0")
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

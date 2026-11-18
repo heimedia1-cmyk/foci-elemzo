@@ -1,40 +1,57 @@
 # MexiVerse Android app (APK) építése a GitHub ingyenes szerverein.
-# Az app a https://mexiverse.up.railway.app oldalt tölti be, így a játék frissítéseihez nem kell új APK.
-# Kész APK: public/app/MexiVerse.apk (a játék oldaláról letölthető) + a futás „artifact”-jai között.
+# Az APK a TELJES játékot tartalmazza (helyi fájlok, offline is indul); az online funkciók a Railway-szerverre csatlakoznak.
+# - Minden pushnál: TESZT változat (külön app: "MexiVerse TESZT", hu.mexiverse.app.teszt) → MexiVerse-teszt.apk
+# - Kézi indítással (variant = eles): az éles app (hu.mexiverse.app) → MexiVerse.apk
+# A kész APK-k a "mexiverse-apk" ágon vannak, a játék oldaláról letölthetők.
 name: Android APK
 on:
   workflow_dispatch:
+    inputs:
+      variant: { description: 'teszt vagy eles', default: 'teszt', required: true }
   push:
     branches: [mexiverse]
-    paths: ['android/**', 'capacitor.config.json', 'app-shell/**', '.github/workflows/android.yml']
+    paths: ['android/**', 'public/**', 'scripts/**', 'capacitor.config.json', 'package.json', '.github/workflows/android.yml']
 permissions:
   contents: write
 concurrency: { group: android-apk, cancel-in-progress: true }
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VARIANT: ${{ github.event.inputs.variant || 'teszt' }}
+      VERSION_CODE: ${{ github.run_number }}
+      VERSION_NAME: 1.1.${{ github.run_number }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '21', cache: gradle }
-      # Ugyanaz az aláíró kulcs minden építésnél, hogy az app frissíthető legyen (nem kell törölni)
+      # ugyanaz az aláíró kulcs minden építésnél → az app frissíthető, nem kell törölni
       - uses: actions/cache@v4
         with: { path: ~/.android/debug.keystore, key: mexiverse-debug-keystore-v1 }
       - run: npm ci
+      - name: Mobil build (helyi játékfájlok)
+        run: node scripts/build-mobile.mjs --api https://mexiverse.up.railway.app
+      - name: Változat beállítása
+        run: |
+          if [ "$VARIANT" = "eles" ]; then echo "APP_ID=hu.mexiverse.app" >> $GITHUB_ENV; echo "APK_NAME=MexiVerse.apk" >> $GITHUB_ENV;
+          else echo "APP_ID=hu.mexiverse.app.teszt" >> $GITHUB_ENV; echo "APK_NAME=MexiVerse-teszt.apk" >> $GITHUB_ENV;
+            sed -i 's#<string name="app_name">MexiVerse</string>#<string name="app_name">MexiVerse TESZT</string>#' android/app/src/main/res/values/strings.xml; fi
       - run: npx cap sync android
       - name: APK építése
         working-directory: android
         run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
-      - name: APK feltöltése
-        uses: actions/upload-artifact@v4
-        with: { name: MexiVerse-apk, path: android/app/build/outputs/apk/debug/app-debug.apk }
-      - name: APK a letöltési ágra (nem indít új Railway-telepítést)
+      - uses: actions/upload-artifact@v4
+        with: { name: '${{ env.APK_NAME }}', path: android/app/build/outputs/apk/debug/app-debug.apk }
+      - name: APK a letöltési ágra (a másik változat APK-ja megmarad)
         env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
         run: |
-          mkdir out && cp android/app/build/outputs/apk/debug/app-debug.apk out/MexiVerse.apk && cd out
+          mkdir out && cd out
           git init -q -b mexiverse-apk
           git config user.name "mexiverse-bot"; git config user.email "mexiverse-bot@users.noreply.github.com"
-          git add MexiVerse.apk && git commit -qm "MexiVerse APK ${GITHUB_SHA::7}"
-          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:mexiverse-apk
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch -q --depth 1 "$REMOTE" mexiverse-apk && git checkout -q FETCH_HEAD -- . 2>/dev/null || true
+          cp ../android/app/build/outputs/apk/debug/app-debug.apk "$APK_NAME"
+          git add -A && git commit -qm "$APK_NAME ${VERSION_NAME} (${GITHUB_SHA::7})"
+          git push -f "$REMOTE" HEAD:mexiverse-apk

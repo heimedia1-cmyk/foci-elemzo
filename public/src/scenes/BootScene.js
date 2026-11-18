@@ -1,3 +1,4 @@
+import { hideSplash } from '../systems/native.js';
 import { preloadArt, registerArt } from '../art/registerArt.js';
 
 export class BootScene extends Phaser.Scene {
@@ -12,6 +13,7 @@ export class BootScene extends Phaser.Scene {
   }
   create() {
     registerArt(this);
+    hideSplash();
     this.scene.start('Title');
   }
 }

@@ -75,9 +75,11 @@ export class WorldScene extends Phaser.Scene {
     this.keys = this.input.keyboard.addKeys('W,A,S,D,UP,DOWN,LEFT,RIGHT,E,SPACE,ESC,I,J,P,SHIFT,ENTER');
     this.input.keyboard.on('keydown', (e) => this.onKey(e));
     this.touch = setupTouch({
-      onA: () => this.interact(),
-      onSniff: () => this.sniff(),
-      onMenu: () => !UI.busy && !this.moving && openMainMenu(this),
+      onA: () => this.canControl() && this.interact(),
+      onB: () => {},
+      onSniff: () => this.canControl() && this.sniff(),
+      onMenu: () => !UI.busy && !this.moving && !this.cutscene && openMainMenu(this),
+      uiBusy: () => UI.busy,
     });
 
     // animációk (víz, fű)
@@ -573,7 +575,7 @@ export class WorldScene extends Phaser.Scene {
     else if (K.A.isDown || K.LEFT.isDown) dir = 'left';
     else if (K.D.isDown || K.RIGHT.isDown) dir = 'right';
     if (!dir && this.touch) dir = this.touch.dir();
-    if (dir) this.tryMove(dir, K.SHIFT.isDown);
+    if (dir) this.tryMove(dir, K.SHIFT.isDown || !!this.touch?.run);
   }
 
   idleCheck(time) {

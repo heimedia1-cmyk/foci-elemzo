@@ -1,14 +1,28 @@
 {
   "appId": "hu.mexiverse.app",
   "appName": "MexiVerse",
-  "webDir": "app-shell",
+  "webDir": "mobile-dist",
   "server": {
-    "url": "https://mexiverse.up.railway.app",
-    "cleartext": false,
     "androidScheme": "https"
   },
   "android": {
     "allowMixedContent": false,
-    "backgroundColor": "#1b1430"
+    "backgroundColor": "#1b1430",
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "launchAutoHide": true,
+      "backgroundColor": "#1b1430",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "overlaysWebView": true,
+      "style": "DARK",
+      "backgroundColor": "#00000000"
+    }
   }
 }

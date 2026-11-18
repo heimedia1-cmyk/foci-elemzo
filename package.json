@@ -1,11 +1,12 @@
 {
   "name": "mexiverse",
   "version": "1.0.0",
-  "description": "MexiVerse \u2013 Az elveszett Mexik",
+  "description": "MexiVerse – Az elveszett Mexik",
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/logic.test.js && node tests/maps.test.js && node tests/coop.test.js && node tests/go.test.js && node tests/security.test.js"
+    "test": "node tests/logic.test.js && node tests/maps.test.js && node tests/coop.test.js && node tests/go.test.js && node tests/security.test.js",
+    "build:mobile": "node scripts/build-mobile.mjs && npx cap sync android"
   },
   "keywords": [],
   "author": "",
@@ -23,7 +24,11 @@
   "devDependencies": {
     "@capacitor-community/background-geolocation": "^1.3.1",
     "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.2",
     "@capacitor/cli": "^8.6.2",
-    "@capacitor/core": "^8.6.2"
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/status-bar": "^8.0.4"
   }
 }

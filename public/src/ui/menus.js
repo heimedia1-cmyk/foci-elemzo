@@ -3,6 +3,7 @@ import { el, openWindow, choose, dialog, toast, hpBar, UI, askText } from './ui.
 import { G, save, keyFor } from '../systems/state.js';
 import { Account } from '../systems/account.js';
 import { dailyQuests, questDef, questText, claimQuest } from '../systems/quests.js';
+import { localBackups, addLocalBackup, summarize, writeLocalSave, makeTransferCode, fetchTransferCode, saveToText, textToSave, downloadSave } from '../systems/saveTransfer.js';
 import { MEXIS, RARITY, SPECIES_ORDER, NATURES, STAT_NAMES } from '../data/mexis.js';
 import { MOVES, STATUS } from '../data/moves.js';
 import { ITEMS, SHOP_STOCK, itemIcon } from '../data/items.js';
@@ -15,6 +16,7 @@ import { evolve } from '../systems/mexi.js';
 import { mexiIconDataURL } from '../art/placeholders.js';
 import { getArtURL } from '../art/registerArt.js';
 import { Net } from '../systems/net.js';
+import { getControls, setControls, DEFAULT_CONTROLS, vibrate } from './touch.js';
 import { MAPS } from '../data/maps.js';
 
 const iconCache = {};
@@ -116,26 +118,98 @@ export function openQuests() {
   });
 }
 
-// ===================== FELHŐS BIZTONSÁGI MENTÉSEK =====================
-export function openBackups() {
-  openWindow('Mentések visszaállítása', async (w) => {
+// ===================== MENTÉSEK: ÁTVITEL, EXPORT, IMPORT, BIZTONSÁGI MÁSOLATOK =====================
+/** Betöltött mentés alkalmazása (ütközésnél választás, előtte biztonsági másolat). */
+export async function applyImportedSave(imp) {
+  let cur = null; try { cur = JSON.parse(localStorage.getItem(keyFor()) || 'null'); } catch {}
+  if (cur) {
+    const c = await choose([`📥 A betöltött mentés: ${summarize(imp)}`, `📱 A mostani marad: ${summarize(cur)}`],
+      { question: 'Ezen az eszközön már van mentés. Melyik maradjon? (A másikról biztonsági másolat készül.)' });
+    if (c !== 0) return false;
+  }
+  writeLocalSave(imp, 'mentés betöltése');
+  toast('Mentés betöltve! Újraindítás...'); setTimeout(() => location.reload(), 900);
+  return true;
+}
+export function openSaveTools(opts = {}) {
+  openWindow('Mentések', (w) => {
+    const draw = async () => {
+      const cloud = Account.loggedIn ? await Account.backups() : null;
+      w.render((body) => {
+        const sec = (t) => body.append(el('h4', { style: 'margin:12px 0 4px' }, t));
+        if (G.state && !opts.importOnly) {
+          sec('📤 Mentés átvitele másik eszközre / az új appba');
+          body.append(el('p', { style: 'margin:0 0 6px;font-size:13px' }, Account.loggedIn ? 'Be vagy lépve: a másik eszközön egyszerűen lépj be ugyanazzal a fiókkal, és a felhős mentés megjön. Vendégként az alábbiak közül választhatsz.' : 'Vendégként játszol. Készíts átviteli kódot (internet kell), vagy másold ki a mentés-szöveget / töltsd le fájlként.'));
+          const out = el('div', { style: 'font-size:22px;font-weight:900;letter-spacing:3px;margin:6px 0' });
+          body.append(el('div', { class: 'actions' },
+            el('button', { class: 'btn primary', onclick: async (e) => { e.target.disabled = true; try { save(); const code = await makeTransferCode(); out.textContent = code.slice(0, 4) + '-' + code.slice(4); toast('Kód kész – 48 óráig érvényes.'); } catch (err) { toast(err.message || 'Nincs internetkapcsolat.'); } e.target.disabled = false; } }, '🔑 Átviteli kód készítése'),
+            el('button', { class: 'btn', onclick: async () => { save(); const t = await saveToText(); try { await navigator.clipboard.writeText(t); toast('Mentés-szöveg a vágólapon – illeszd be a másik eszközön!'); } catch { const ta = el('textarea', { style: 'width:100%;height:80px' }); ta.value = t; out.replaceChildren(ta); ta.select(); toast('Másold ki a szöveget!'); } } }, '📋 Mentés-szöveg másolása'),
+            el('button', { class: 'btn', onclick: () => { save(); downloadSave(); } }, '💾 Letöltés fájlként')), out);
+        }
+        sec('📥 Mentés betöltése');
+        const code = el('input', { placeholder: 'Átviteli kód (pl. ABCD-EFGH) vagy mentés-szöveg', style: 'width:100%' });
+        const file = el('input', { type: 'file', accept: '.json,application/json,text/plain', style: 'display:none', onchange: async () => {
+          try { const t = await file.files[0].text(); await applyImportedSave(await textToSave(t)); } catch (err) { toast(err.message); }
+        } });
+        body.append(code, file, el('div', { class: 'actions' },
+          el('button', { class: 'btn primary', onclick: async () => {
+            const v = code.value.trim(); if (!v) { toast('Írd be a kódot vagy illeszd be a mentés-szöveget.'); return; }
+            try { const imp = /^[A-Za-z0-9-\s]{8,10}$/.test(v) ? await fetchTransferCode(v.replace(/[-\s]/g, '')) : await textToSave(v); await applyImportedSave(imp); } catch (err) { toast(err.message); }
+          } }, 'Betöltés'),
+          el('button', { class: 'btn', onclick: () => file.click() }, '📂 Fájlból')));
+        sec('🛟 Biztonsági másolatok ezen az eszközön');
+        const lb = localBackups();
+        if (!lb.length) body.append(el('p', { style: 'font-size:13px;margin:0' }, 'Még nincs. Minden felülírás vagy új játék előtt automatikusan készül egy (az utolsó 5 marad meg).'));
+        lb.forEach((b, i) => { let s0 = null; try { s0 = JSON.parse(b.data); } catch {}
+          body.append(el('div', { class: 'row' }, el('div', { class: 'grow' }, el('b', {}, new Date(b.at).toLocaleString('hu-HU') + ' – ' + b.reason), el('div', { style: 'font-size:13px' }, summarize(s0))),
+            el('button', { class: 'btn', onclick: () => s0 && applyImportedSave(s0) }, 'Visszaállítás'))); });
+        if (Account.loggedIn) {
+          sec('☁️ Felhős biztonsági mentések');
+          if (!cloud) body.append(el('p', { style: 'font-size:13px;margin:0' }, 'A szerver most nem érhető el (nincs internet?).'));
+          else if (!cloud.length) body.append(el('p', { style: 'font-size:13px;margin:0' }, 'Még nincs – játék közben kb. negyedóránként készül egy (az utolsó 12 marad meg).'));
+          else for (const b of cloud) body.append(el('div', { class: 'row' },
+            el('div', { class: 'grow' }, el('b', {}, new Date(b.at).toLocaleString('hu-HU')), el('div', { style: 'font-size:13px' }, `${b.party.map(m => (MEXIS[m.species]?.name || m.species).replace(' Mexi', '') + ' ' + m.level).join(', ')} • ${b.money} 🪙 • ${b.caught} faj`)),
+            el('button', { class: 'btn', onclick: async () => {
+              if ((await choose(['Igen, visszaállítom', 'Mégse'], { question: `Visszaállítod a ${new Date(b.at).toLocaleString('hu-HU')} állapotot?` })) !== 0) return;
+              const s1 = await Account.restore(b.id); if (!s1) { toast('Nem sikerült visszaállítani.'); return; }
+              addLocalBackup('Felhős visszaállítás előtt'); localStorage.setItem(keyFor(), JSON.stringify(s1));
+              toast('Visszaállítva! Újraindítás...'); setTimeout(() => location.reload(), 800);
+            } }, 'Visszaállítás')));
+        }
+      });
+    };
     w.body.append(el('p', {}, 'Betöltés...'));
-    const list = await Account.backups();
-    w.render((body) => {
-      if (!list) { body.append(el('p', {}, 'A szerver most nem érhető el.')); return; }
-      if (!list.length) { body.append(el('p', {}, 'Még nincs biztonsági mentés. A szerver játék közben kb. negyedóránként automatikusan készít egyet (az utolsó 12 marad meg).')); return; }
-      body.append(el('p', { style: 'margin:0 0 8px' }, 'Ha valami elromlott vagy elveszett, visszaállhatsz egy korábbi állapotra. A mostani állapotot is elmentjük, így ez is visszavonható.'));
-      for (const b of list) body.append(el('div', { class: 'row' },
-        el('div', { class: 'grow' }, el('b', {}, new Date(b.at).toLocaleString('hu-HU')), el('div', { style: 'font-size:13px' }, `${b.party.map(m => (MEXIS[m.species]?.name || m.species).replace(' Mexi', '') + ' ' + m.level).join(', ')} • ${b.money} 🪙 • ${b.caught} faj`)),
-        el('button', { class: 'btn', onclick: async () => {
-          const ok = await choose(['Igen, visszaállítom', 'Mégse'], { question: `Visszaállítod a ${new Date(b.at).toLocaleString('hu-HU')} állapotot?` });
-          if (ok !== 0) return;
-          const s = await Account.restore(b.id);
-          if (!s) { toast('Nem sikerült visszaállítani.'); return; }
-          localStorage.setItem(keyFor(), JSON.stringify(s));
-          toast('Visszaállítva! Újratöltés...'); setTimeout(() => location.reload(), 800);
-        } }, 'Visszaállítás')));
+    draw();
+  });
+}
+export const openBackups = () => openSaveTools();
+
+// ===================== IRÁNYÍTÁS =====================
+export function openControlSettings() {
+  openWindow('Irányítás', (w) => {
+    const draw = () => w.render((body) => {
+      const c = getControls();
+      const seg = (label, keyName, opts) => el('div', { class: 'row', style: 'cursor:default;flex-wrap:wrap' }, el('b', { class: 'grow' }, label),
+        ...opts.map(([v, t]) => el('button', { class: 'btn' + (c[keyName] === v ? ' primary' : ''), onclick: () => { setControls({ [keyName]: v }); vibrate('tap'); draw(); } }, t)));
+      const slider = (label, keyName, min, max, step, fmt) => {
+        const val = el('span', { style: 'min-width:54px;text-align:right;font-weight:800' }, fmt(c[keyName]));
+        const r = el('input', { type: 'range', min, max, step, value: c[keyName], style: 'flex:1;min-width:120px' });
+        r.addEventListener('input', () => { setControls({ [keyName]: +r.value }); val.textContent = fmt(+r.value); });
+        return el('div', { class: 'row', style: 'cursor:default' }, el('b', { style: 'min-width:150px' }, label), r, val);
+      };
+      body.append(
+        seg('Érintőgombok', 'show', [['auto', 'Automatikus'], ['always', 'Mindig'], ['never', 'Soha']]),
+        seg('Mozgás', 'mode', [['joystick', '🕹️ Joystick'], ['dpad', '✚ D-pad']]),
+        slider('Joystick / D-pad mérete', 'joySize', 100, 200, 5, v => v + ' px'),
+        slider('Gombok mérete', 'btnScale', 0.7, 1.4, 0.05, v => Math.round(v * 100) + '%'),
+        slider('Átlátszóság', 'opacity', 0.3, 1, 0.05, v => Math.round(v * 100) + '%'),
+        seg('Kézhasználat', 'leftHanded', [[false, '🫱 Jobbkezes'], [true, '🫲 Balkezes']]),
+        seg('Rezgés', 'vibration', [[true, 'Be'], [false, 'Ki']]),
+        el('p', { style: 'font-size:13px;margin:8px 0 0' }, 'Mobilon: bal oldalt bárhová érintve megjelenik a joystick. A = beszélgetés / tovább / megerősítés, B = vissza / mégse, 🐾 = szimatolás, 🏃 = futás be/ki, ☰ = menü. A változások azonnal érvényesek és megmaradnak.'),
+        el('p', { style: 'font-size:13px;margin:6px 0 0' }, 'Billentyűzet: WASD / nyilak – mozgás (Shift: futás) • E – beszélgetés • Space – szimatolás • I – táska • J – Mexidex • P – csapat • Esc – menü'),
+        el('button', { class: 'btn', style: 'margin-top:8px', onclick: () => { setControls({ ...DEFAULT_CONTROLS }); draw(); } }, 'Alapértelmezett'));
     });
+    draw();
   });
 }
 
@@ -172,9 +246,9 @@ export function openMainMenu(world) {
         CONFIG.goModeEnabled && b([el('img', { class: 'mico', src: 'assets/ui/m_map.png' }), '🚶 Séta mód'], () => { w.close(); import('../go/goMode.js').then(m => m.openGoMode(world)); }),
         b([el('img', { class: 'mico', src: 'assets/ui/m_party.png' }), 'Barátok (party)'], () => openPartyMenu()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_save.png' }), 'Mentés'], () => { save() ? toast('Játék elmentve!') : toast('Mentés sikertelen'); }),
-        Account.loggedIn && b([el('img', { class: 'mico', src: 'assets/ui/m_save.png' }), 'Mentések visszaállítása'], () => openBackups()),
+        b([el('img', { class: 'mico', src: 'assets/ui/m_save.png' }), 'Mentések (átvitel, visszaállítás)'], () => openSaveTools()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_settings.png' }), `Hang: ${Math.round(Sfx.volume * 100)}%`], () => openSound()),
-        b([el('img', { class: 'mico', src: 'assets/ui/m_settings.png' }), 'Irányítás'], () => dialog(['WASD / nyilak: mozgás\nE: beszélgetés, interakció\nSpace: szimatolás', 'I: táska • J: Mexidex • P: csapat\nEsc: menü\nMobilon: joystick + A gomb + 🐾 + ☰'])),
+        b([el('img', { class: 'mico', src: 'assets/ui/m_settings.png' }), '🎮 Irányítás'], () => openControlSettings()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_exit.png' }), 'Főmenü'], () => world.scene.start('Title')),
       ));
   });
@@ -512,6 +586,7 @@ export function openPartyMenu() {
       if (!p) {
         const input = el('input', { maxlength: 5, placeholder: 'KÓD', style: 'font:inherit;font-size:22px;letter-spacing:4px;width:140px;text-transform:uppercase;padding:6px;border:3px solid var(--line);border-radius:8px' });
         body.append(
+          Net.online ? null : el('p', { style: 'color:#b03030;font-weight:800' }, '📡 Nincs kapcsolat a szerverrel. A közös játékhoz internet kell – egyedül nyugodtan játszhatsz tovább, és amint visszajön a net, magától újracsatlakozunk.'),
           el('p', {}, 'Játssz egy barátoddal! Hozz létre egy partit, és küldd el neki a kódot – vagy írd be az ő kódját.'),
           el('div', { class: 'actions' },
             el('button', { class: 'btn primary', onclick: () => Net.send({ t: 'party_create' }) }, '➕ Party létrehozása'),

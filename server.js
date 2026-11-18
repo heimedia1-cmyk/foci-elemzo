@@ -17,7 +17,33 @@ import { ACCOUNT_API, DATA_DIR, SAVE_DIR, accountFor, saveFile, backupDir, readS
 import { sanitizeSave } from './server/validate.js';
 
 app.disable('x-powered-by');
+app.set('trust proxy', 1);
+
+// Az Android app helyi fájlokból fut (https://localhost), ezért az API-t onnan is engedélyezni kell.
+const APP_ORIGINS = new Set(['https://localhost', 'http://localhost', 'capacitor://localhost']);
+app.use('/api', (req, res, next) => {
+  const o = req.headers.origin;
+  if (o && APP_ORIGINS.has(o)) {
+    res.setHeader('Access-Control-Allow-Origin', o);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+    res.setHeader('Access-Control-Max-Age', '86400');
+  }
+  if (req.method === 'OPTIONS') return res.sendStatus(o && APP_ORIGINS.has(o) ? 204 : 403);
+  next();
+});
 app.use(express.json({ limit: '1mb' }));
+
+// Egyszerű, IP-nkénti kérésszám-korlát (pl. mentésátviteli kód találgatása ellen)
+const hits = new Map();
+function limit(key, max, windowMs) {
+  const now = Date.now(); const h = hits.get(key) || { n: 0, t: now };
+  if (now - h.t > windowMs) { h.n = 0; h.t = now; }
+  h.n++; hits.set(key, h);
+  if (hits.size > 20000) for (const [k, v] of hits) if (now - v.t > windowMs) hits.delete(k);
+  return h.n > max;
+}
 
 async function forward(pathname, req, res) {
   try {
@@ -112,9 +138,35 @@ app.post('/api/save/restore', async (req, res) => {
   } catch { res.status(404).json({ error: 'Nincs ilyen biztonsági mentés.' }); }
 });
 
+// ---- Mentés átvitele kóddal (pl. régi app vendégmentése → új app) ----
+const TRANSFER_DIR = path.join(DATA_DIR, 'transfer');
+fs.mkdirSync(TRANSFER_DIR, { recursive: true });
+const TRANSFER_MS = 48 * 3600 * 1000;
+const tcode = () => Array.from(crypto.randomBytes(8), b => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 32]).join('');
+app.post('/api/transfer', (req, res) => {
+  if (limit('tp:' + req.ip, 10, 3600000)) return res.status(429).json({ error: 'Túl sok próbálkozás, próbáld később.' });
+  const r = sanitizeSave(req.body?.save, null);
+  if (r.error) return res.status(400).json({ error: r.error });
+  for (const f of fs.readdirSync(TRANSFER_DIR)) { try { if (Date.now() - fs.statSync(path.join(TRANSFER_DIR, f)).mtimeMs > TRANSFER_MS) fs.unlinkSync(path.join(TRANSFER_DIR, f)); } catch {} }
+  const code = tcode();
+  fs.writeFileSync(path.join(TRANSFER_DIR, code + '.json'), JSON.stringify(r.save));
+  res.json({ code, expiresAt: Date.now() + TRANSFER_MS });
+});
+app.get('/api/transfer/:code', (req, res) => {
+  if (limit('tg:' + req.ip, 20, 3600000)) return res.status(429).json({ error: 'Túl sok próbálkozás, próbáld később.' });
+  const code = String(req.params.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (code.length !== 8) return res.status(400).json({ error: 'A kód 8 karakteres.' });
+  const f = path.join(TRANSFER_DIR, code + '.json');
+  try {
+    if (Date.now() - fs.statSync(f).mtimeMs > TRANSFER_MS) { fs.unlinkSync(f); throw new Error('lejárt'); }
+    res.json({ save: JSON.parse(fs.readFileSync(f, 'utf8')) });
+  } catch { res.status(404).json({ error: 'Nincs ilyen kód, vagy már lejárt (48 óráig érvényes).' }); }
+});
+
 app.get('/health', (_req, res) => res.json({ ok: true, game: 'MexiVerse' }));
 // Android app letöltése (a GitHub Actions építi, külön ágon tárolja)
 app.get('/app/MexiVerse.apk', (req, res) => res.redirect(302, 'https://raw.githubusercontent.com/heimedia1-cmyk/foci-elemzo/mexiverse-apk/MexiVerse.apk'));
+app.get('/app/MexiVerse-teszt.apk', (req, res) => res.redirect(302, 'https://raw.githubusercontent.com/heimedia1-cmyk/foci-elemzo/mexiverse-apk/MexiVerse-teszt.apk'));
 app.use('/vendor/leaflet', express.static(path.join(__dirname, 'node_modules/leaflet/dist'), { maxAge: '7d' }));
 app.use('/vendor', express.static(path.join(__dirname, 'node_modules/phaser/dist'), { maxAge: '7d' }));
 app.use(express.static(path.join(__dirname, 'public'), {
