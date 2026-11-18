@@ -189,6 +189,9 @@ export function serverEncounterTable(mapKey, x, y, hour) {
   if (ch !== '"' && !(MAPS[mapKey].cave && ch === ':')) return null;
   const night = hour >= 20 || hour < 6;
   const zone = (enc.zones || []).find(z => x >= z.rect[0] && y >= z.rect[1] && x < z.rect[0] + z.rect[2] && y < z.rect[1] + z.rect[3]);
-  const src = zone || enc.default;
-  return { table: (night ? src.night : src.day) || src.day, levels: src.levels || enc.default.levels };
+  // a csak szintet megadó zónák a térkép alap-táblázatát használják
+  const pickT = (z) => z && ((night ? z.night : z.day) || z.day);
+  const table = pickT(zone) || pickT(enc.default);
+  if (!table?.length) return null;
+  return { table, levels: zone?.levels || enc.default.levels };
 }

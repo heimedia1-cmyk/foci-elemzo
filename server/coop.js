@@ -198,7 +198,9 @@ export function attachCoop(server) {
           if (!msg.ok) { send(init, { t: 'coop_declined' }); break; }
           c.pendingParty = msg.party; c.pendingInventory = msg.inventory;
           if (init?.user) init.cloud = readSave(init.user); if (c.user) c.cloud = readSave(c.user); // friss felhős mentés
-          if (!startBattle(p, init, data)) send(init, { t: 'coop_declined' });
+          let ok = false;
+          try { ok = startBattle(p, init, data); } catch (e) { console.error('coop indítási hiba', e?.message); }
+          if (!ok) { send(init, { t: 'coop_declined' }); send(c, { t: 'coop_declined' }); }
           break;
         }
         case 'coop_action': {

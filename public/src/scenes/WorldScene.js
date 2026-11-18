@@ -442,6 +442,8 @@ export class WorldScene extends Phaser.Scene {
     const table = weatherTable((zone && (night ? zone.night : zone.day)) || (night ? enc.default.night : enc.default.day), this.weather);
     this.cutscene = true;
     this._coopFallback = fallback;
+    // biztonsági háló: ha 7 mp alatt nem indul el a közös harc, egyedül harcolsz
+    this.time.delayedCall(7000, () => { if (this._coopFallback === fallback && !this.inBattle) { this._coopFallback = null; this.cutscene = false; fallback(); } });
     Net.send({ t: 'coop_encounter', map: this.mapKey, x: this.player.x, y: this.player.y, party: G.state.party, inventory: G.state.inventory, bg: this.map.biome ? ({ swamp: 'swamp', neon: 'neon', shrine: 'shrine', volcano: 'volcano', snow: 'crystal' })[this.map.biome] : this.mapKey === 'osveny' ? (night ? 'route_night' : 'route') : this.mapKey === 'erdo' ? (night ? 'forest_night' : 'forest') : this.mapKey === 'barlang' ? 'crystal' : 'village' });
   }
 
