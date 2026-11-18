@@ -27,6 +27,8 @@ export const DRAWN_SPECIES = ['hosmexi', 'bajnok', 'langvezer', 'viharkacsa', 'k
   'urhajos', 'csillagjaro', 'vampir', 'vampirgrof', 'gomba', 'gombakiraly', 'angyal', 'arkangyal', 'rocker', 'rocksztar', 'kristaly', 'gyemant'];
 // Kézzel rajzolt sérülés/ájulás póz (assets/mexi/<faj>_hurt.png, _faint.png)
 const POSE_SPECIES = [...DRAWN_SPECIES, 'mocsarkiraly', 'mehkiralyno', 'arnyekmester'];
+// saját rajzú térképes (követő) sprite-lapok: 96×128, 3 kocka × 4 irány (le, bal, jobb, fel)
+const MAP_SPECIES = POSE_SPECIES.filter(sp => !['fonix', 'tengerur', 'aranymexi'].includes(sp));
 const NEW_EVO = { hosmexi: 'alap', langvezer: 'lang', viharkacsa: 'kacsa', kiborg: 'kiber', kofalo: 'banyasz', gleccser: 'jeg', fomagus: 'magus', kisertet: 'szellem' };
 export const NPC_ROWS = ['apolo', 'boltos', 'professzor', 'anya', 'bacsi', 'kisfiu', 'edzo1', 'gyujto'];
 
@@ -45,6 +47,7 @@ export function preloadArt(scene) {
   L.image('src_evo', 'assets/mexi_evo.png');
   for (const sp of DRAWN_SPECIES) { L.image(`mx_${sp}_f`, `assets/mexi/${sp}_f.png`); L.image(`mx_${sp}_b`, `assets/mexi/${sp}_b.png`); }
   for (const sp of POSE_SPECIES) for (const k of ['hurt', 'faint']) L.image(`mx_${sp}_${k}`, `assets/mexi/${sp}_${k}.png`);
+  for (const sp of MAP_SPECIES) L.image(`mx_${sp}_map`, `assets/mexi/${sp}_map.png`);
   L.image('src_anim_a', 'assets/anim_a.png');
   for (const n of FX_FILES) L.image('bfx_' + n, `assets/battle/${n}.png`);
   for (const n of ['pet1', 'pet2', 'pet3', 'eat1', 'eat2', 'eat3', 'happy1', 'happy2', 'happy3', 'sleep1', 'sleep2', 'sleep3']) L.image('ia_' + n, `assets/ui/ia_${n}.png`);
@@ -59,6 +62,17 @@ export function preloadArt(scene) {
   for (const k of Object.keys(FURNITURE_INFO)) L.image('fu_' + k, `assets/f_${k}.png`);
 }
 
+/** A saját rajzú térképes lapok felülírják a kicsinyített/átszínezett változatot (a shiny ebből készül). */
+function useMapArt(scene) {
+  const T = scene.textures;
+  for (const sp of MAP_SPECIES) {
+    if (!T.exists(`mx_${sp}_map`)) continue;
+    const src = T.get(`mx_${sp}_map`).getSourceImage(); const c = cv(96, 128); c.getContext('2d').drawImage(src, 0, 0);
+    for (const k of ['mm_' + sp, 'mm_' + sp + '_s']) if (T.exists(k)) T.remove(k);
+    addSheet(scene, 'mm_' + sp, c, 32, 32); addSheet(scene, 'mm_' + sp + '_s', hueCanvas(c, 150), 32, 32);
+    T.remove(`mx_${sp}_map`);
+  }
+}
 function cv(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
 function crop(img, x, y, w, h) { const c = cv(w, h); c.getContext('2d').drawImage(img, x, y, w, h, 0, 0, w, h); return c; }
 
@@ -223,6 +237,7 @@ export function registerArt(scene) {
     [0, 1, 0].forEach((dy, i) => { put(fc, i, 0, false, -dy); put(fc, i, 1, false, -dy); put(fc, i, 2, true, -dy); put(bc, i, 3, false, -dy); });
     addSheet(scene, 'mm_' + sp, map, 32, 32); addSheet(scene, 'mm_' + sp + '_s', hueCanvas(map, 150), 32, 32);
   }
+  useMapArt(scene);
   for (const [evo, base] of Object.entries(NEW_EVO)) {
     if (scene.textures.exists('mf_' + evo)) continue;
     const col = TYPES[MEXIS[evo].types[MEXIS[evo].types.length - 1]].color;
