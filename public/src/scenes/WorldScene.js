@@ -3,7 +3,7 @@ import { MAPS, SOLID, TRAINERS } from '../data/maps.js';
 import { MEXIS } from '../data/mexis.js';
 import { ITEMS } from '../data/items.js';
 import { CONFIG } from '../data/config.js';
-import { DIR_ROW, TS as T, BUILDING_INFO, PROP_INFO, FURNITURE_INFO } from '../art/registerArt.js';
+import { SIT_ORDER, DIR_ROW, TS as T, BUILDING_INFO, PROP_INFO, FURNITURE_INFO } from '../art/registerArt.js';
 import { G, save, markSeen } from '../systems/state.js';
 import { createMexi, healFull, rand, randInt, displayName } from '../systems/mexi.js';
 import { dialog, choose, toast, UI, el, askText } from '../ui/ui.js';
@@ -538,7 +538,7 @@ export class WorldScene extends Phaser.Scene {
   refreshFollower() {
     const lead = G.state.party.find(m => m.hp > 0) || G.state.party[0];
     if (!lead) { this.follower.sprite.setVisible(false); this.follower.mon = null; return; }
-    this.follower.mon = lead;
+    this.follower.mon = lead; this.follower._sitting = false;
     this.follower.sprite.setTexture('mm_' + lead.species + (lead.shiny ? '_s' : ''), DIR_ROW[this.follower.dir] * 3).setVisible(true);
   }
   tileAt(x, y) { return (x < 0 || y < 0 || x >= this.W || y >= this.H) ? '#' : this.tiles[y][x]; }
@@ -583,18 +583,38 @@ export class WorldScene extends Phaser.Scene {
 
   idleCheck(time) {
     if (this._lastActive === undefined) this._lastActive = time;
-    if (this.moving || UI.busy || this.inBattle) { this._lastActive = time; if (this._sleepSpr) { this._sleepSpr.destroy(); this._sleepSpr = null; this.follower.sprite.setVisible(true); } return; }
     const f = this.follower;
-    if (!this._sleepSpr && time - this._lastActive > 25000 && f.mon?.species === 'alap' && f.sprite.visible) {
+    if (this.moving || UI.busy || this.inBattle) { this._lastActive = time; this.wakeFollower(); return; }
+    if (!f.mon || !f.sprite.visible && !this._sleepSpr) return;
+    const idle = time - this._lastActive;
+    // tétlen követő: 3 mp után körülnéz, 8 mp után leül, (Alap Mexi) 25 mp után elalszik
+    if (idle > 3000 && !f._looked) {
+      f._looked = true; const back = f.dir, id = (f._lookId = (f._lookId || 0) + 1);
+      [['left', 0], ['right', 700], [back, 1400]].forEach(([d, t]) => this.time.delayedCall(t, () => { if (f._lookId === id && f._looked && !f._sitting && !this.moving) this.setFacing(f, d); }));
+    }
+    if (idle > 8000 && !f._sitting && !this._sleepSpr) {
+      const i = SIT_ORDER.indexOf(f.mon.species);
+      if (i >= 0 && this.textures.exists('msit')) {
+        f._sitting = true; f.sprite.setTexture(f.mon.shiny ? 'msit_s' : 'msit', i);
+        if (Math.random() < 0.35) this.emote(f, Math.random() < 0.5 ? 'heart' : 'note');
+      }
+    }
+    if (!this._sleepSpr && idle > 25000 && f.mon.species === 'alap' && f.sprite.visible) {
       f.sprite.setVisible(false);
       this._sleepSpr = this.add.image(f.sprite.x, f.sprite.y + 6, 'ia_sleep1').setOrigin(0.5, 1).setDepth(f.sprite.y).setScale(0.55);
       let i = 0; this._sleepTimer = this.time.addEvent({ delay: 600, loop: true, callback: () => { if (!this._sleepSpr) { this._sleepTimer.remove(); return; } i = (i + 1) % 3; this._sleepSpr.setTexture('ia_sleep' + (i + 1)); } });
     }
   }
-
+  /** A tétlen követőt visszaállítja járó alakba (ülésből, alvásból). */
+  wakeFollower() {
+    const f = this.follower;
+    if (this._sleepSpr) { this._sleepSpr.destroy(); this._sleepSpr = null; f.sprite.setVisible(true); }
+    f._looked = false;
+    if (f._sitting) { f._sitting = false; if (f.mon) f.sprite.setTexture('mm_' + f.mon.species + (f.mon.shiny ? '_s' : ''), DIR_ROW[f.dir] * 3); }
+  }
   tryMove(dir, run = false) {
     this._lastActive = this.time.now;
-    if (this._sleepSpr) { this._sleepSpr.destroy(); this._sleepSpr = null; this.follower.sprite.setVisible(true); }
+    this.wakeFollower();
     const p = this.player;
     if (p.dir !== dir && !this._turnDone) {
       this.setFacing(p, dir);

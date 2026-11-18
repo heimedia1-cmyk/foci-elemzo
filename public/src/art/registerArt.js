@@ -27,6 +27,10 @@ export const DRAWN_SPECIES = ['hosmexi', 'bajnok', 'langvezer', 'viharkacsa', 'k
   'urhajos', 'csillagjaro', 'vampir', 'vampirgrof', 'gomba', 'gombakiraly', 'angyal', 'arkangyal', 'rocker', 'rocksztar', 'kristaly', 'gyemant'];
 // Kézzel rajzolt sérülés/ájulás póz (assets/mexi/<faj>_hurt.png, _faint.png)
 const POSE_SPECIES = [...DRAWN_SPECIES, 'mocsarkiraly', 'mehkiralyno', 'arnyekmester'];
+// ülő követő-pózok egy közös lapon (8 oszlop, 32×32), ebben a sorrendben
+export const SIT_ORDER = ['alap', 'beka', 'mehecske', 'lang', 'kacsa', 'nindzsa', 'kiber', 'banyasz', 'jeg', 'magus', 'szellem', 'mocsarkiraly', 'mehkiralyno', 'arnyekmester', 'szikra', 'viharfarkas',
+  'virag', 'rozsakert', 'kaloz', 'kalozkapitany', 'vulkan', 'lavakiraly', 'lovag', 'pancellovag', 'szakacs', 'mesterszakacs', 'urhajos', 'csillagjaro', 'vampir', 'vampirgrof', 'gomba', 'gombakiraly',
+  'angyal', 'arkangyal', 'rocker', 'rocksztar', 'kristaly', 'gyemant', 'hosmexi', 'bajnok', 'langvezer', 'viharkacsa', 'kiborg', 'kofalo', 'gleccser', 'fomagus', 'kisertet'];
 // saját rajzú térképes (követő) sprite-lapok: 96×128, 3 kocka × 4 irány (le, bal, jobb, fel)
 const MAP_SPECIES = POSE_SPECIES.filter(sp => !['fonix', 'tengerur', 'aranymexi'].includes(sp));
 const NEW_EVO = { hosmexi: 'alap', langvezer: 'lang', viharkacsa: 'kacsa', kiborg: 'kiber', kofalo: 'banyasz', gleccser: 'jeg', fomagus: 'magus', kisertet: 'szellem' };
@@ -48,6 +52,7 @@ export function preloadArt(scene) {
   for (const sp of DRAWN_SPECIES) { L.image(`mx_${sp}_f`, `assets/mexi/${sp}_f.png`); L.image(`mx_${sp}_b`, `assets/mexi/${sp}_b.png`); }
   for (const sp of POSE_SPECIES) for (const k of ['hurt', 'faint']) L.image(`mx_${sp}_${k}`, `assets/mexi/${sp}_${k}.png`);
   for (const sp of MAP_SPECIES) L.image(`mx_${sp}_map`, `assets/mexi/${sp}_map.png`);
+  L.image('src_sit', 'assets/mexi/sit_all.png');
   L.image('src_anim_a', 'assets/anim_a.png');
   for (const n of FX_FILES) L.image('bfx_' + n, `assets/battle/${n}.png`);
   for (const n of ['pet1', 'pet2', 'pet3', 'eat1', 'eat2', 'eat3', 'happy1', 'happy2', 'happy3', 'sleep1', 'sleep2', 'sleep3']) L.image('ia_' + n, `assets/ui/ia_${n}.png`);
@@ -238,6 +243,10 @@ export function registerArt(scene) {
     addSheet(scene, 'mm_' + sp, map, 32, 32); addSheet(scene, 'mm_' + sp + '_s', hueCanvas(map, 150), 32, 32);
   }
   useMapArt(scene);
+  if (scene.textures.exists('src_sit')) {
+    const src = scene.textures.get('src_sit').getSourceImage(); const c = cv(src.width, src.height); c.getContext('2d').drawImage(src, 0, 0);
+    addSheet(scene, 'msit', c, 32, 32); addSheet(scene, 'msit_s', hueCanvas(c, 150), 32, 32); scene.textures.remove('src_sit');
+  }
   for (const [evo, base] of Object.entries(NEW_EVO)) {
     if (scene.textures.exists('mf_' + evo)) continue;
     const col = TYPES[MEXIS[evo].types[MEXIS[evo].types.length - 1]].color;
