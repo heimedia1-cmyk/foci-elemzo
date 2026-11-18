@@ -5,7 +5,7 @@ import { el } from './ui.js';
 import { plugin } from '../systems/api.js';
 
 const KEY = 'mexiverse_controls';
-export const DEFAULT_CONTROLS = { show: 'auto', mode: 'joystick', joySize: 140, btnScale: 1, opacity: 0.85, leftHanded: false, vibration: true };
+export const DEFAULT_CONTROLS = { show: 'auto', mode: 'joystick', joySize: 140, btnScale: 1, opacity: 0.85, leftHanded: false, vibration: true, fx: 'full' };
 export function getControls() {
   try { return { ...DEFAULT_CONTROLS, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { ...DEFAULT_CONTROLS }; }
 }

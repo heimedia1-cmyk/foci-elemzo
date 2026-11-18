@@ -14,6 +14,7 @@ import { Sfx } from '../systems/sfx.js';
 import { questEvent } from '../systems/quests.js';
 import { vibrate } from '../ui/touch.js';
 import { ensurePoses } from '../art/registerArt.js';
+import { introBars, ambient, tickMons, enterFlash, burst, popNumber, impact, dust, lightColumn, typeColor } from '../systems/battleFx.js';
 
 const wait = (scene, ms) => new Promise(r => scene.time.delayedCall(ms, r));
 const tween = (scene, cfg) => new Promise(r => scene.tweens.add({ ...cfg, onComplete: r }));
@@ -30,7 +31,7 @@ export class BattleScene extends Phaser.Scene {
 
   bgName() {
     const map = G.state.map; const night = new Date().getHours() >= 20 || new Date().getHours() < 6;
-    const base = { mancsfalva: 'village', osveny: 'route' }[map] || (map.startsWith('int_') ? 'village' : 'route');
+    const base = { mancsfalva: 'village', osveny: 'route', erdo: 'forest', barlang: 'crystal' }[map] || (map.startsWith('int_') ? 'village' : 'route');
     return { bg: night && (base === 'route' || base === 'forest') ? base + '_night' : base, pad: base };
   }
 
@@ -72,6 +73,8 @@ export class BattleScene extends Phaser.Scene {
     this.run();
   }
 
+  update(time) { tickMons(this, time); }
+
   // ---------------- Elrendezés ----------------
   layout() {
     const { width: W, height: H } = this.scale;
@@ -101,6 +104,7 @@ export class BattleScene extends Phaser.Scene {
       this.padMe = this.add.image(this.mePos.x, this.mePos.y + 4 * unit, `bpad_${pad}_me`).setDepth(-5);
       this.padMe.setScale((84 * unit) / this.padMe.width);
     }
+    ambient(this, bg);
   }
 
   onResize() {
@@ -146,6 +150,7 @@ export class BattleScene extends Phaser.Scene {
     box.classList.remove('hidden');
     const caughtMark = side === 'f' && !this.opts.isTrainer && G.state.dex.caught[m.species] ? ' 🎾' : '';
     box.innerHTML = '';
+    (this._hp ??= {})[side] = m.hp;
     const pct = Math.max(0, m.hp / m.stats.hp * 100);
     box.append(...[
       el('div', { class: 'top' }, el('span', {}, displayName(m), m.shiny ? ' ✨' : '', caughtMark, m.status ? el('span', { class: 'st', style: `background:${STATUS[m.status].color}` }, el('img', { class: 'ico', src: `assets/ui/s_${m.status}.png` }), STATUS[m.status].short) : null), el('span', {}, 'Sz. ' + m.level)),
@@ -159,6 +164,7 @@ export class BattleScene extends Phaser.Scene {
     const box = side === 'p' ? this.meBox : this.foeBox;
     const bar = box.querySelector('.hpbar'); const fill = bar?.querySelector('i');
     if (!fill) return;
+    (this._hp ??= {})[side] = hp;
     fill.style.width = Math.max(0, hp / max * 100) + '%';
     bar.className = 'hpbar ' + hpClass(hp, max);
     const num = box.querySelector('.hpnum'); if (num) num.textContent = `${hp} / ${max}`;
@@ -182,6 +188,7 @@ export class BattleScene extends Phaser.Scene {
   async run() {
     const e = this.engine, o = this.opts;
     this.meSpr = null; this.foeSpr = null;
+    await introBars(this);
     if (o.isTrainer) {
       const tr = this.add.sprite(this.foePos.x, this.foePos.y, o.trainerSprite, 0).setOrigin(0.5, 1).setScale(this.sc * 1.1).setAlpha(0);
       await tween(this, { targets: tr, alpha: 1, x: { from: this.scale.width + 100, to: this.foePos.x }, duration: 500 });
@@ -189,6 +196,7 @@ export class BattleScene extends Phaser.Scene {
       await tween(this, { targets: tr, x: this.scale.width + 120, alpha: 0, duration: 400 });
       tr.destroy();
       this.foeSpr = this.add.sprite(this.foePos.x, this.foePos.y, this.texFor(e.fm, false)).setOrigin(0.5, 1).setScale(0);
+      enterFlash(this, this.foeSpr);
       await tween(this, { targets: this.foeSpr, scale: this.sc / 4, duration: 350, ease: 'Back.out' });
       this.renderInfo('f');
       await this.say(`${o.trainerName} előhívta: ${displayName(e.fm)}!`);
@@ -292,20 +300,24 @@ export class BattleScene extends Phaser.Scene {
     for (const ev of events) {
       switch (ev.t) {
         case 'msg': if (ev.text === 'De nem talált!') Sfx.play('miss'); await this.say(ev.text); break;
-        case 'anim': if (ev.cat !== 'stat') Sfx.move(ev.moveType); await this.attackAnim(ev.side, ev.moveType, ev.cat); break;
+        case 'anim': this._lastMoveType = ev.moveType; if (ev.cat !== 'stat') Sfx.move(ev.moveType); await this.attackAnim(ev.side, ev.moveType, ev.cat); break;
         case 'damage': {
           if (ev.side === 'f' && ev.eff > 1 && !ev.dot) questEvent('superHits');
           const spr = ev.side === 'p' ? this.meSpr : this.foeSpr;
           Sfx.hit({ crit: ev.crit, eff: ev.dot ? 0.5 : ev.eff }); if (!ev.dot) vibrate('hit');
           if (!ev.dot) { this.cameras.main.shake(ev.eff >= 2 ? 220 : 120, ev.eff >= 2 ? 0.008 : 0.004); }
           this.pose(ev.side, 'hurt');
-          { const pos = ev.side === 'p' ? this.mePos : this.foePos; this.fx(ev.crit ? ['crit1', 'crit2', 'crit3'] : ['hit1', 'hit2', 'hit3'], pos.x, pos.y - 26 * this.sc, (ev.crit ? 44 : 30) * this.sc, 80, 23); }
+          { const pos = ev.side === 'p' ? this.mePos : this.foePos; this.fx(ev.crit ? ['crit1', 'crit2', 'crit3'] : ['hit1', 'hit2', 'hit3'], pos.x, pos.y - 26 * this.sc, (ev.crit ? 44 : 30) * this.sc, 80, 23);
+            const dmg = Math.max(0, (this._hp?.[ev.side] ?? ev.hp) - ev.hp);
+            if (!ev.dot) { const col = typeColor(this._lastMoveType); burst(this, pos.x, pos.y - 24 * this.sc, col); impact(this, { crit: ev.crit, eff: ev.eff, color: col }); }
+            if (dmg > 0) popNumber(this, pos.x + 18 * this.sc, pos.y - 44 * this.sc, '-' + dmg, { crit: ev.crit, eff: ev.dot ? 1 : ev.eff }); }
+          spr.setTintFill(0xffffff); this.time.delayedCall(70, () => spr.active && spr.clearTint());
           await tween(this, { targets: spr, alpha: 0.2, yoyo: true, repeat: 2, duration: 70 });
           spr.setAlpha(1);
           if (ev.hp > 0) this.time.delayedCall(250, () => this.pose(ev.side, null));
           await this.animateHp(ev.side, ev.hp, ev.max);
           break; }
-        case 'heal': { Sfx.play('heal_hp'); const pos = ev.side === 'p' ? this.mePos : this.foePos; this.fx(['heal1', 'heal2', 'heal1', 'heal2'], pos.x, pos.y - 24 * this.sc, 40 * this.sc, 140); await this.animateHp(ev.side, ev.hp, ev.max); break; }
+        case 'heal': { Sfx.play('heal_hp'); const pos = ev.side === 'p' ? this.mePos : this.foePos; { const d = ev.hp - (this._hp?.[ev.side] ?? ev.hp); if (d > 0) popNumber(this, pos.x + 18 * this.sc, pos.y - 44 * this.sc, '+' + d, { heal: true }); } this.fx(['heal1', 'heal2', 'heal1', 'heal2'], pos.x, pos.y - 24 * this.sc, 40 * this.sc, 140); await this.animateHp(ev.side, ev.hp, ev.max); break; }
         case 'status': {
           this.renderInfo(ev.side);
           if (ev.status) { Sfx.play('status'); const pos = ev.side === 'p' ? this.mePos : this.foePos; await this.fx([`st_${ev.status}1`, `st_${ev.status}2`, `st_${ev.status}1`, `st_${ev.status}2`], pos.x, pos.y - 30 * this.sc, 34 * this.sc, 150); }
@@ -315,9 +327,10 @@ export class BattleScene extends Phaser.Scene {
           const spr = ev.side === 'p' ? this.meSpr : this.foeSpr;
           this.pose(ev.side, 'faint'); Sfx.play('faint');
           await wait(this, ev.side === 'f' ? 600 : 450);
+          { const pos = ev.side === 'p' ? this.mePos : this.foePos; dust(this, pos.x, pos.y); }
           await tween(this, { targets: spr, y: spr.y + 30, alpha: 0, duration: 450 }); break; }
         case 'switch': Sfx.play('switch_in', { delay: 0.2 }); await this.switchAnim(ev.side, ev.index); break;
-        case 'xp': case 'levelup': this.renderInfo('p'); if (ev.t === 'levelup') { Sfx.play('levelup', { throttle: 800 }); questEvent('levelUps'); } if (ev.t === 'levelup' && ev.index === this.shown.p) { this.fx(['lvl1', 'lvl2', 'lvl1', 'lvl2'], this.mePos.x, this.mePos.y - 30 * this.sc, 50 * this.sc, 150); } break;
+        case 'xp': case 'levelup': this.renderInfo('p'); if (ev.t === 'levelup') { Sfx.play('levelup', { throttle: 800 }); questEvent('levelUps'); } if (ev.t === 'levelup' && ev.index === this.shown.p) { lightColumn(this, this.mePos.x, this.mePos.y); this.sparkle(this.mePos.x, this.mePos.y - 30 * this.sc); this.fx(['lvl1', 'lvl2', 'lvl1', 'lvl2'], this.mePos.x, this.mePos.y - 30 * this.sc, 50 * this.sc, 150); } break;
         case 'canLearn': { const m = G.state.party[ev.index]; this.ui.classList.add('hidden'); await offerMove(m, ev.move); this.ui.classList.remove('hidden'); break; }
         case 'ball': await this.ballAnim(ev.itemId, ev.shakes, ev.caught); break;
         case 'needSwitch': {
@@ -340,11 +353,13 @@ export class BattleScene extends Phaser.Scene {
     if (side === 'p') {
       if (this.meSpr) { await tween(this, { targets: this.meSpr, x: -100, duration: 250 }); this.meSpr.destroy(); }
       this.meSpr = this.add.sprite(this.mePos.x, this.mePos.y, this.texFor(mon, true)).setOrigin(0.5, 1).setScale(0);
+      enterFlash(this, this.meSpr);
       await tween(this, { targets: this.meSpr, scale: this.sc * 0.27, duration: 300, ease: 'Back.out' });
       this.renderInfo('p');
     } else {
       this.foeSpr?.destroy();
       this.foeSpr = this.add.sprite(this.foePos.x, this.foePos.y, this.texFor(mon, false)).setOrigin(0.5, 1).setScale(0);
+      enterFlash(this, this.foeSpr);
       markSeen(mon.species);
       await tween(this, { targets: this.foeSpr, scale: this.sc / 4, duration: 300, ease: 'Back.out' });
       this.renderInfo('f');

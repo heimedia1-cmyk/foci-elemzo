@@ -206,6 +206,7 @@ export function openControlSettings() {
         slider('Átlátszóság', 'opacity', 0.3, 1, 0.05, v => Math.round(v * 100) + '%'),
         seg('Kézhasználat', 'leftHanded', [[false, '🫱 Jobbkezes'], [true, '🫲 Balkezes']]),
         seg('Rezgés', 'vibration', [[true, 'Be'], [false, 'Ki']]),
+        seg('Effektek', 'fx', [['full', '✨ Teljes'], ['low', '🔋 Csökkentett']]),
         el('p', { style: 'font-size:13px;margin:8px 0 0' }, 'Mobilon: bal oldalt bárhová érintve megjelenik a joystick. A = beszélgetés / tovább / megerősítés, B = vissza / mégse, 🐾 = szimatolás, 🏃 = futás be/ki, ☰ = menü. A változások azonnal érvényesek és megmaradnak.'),
         el('p', { style: 'font-size:13px;margin:6px 0 0' }, 'Billentyűzet: WASD / nyilak – mozgás (Shift: futás) • E – beszélgetés • Space – szimatolás • I – táska • J – Mexidex • P – csapat • Esc – menü'),
         el('button', { class: 'btn', style: 'margin-top:8px', onclick: () => { setControls({ ...DEFAULT_CONTROLS }); draw(); } }, 'Alapértelmezett'));
