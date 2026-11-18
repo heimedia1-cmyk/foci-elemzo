@@ -40,7 +40,7 @@ export class WorldScene extends Phaser.Scene {
     this.tiles = this.map.tiles.map(r => [...r]);
     this.W = this.tiles[0].length; this.H = this.tiles.length;
     this.moving = false;
-    this.encounterCooldown = CONFIG.encounterCooldownSteps;
+    this.encounterCooldown = this.map?.cave ? CONFIG.encounterCooldownCave : CONFIG.encounterCooldownSteps;
     this.sniffUntil = 0;
     this.sniffMarks = [];
     this.inBattle = false;
@@ -481,7 +481,7 @@ export class WorldScene extends Phaser.Scene {
       s.map = s.lastHeal.map; s.pos = { x: s.lastHeal.x, y: s.lastHeal.y, dir: 'down' }; if (s.lastHeal.ret) s.returnTo = s.lastHeal.ret;
       save(); this.cutscene = false; this.scene.restart(); return;
     }
-    this.encounterCooldown = CONFIG.encounterCooldownSteps;
+    this.encounterCooldown = this.map?.cave ? CONFIG.encounterCooldownCave : CONFIG.encounterCooldownSteps;
     save(); this.refreshFollower(); this.updateHud();
     this.cutscene = false;
   }
@@ -793,7 +793,7 @@ export class WorldScene extends Phaser.Scene {
   async afterBattle(res, opts) {
     const s = G.state;
     s.stats.battles++;
-    this.encounterCooldown = CONFIG.encounterCooldownSteps;
+    this.encounterCooldown = this.map?.cave ? CONFIG.encounterCooldownCave : CONFIG.encounterCooldownSteps;
     if (opts.roamer) {
       const r = opts.roamer;
       if (res === 'win' || res === 'caught') {
