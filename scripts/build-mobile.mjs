@@ -1,3 +1,4 @@
+// Kiadás: 1.2 (első helyi fájlos éles app)
 // Android build előkészítése: a teljes játék helyi másolata a mobile-dist mappába,
 // a Phaser és a Leaflet is helyben, az API pedig a Railway-szerverre mutat.
 // Használat: node scripts/build-mobile.mjs [--api https://mexiverse.up.railway.app]
