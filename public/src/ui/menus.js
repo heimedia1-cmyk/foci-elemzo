@@ -3,6 +3,8 @@ import { el, openWindow, choose, dialog, toast, hpBar, UI, askText } from './ui.
 import { G, save, keyFor } from '../systems/state.js';
 import { Account } from '../systems/account.js';
 import { nextGoal } from '../systems/goals.js';
+import { LEADER_ORDER } from '../data/world2.js';
+import { TRAINERS } from '../data/maps.js';
 import { dailyQuests, questDef, questText, claimQuest } from '../systems/quests.js';
 import { localBackups, addLocalBackup, summarize, writeLocalSave, makeTransferCode, fetchTransferCode, saveToText, textToSave, downloadSave } from '../systems/saveTransfer.js';
 import { MEXIS, RARITY, SPECIES_ORDER, NATURES, STAT_NAMES } from '../data/mexis.js';
@@ -241,6 +243,7 @@ export function openMainMenu(world) {
       el('div', { style: 'margin-bottom:10px;font-weight:700' }, `${s.player.name} • 💰 ${s.money} • Mexidex: ${Object.keys(s.dex.caught).length}/${SPECIES_ORDER.length} • Elkapva: ${s.stats.caught}`),
       el('div', { class: 'mainmenu' },
         b([el('img', { class: 'mico', src: 'assets/ui/m_map.png' }), '🎯 Következő cél: ' + nextGoal(s).short], () => dialog(nextGoal(G.state).long, '🎯 Következő cél')),
+        b([el('img', { class: 'mico', src: 'assets/ui/badge_bodza.png' }), `🏅 Jelvények (${LEADER_ORDER.filter(l => s.defeatedTrainers.includes(l)).length}/${LEADER_ORDER.length})`], () => openBadges()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_dex.png' }), 'Mexidex (J)'], () => openDex()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_dex.png' }), questBadge('📜 Napi küldetések')], () => openQuests()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_party.png' }), 'Csapat (P)'], () => openParty()),
@@ -636,5 +639,37 @@ export function openPartyMenu() {
     w.modal.addEventListener('remove', () => {});
     const obs = new MutationObserver(() => { if (!document.body.contains(w.modal)) { off(); off2(); clearInterval(iv); obs.disconnect(); } });
     obs.observe(document.getElementById('ui'), { childList: true });
+  });
+}
+
+// ===================== JELVÉNYEK =====================
+const BADGE_TOWN = { bodza: 'Mancsfalva', lotti: 'Nádas', volt: 'Neonváros', kaori: 'Sakura-liget', frida: 'Jégvár', pal: 'Sárkányhegy', luna: 'Holdmancs-aréna' };
+export function openBadges() {
+  openWindow('Jelvények', (w) => w.render((body) => {
+    const s = G.state; const have = LEADER_ORDER.filter(l => s.defeatedTrainers.includes(l)).length;
+    body.append(el('p', { style: 'margin:0 0 10px;font-weight:800' }, `${have} / ${LEADER_ORDER.length} megszerezve` + (have === LEADER_ORDER.length ? ' – Te vagy a MexiVerse bajnoka! 👑' : '')));
+    const grid = el('div', { style: 'display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px' });
+    for (const id of LEADER_ORDER) {
+      const tr = TRAINERS[id], got = s.defeatedTrainers.includes(id);
+      grid.append(el('div', { class: 'row', style: 'flex-direction:column;align-items:center;text-align:center;cursor:default;gap:4px;padding:10px' + (got ? '' : ';opacity:.55') },
+        el('img', { src: `assets/ui/badge_${id}.png`, style: 'width:64px;height:64px;image-rendering:auto' + (got ? '' : ';filter:grayscale(1) brightness(.45)') }),
+        el('b', { style: 'font-size:14px' }, got ? tr.badge : '???'),
+        el('small', {}, `${BADGE_TOWN[id]} – ${tr.name.split(',')[0]}`),
+        el('small', { style: 'font-weight:800;color:' + (got ? '#2a8a3a' : '#8a5a2a') }, got ? '✔ Megszerezve' : '🔒 Még nincs meg')));
+    }
+    body.append(grid);
+  }));
+}
+
+/** Jelvény-átadás felugró ablak (gym-győzelem után). */
+export function showBadge(id, tr) {
+  return new Promise((resolve) => {
+    openWindow('🏅 Új jelvény!', (w) => w.render((body) => {
+      body.append(el('div', { style: 'text-align:center' },
+        el('img', { src: `assets/ui/badge_${id}.png`, style: 'width:120px;height:120px;animation:badgepop .6s ease-out' }),
+        el('h3', { style: 'margin:6px 0' }, `Megkaptad: ${tr.badge}!`),
+        el('p', {}, `${tr.name.split(',')[0]} legyőzésével a jelvény a tiéd. A jelvényeidet a menü „Jelvények” pontjában nézheted meg.`),
+        el('button', { class: 'btn primary', onclick: () => w.close() }, 'Szuper!')));
+    }), { onClose: resolve });
   });
 }

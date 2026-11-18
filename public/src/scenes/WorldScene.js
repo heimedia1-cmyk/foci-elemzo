@@ -2,6 +2,7 @@
 import { MAPS, SOLID, TRAINERS, isSolidCh } from '../data/maps.js';
 import { biomeFrame, isWaterFrame, BIOMES } from '../data/world2.js';
 import { fieldItems } from '../data/fieldItems.js';
+import { showBadge } from '../ui/menus.js';
 import { ITEM_ICON } from '../data/items.js';
 import { MEXIS } from '../data/mexis.js';
 import { ITEMS } from '../data/items.js';
@@ -838,6 +839,11 @@ export class WorldScene extends Phaser.Scene {
       s.money += reward;
       this.questDone(questEvent('trainerWins'));
       await dialog([tr.lose, `Kaptál ${reward} Mexi-érmét!`], tr.name);
+      if (tr.leader && !opts.rematch) {
+        Sfx.play('levelup');
+        this.cameras.main.flash(500, 255, 230, 140);
+        await showBadge(opts.trainerNpc.trainer, tr);
+      }
     }
     if (res === 'win' && !opts.isTrainer) this.questDone(questEvent('wildWins'));
     if (opts.tutorial && res === 'caught') {

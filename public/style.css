@@ -272,3 +272,5 @@ img { -webkit-user-drag: none; user-select: none; }
 #fsbtn.on { opacity: .35; }
 body.tc-on #fsbtn { top: calc(14px + var(--st, 0px)); right: calc(20px + 50px * var(--tc-scale, 1) + var(--sr, 0px)); width: 40px; height: 40px; }
 body.tc-on:has(#touch.lefty) #fsbtn { right: calc(10px + var(--sr, 0px)); }
+
+@keyframes badgepop { 0% { transform: scale(.2) rotate(-30deg); opacity: 0 } 70% { transform: scale(1.15) rotate(6deg); opacity: 1 } 100% { transform: scale(1) } }
