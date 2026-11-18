@@ -29,6 +29,9 @@ initLiveUpdate(game);
 
 // Mobilon a böngésző görgetése ne zavarjon
 document.addEventListener('gesturestart', (e) => e.preventDefault());
+// hosszú nyomásra ne jöjjön böngészős helyi menü, dupla koppintásra ne nagyítson
+document.addEventListener('contextmenu', (e) => { if (!(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) e.preventDefault(); });
+document.addEventListener('dblclick', (e) => e.preventDefault(), { passive: false });
 
 // Fejlesztői segédlet (konzolból / automata tesztekhez)
 import { G } from './systems/state.js';

@@ -586,7 +586,7 @@ export function openPartyMenu() {
       if (!p) {
         const input = el('input', { maxlength: 5, placeholder: 'KÓD', style: 'font:inherit;font-size:22px;letter-spacing:4px;width:140px;text-transform:uppercase;padding:6px;border:3px solid var(--line);border-radius:8px' });
         body.append(
-          Net.online ? null : el('p', { style: 'color:#b03030;font-weight:800' }, '📡 Nincs kapcsolat a szerverrel. A közös játékhoz internet kell – egyedül nyugodtan játszhatsz tovább, és amint visszajön a net, magától újracsatlakozunk.'),
+          Net.online ? '' : el('p', { style: 'color:#b03030;font-weight:800' }, '📡 Nincs kapcsolat a szerverrel. A közös játékhoz internet kell – egyedül nyugodtan játszhatsz tovább, és amint visszajön a net, magától újracsatlakozunk.'),
           el('p', {}, 'Játssz egy barátoddal! Hozz létre egy partit, és küldd el neki a kódot – vagy írd be az ő kódját.'),
           el('div', { class: 'actions' },
             el('button', { class: 'btn primary', onclick: () => Net.send({ t: 'party_create' }) }, '➕ Party létrehozása'),

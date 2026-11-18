@@ -260,3 +260,8 @@ body.tc-on #hud { right: calc(76px + env(safe-area-inset-right, 0px)); flex-wrap
 body.tc-on.tc-lefty #hud { left: calc(76px + env(safe-area-inset-left, 0px)); right: calc(10px + env(safe-area-inset-right, 0px)); }
 .tc-btn.menu { background: #4a7ad8 !important; color: #fff; border-color: #1a2a5a; opacity: 1 !important; box-shadow: 0 4px 0 rgba(0,0,0,.35), 0 0 0 3px rgba(255,255,255,.7); }
 @media (orientation: portrait) { body.tc-on #hud .chip { font-size: 12px; padding: 3px 7px; } }
+/* ne viselkedjen weboldalként: nincs kijelölés, nagyítás, rugalmas túlgörgetés; a listák viszont görgethetők */
+html, body { overscroll-behavior: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+.win .body, .choices, body.tc-on #dialog, .bbox .msg, .moves { touch-action: pan-y; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+input, textarea { user-select: text; -webkit-user-select: text; touch-action: manipulation; }
+img { -webkit-user-drag: none; user-select: none; }

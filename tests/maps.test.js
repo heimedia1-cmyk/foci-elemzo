@@ -32,3 +32,24 @@ for (const key of Object.keys(MAPS)) {
   }
 }
 console.log('✓ hibás mentett pozíciók minden térképen bejárható mezőre kerülnek');
+
+// Minden átjáró érvényes, bejárható célmezőre visz, és minden térképről van út vissza
+{
+  const graph = {};
+  for (const [key, m] of Object.entries(MAPS)) for (const w of m.warps) {
+    if (w.back) continue; // épületből kilépés: a belépés helyére (returnTo) visz vissza
+    assert.ok(MAPS[w.to], `${key}: átjáró nem létező térképre: ${w.to}`);
+    const p = safePosition(w.to, w.tx, w.ty);
+    assert.ok(!p.fixed, `${key} → ${w.to}: az érkezési mező (${w.tx},${w.ty}) nem bejárható`);
+    (graph[key] ||= new Set()).add(w.to);
+  }
+  // épületek → belső terek
+  for (const [key, m] of Object.entries(MAPS)) for (const b of m.buildings || []) if (MAPS['int_' + b.key]) (graph[key] ||= new Set()).add('int_' + b.key);
+  const reach = (from) => { const s = new Set([from]); const q = [from]; while (q.length) for (const n of graph[q.shift()] || []) if (!s.has(n)) { s.add(n); q.push(n); } return s; };
+  const fromStart = reach('mancsfalva');
+  for (const key of Object.keys(MAPS).filter(k => !k.startsWith('int_'))) {
+    assert.ok(fromStart.has(key), `${key} nem érhető el Mancsfalváról`);
+    assert.ok(reach(key).has('mancsfalva'), `${key}: nincs út vissza Mancsfalvára`);
+  }
+  console.log(`✓ átjárók: minden érkezési mező bejárható, ${fromStart.size} térkép elérhető, mindenhonnan van út vissza`);
+}
