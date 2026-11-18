@@ -349,7 +349,7 @@ export const TRAINERS = {
   },
   lili: {
     name: 'Lili, a kalandor', sprite: 'edzo2', reward: 450, sight: 4,
-    team: [['mehecske', 7], ['kacsa', 8]],
+    team: [['mehecske', 5], ['kacsa', 6]],
     intro: 'Az én csapatom gyors és trükkös! Készen állsz?', lose: 'Hűha, ügyes vagy! Mostantól az erdő őre téged is átenged.', after: 'Az alvó Mexit sokkal könnyebb elkapni! Az erdő északon van, a barlang nyugaton.',
   },
   kristof: {
