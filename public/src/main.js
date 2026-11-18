@@ -24,6 +24,8 @@ const game = new Phaser.Game({
 window.MEXI_GAME = game;
 import { initNative } from './systems/native.js';
 initNative(game);
+import { initLiveUpdate } from './systems/liveUpdate.js';
+initLiveUpdate(game);
 
 // Mobilon a böngésző görgetése ne zavarjon
 document.addEventListener('gesturestart', (e) => e.preventDefault());

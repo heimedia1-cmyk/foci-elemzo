@@ -15,9 +15,11 @@ fs.cpSync(path.join(root, 'public'), out, { recursive: true, filter: (src) => !s
 fs.mkdirSync(path.join(out, 'vendor', 'leaflet'), { recursive: true });
 fs.copyFileSync(path.join(root, 'node_modules/phaser/dist/phaser.min.js'), path.join(out, 'vendor/phaser.min.js'));
 fs.cpSync(path.join(root, 'node_modules/leaflet/dist'), path.join(out, 'vendor/leaflet'), { recursive: true, filter: (s) => !s.endsWith('.map') && !/leaflet-src/.test(s) });
+// natív (APK) verzió: csak akkor emeld, ha a frissítéshez új APK kell (új natív bővítmény stb.)
+const NATIVE = 2;
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 fs.writeFileSync(path.join(out, 'app-config.js'),
-  `// Android app: helyi játékfájlok, online funkciók a Railway-szerveren.\nwindow.MEXI_API_BASE = ${JSON.stringify(API)};\nwindow.MEXI_APP = true;\nwindow.MEXI_BUILD = ${JSON.stringify(pkg.version + ' (' + new Date().toISOString().slice(0, 10) + ')')};\n`);
+  `// Android app: helyi játékfájlok, online funkciók a Railway-szerveren.\nwindow.MEXI_API_BASE = ${JSON.stringify(API)};\nwindow.MEXI_APP = true;\nwindow.MEXI_BUILD = ${JSON.stringify(pkg.version + ' (' + new Date().toISOString().slice(0, 10) + ')')};\nwindow.MEXI_BUILD_ID = ${JSON.stringify(process.env.BUNDLE_VERSION || 'dev')};\nwindow.MEXI_NATIVE = ${NATIVE};\n`);
 let files = 0, bytes = 0;
 (function walk(d) { for (const f of fs.readdirSync(d)) { const p = path.join(d, f); const st = fs.statSync(p); if (st.isDirectory()) walk(p); else { files++; bytes += st.size; } } })(out);
 console.log(`mobile-dist kész: ${files} fájl, ${(bytes / 1048576).toFixed(1)} MB, API: ${API}`);

@@ -23,6 +23,12 @@
       "overlaysWebView": true,
       "style": "DARK",
       "backgroundColor": "#00000000"
+    },
+    "CapacitorUpdater": {
+      "autoUpdate": false,
+      "appReadyTimeout": 15000,
+      "autoDeleteFailed": true,
+      "autoDeletePrevious": true
     }
   }
 }

@@ -21,6 +21,7 @@ jobs:
       VARIANT: ${{ github.event.inputs.variant || 'teszt' }}
       VERSION_CODE: ${{ github.run_number }}
       VERSION_NAME: 1.1.${{ github.run_number }}
+      BUNDLE_VERSION: b${{ github.run_number }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -53,6 +54,10 @@ jobs:
           REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git fetch -q --depth 1 "$REMOTE" mexiverse-apk && git checkout -q FETCH_HEAD -- . 2>/dev/null || true
           cp ../android/app/build/outputs/apk/debug/app-debug.apk "$APK_NAME"
+          # automatikus frissítés: a játékfájlok csomagja + verzióinfó (az app induláskor ezt nézi)
+          (cd ../mobile-dist && zip -qr ../out/bundle.zip .)
+          NATIVE=$(grep -o 'const NATIVE = [0-9]*' ../scripts/build-mobile.mjs | grep -o '[0-9]*$')
+          echo "{\"version\":\"$BUNDLE_VERSION\",\"url\":\"https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/mexiverse-apk/bundle.zip\",\"minNative\":$NATIVE}" > version.json
           git add -A && git commit -qm "$APK_NAME ${VERSION_NAME} (${GITHUB_SHA::7})"
           git push -f "$REMOTE" HEAD:mexiverse-apk
       - name: Hibanapló közzététele (csak hiba esetén)
