@@ -4,6 +4,7 @@
 import { drawMexiBattle, drawBall, hueShift } from './placeholders.js';
 import { TILE_INDEX, BUILDING_INFO, PROP_INFO, ITILE_INDEX, FURNITURE_INFO } from './assetIndex.js';
 import { MEXIS } from '../data/mexis.js';
+import { TYPES } from '../data/types.js';
 import { ITEMS } from '../data/items.js';
 
 export const TS = 32; // a világ csempemérete
@@ -20,6 +21,7 @@ export const DIR_ROW = { down: 0, left: 1, right: 2, up: 3 };
 // A sprite-lapok sorrendje
 export const ART_SPECIES = ['alap', 'beka', 'mehecske', 'lang', 'kacsa', 'nindzsa', 'kiber', 'banyasz', 'jeg', 'magus', 'szellem', 'sarkany'];
 const EVO_BASE = { mocsarkiraly: ['beka', -30, '#f0c040'], mehkiralyno: ['mehecske', 25, '#f0c040'], arnyekmester: ['nindzsa', 40, '#d040f0'] };
+const NEW_EVO = { hosmexi: 'alap', langvezer: 'lang', viharkacsa: 'kacsa', kiborg: 'kiber', kofalo: 'banyasz', gleccser: 'jeg', fomagus: 'magus', kisertet: 'szellem' };
 export const NPC_ROWS = ['apolo', 'boltos', 'professzor', 'anya', 'bacsi', 'kisfiu', 'edzo1', 'gyujto'];
 
 const urlCache = {};
@@ -158,6 +160,23 @@ export function registerArt(scene) {
     urlCache[evo] = f.toDataURL(); urlCache[evo + '_s'] = fs.toDataURL();
     for (const s of ['', '_s']) addSheet(scene, 'mm_' + evo + s, hueCanvas(scene.textures.get('mm_' + base + s).getSourceImage(), deg, 1.15), 32, 32);
   });
+  // új fejlődési alakok ideiglenes képe (amíg nincs saját grafika): az alapfaj nagyobb, típusszínű aurával
+  const glow = (src, color) => {
+    const c = cv(192, 192); const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+    g.shadowColor = color; g.shadowBlur = 18; const S = 192 * 1.1, o = (192 - S) / 2;
+    g.drawImage(src, o, o - 6, S, S); g.shadowBlur = 0; g.drawImage(src, o, o - 6, S, S); return c;
+  };
+  for (const [evo, base] of Object.entries(NEW_EVO)) {
+    if (scene.textures.exists('src_evo_' + evo)) continue;
+    const col = TYPES[MEXIS[evo].types[MEXIS[evo].types.length - 1]].color;
+    const f = glow(scene.textures.get('mf_' + base).getSourceImage(), col);
+    const b = glow(scene.textures.get('mb_' + base).getSourceImage(), col);
+    const fs = hueCanvas(f, 150);
+    addCanvas(scene, 'mf_' + evo, f); addCanvas(scene, 'mf_' + evo + '_s', fs);
+    addCanvas(scene, 'mb_' + evo, b); addCanvas(scene, 'mb_' + evo + '_s', hueCanvas(b, 150));
+    urlCache[evo] = f.toDataURL(); urlCache[evo + '_s'] = fs.toDataURL();
+    for (const sx of ['', '_s']) addSheet(scene, 'mm_' + evo + sx, hueCanvas(scene.textures.get('mm_' + base + sx).getSourceImage(), 0, 1.35), 32, 32);
+  }
   // biztonsági tartalék: ha valamelyik fajnak nincs képe, a kódból rajzolt változat (2× nagyítva)
   for (const sp of Object.keys(MEXIS)) for (const s of [false, true]) {
     const k = 'mf_' + sp + (s ? '_s' : '');

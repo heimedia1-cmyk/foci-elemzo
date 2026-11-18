@@ -44,6 +44,24 @@ export const MOVES = {
 
   lezer:        { name: 'Lézer',          type: 'gep', cat: 'spec', power: 55, acc: 100, pp: 20, desc: 'Precíz lézersugár.' },
   fogaskerek:   { name: 'Fogaskerék',     type: 'gep', cat: 'fiz',  power: 50, acc: 100, pp: 25, desc: 'Pörgő fogaskereket dob.' },
+
+  // --- erős, későbbi támadások (20+ szint) ---
+  oriasharapas: { name: 'Óriás Harapás',  type: 'semleges', cat: 'fiz', power: 80, acc: 100, pp: 15, desc: 'Teljes erővel belemar.' },
+  vadroham:     { name: 'Vad Roham',      type: 'semleges', cat: 'fiz', power: 100, acc: 90, pp: 10, desc: 'Mindent beleadó, vad ugrás.' },
+  pokoltuz:     { name: 'Pokoltűz',       type: 'tuz', cat: 'spec', power: 110, acc: 85, pp: 5, effect: { status: 'eges', chance: 30 }, desc: 'Perzselő lángtenger, gyakran megéget.' },
+  aradat:       { name: 'Áradat',         type: 'viz', cat: 'spec', power: 105, acc: 90, pp: 5, desc: 'Hatalmas vízfal zúdul az ellenfélre.' },
+  tovisostor:   { name: 'Tövisostor',     type: 'noveny', cat: 'fiz', power: 80, acc: 100, pp: 15, desc: 'Tüskés indával csap le.' },
+  tuskeerdo:    { name: 'Tüskeerdő',      type: 'noveny', cat: 'spec', power: 100, acc: 90, pp: 5, desc: 'Tüskés növények törnek elő a földből.' },
+  viharcsapas:  { name: 'Viharcsapás',    type: 'villam', cat: 'spec', power: 110, acc: 80, pp: 5, effect: { status: 'benitas', chance: 30 }, desc: 'Egész vihar sújt le, megbéníthat.' },
+  foldindulas:  { name: 'Földindulás',    type: 'fold', cat: 'fiz', power: 100, acc: 100, pp: 10, desc: 'Megremeg és megindul a föld.' },
+  hofuvas:      { name: 'Hófúvás',        type: 'jeg', cat: 'spec', power: 105, acc: 85, pp: 5, effect: { status: 'fagyas', chance: 10 }, desc: 'Jeges hóvihar, megfagyaszthat.' },
+  jegagyar:     { name: 'Jégagyar',       type: 'jeg', cat: 'fiz', power: 75, acc: 100, pp: 15, effect: { status: 'fagyas', chance: 10 }, desc: 'Jéghideg harapás.' },
+  arnyekzuhatag:{ name: 'Árnyékzuhatag',  type: 'arnyek', cat: 'spec', power: 95, acc: 100, pp: 10, desc: 'Sötét energia zúdul alá.' },
+  holdsugar:    { name: 'Holdsugár',      type: 'feny', cat: 'spec', power: 95, acc: 100, pp: 10, desc: 'A Hold ezüst fénye.' },
+  acelokol:     { name: 'Acélököl',       type: 'gep', cat: 'fiz', power: 80, acc: 100, pp: 15, desc: 'Fémmancs ütés.' },
+  plazmaagyu:   { name: 'Plazmaágyú',     type: 'gep', cat: 'spec', power: 110, acc: 90, pp: 5, desc: 'Izzó plazmasugár.' },
+  szivosag:     { name: 'Szívósság',      type: 'semleges', cat: 'stat', power: 0, acc: 100, pp: 15, effect: { stat: 'def', stages: 2, target: 'self' }, desc: 'Erősen növeli a saját védekezést.' },
+
   tultoltes:    { name: 'Túltöltés',      type: 'gep', cat: 'stat', power: 0,  acc: 100, pp: 20, effect: { stat: 'spa', stages: 2, target: 'self' }, desc: 'Nagyon növeli a spec. támadást.' },
 };
 

@@ -13,6 +13,13 @@ function uid() {
 }
 
 // ---------- XP-görbe: az első szintek gyorsak, később lassul ----------
+/** A teljes tanulható lista: az előző fejlődési alak(ok) támadásai is (a fejlődés szintjéig). */
+export function fullLearnset(species) {
+  for (const [k, d] of Object.entries(MEXIS)) if (d.evolve && d.evolve.to === species)
+    return [...fullLearnset(k).filter(([l]) => l < d.evolve.level), ...MEXIS[species].learnset];
+  return MEXIS[species].learnset;
+}
+
 export function xpForLevel(level) {
   if (level <= 1) return 0;
   return Math.floor(0.8 * level ** 3 + 10 * level);
@@ -36,7 +43,8 @@ export function calcStats(m) {
 }
 
 function movesAtLevel(species, level) {
-  const list = MEXIS[species].learnset.filter(([l]) => l <= level).map(([, id]) => id);
+  const ord = fullLearnset(species).filter(([l]) => l <= level).sort((a, b) => a[0] - b[0]).map(([, id]) => id);
+  const list = ord.filter((id, i) => ord.lastIndexOf(id) === i); // ismétlődőknél a legkésőbbi számít
   const uniq = [...new Set(list)];
   return uniq.slice(-4).map(id => ({ id, pp: MOVES[id].pp }));
 }
@@ -134,7 +142,7 @@ export function evolve(m, to) {
 /** Elfelejtett / kihagyott támadások, amiket a Mexi újra megtanulhat (szint ≤ jelenlegi). */
 export function relearnable(m) {
   const seen = new Set();
-  return MEXIS[m.species].learnset.filter(([lvl, id]) => lvl <= m.level && !m.moves.some(x => x.id === id) && !seen.has(id) && seen.add(id)).map(([, id]) => id);
+  return fullLearnset(m.species).filter(([lvl, id]) => lvl <= m.level && !m.moves.some(x => x.id === id) && !seen.has(id) && seen.add(id)).map(([, id]) => id);
 }
 
 export function healFull(m) {
