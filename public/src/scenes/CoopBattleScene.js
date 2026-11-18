@@ -46,16 +46,19 @@ export class CoopBattleScene extends Phaser.Scene {
     const uiH = W < 640 ? 230 : 160;
     this.fieldH = H - uiH;
     this.sc = Math.max(2, Math.min(5, Math.floor(Math.min(W / 2.6, this.fieldH * 0.4) / 48)));
+    // Let's Go-stílus: egyetlen, nagyobb vad Mexi középen-jobbra
+    this.solo = (this.state?.foes?.length || 2) === 1;
+    this.foeScale = this.solo ? 0.27 : 0.2;
     this.pos = {
-      f0: { x: W * 0.62, y: this.fieldH * 0.5 }, f1: { x: W * 0.84, y: this.fieldH * 0.44 },
+      f0: this.solo ? { x: W * 0.72, y: this.fieldH * 0.5 } : { x: W * 0.62, y: this.fieldH * 0.5 }, f1: { x: W * 0.84, y: this.fieldH * 0.44 },
       a0: { x: W * 0.2, y: this.fieldH * 0.95 }, a1: { x: W * 0.4, y: this.fieldH * 0.88 },
     };
     const bg = this.opts.bg || 'route';
     if (this.textures.exists('bbg_' + bg)) { const im = this.add.image(W / 2, this.fieldH * 0.62, 'bbg_' + bg).setDepth(-10); im.setScale(Math.max(W / im.width, (this.fieldH * 1.25) / im.height)); }
     const pad = bg.replace('_night', '');
-    for (const r of ['f0', 'f1', 'a0', 'a1']) {
+    for (const r of this.solo ? ['f0', 'a0', 'a1'] : ['f0', 'f1', 'a0', 'a1']) {
       const k = `bpad_${pad}_${r[0] === 'f' ? 'foe' : 'me'}`;
-      if (this.textures.exists(k)) { const p = this.add.image(this.pos[r].x, this.pos[r].y + 5 * this.sc, k).setDepth(-5); p.setScale(((r[0] === 'f' ? 56 : 64) * this.sc) / p.width); }
+      if (this.textures.exists(k)) { const p = this.add.image(this.pos[r].x, this.pos[r].y + 5 * this.sc, k).setDepth(-5); p.setScale(((r[0] === 'f' ? (this.solo ? 72 : 56) : 64) * this.sc) / p.width); }
     }
   }
 
@@ -72,7 +75,7 @@ export class CoopBattleScene extends Phaser.Scene {
     if (!mon) return;
     const back = r[0] === 'a';
     const s = this.add.sprite(this.pos[r].x, this.pos[r].y, this.monKey(mon, back)).setOrigin(0.5, 1);
-    s.setScale((back ? (r === 'a' + this.me ? 0.24 : 0.2) : 0.2) * this.sc).setDepth(r === 'a' + this.me ? 5 : 3);
+    s.setScale((back ? (r === 'a' + this.me ? 0.24 : 0.2) : this.foeScale) * this.sc).setDepth(r === 'a' + this.me ? 5 : 3);
     if (hidden) s.setVisible(false);
     this.spr[r] = s;
   }
@@ -187,7 +190,7 @@ export class CoopBattleScene extends Phaser.Scene {
         const inv = G.state.inventory;
         const balls = ['sima_labda', 'profi_labda', 'arany_labda', 'hos_labda'].filter(k => inv[k] > 0);
         if (!balls.length) { this.msg.textContent = 'Nincs teniszlabdád!'; return; }
-        const i = await choose(balls.map(k => `${ITEMS[k].name} ×${inv[k]}`), { question: 'Melyik labdát dobod?' });
+        const i = await choose(balls.map(k => `${ITEMS[k].name} ×${inv[k]}`), { question: 'Melyik labdát dobod? (Ha a társad is dob ebben a körben: közös dobás – nagyobb esély, és mindketten megkapjátok!)' });
         if (i < 0) return;
         const t = await pickTarget('Melyik Mexire dobod?');
         if (t === null) return;
@@ -236,7 +239,7 @@ export class CoopBattleScene extends Phaser.Scene {
           for (let k = 0; k < ev.shakes; k++) { Sfx.play('shake'); await tween(this, { targets: ball, angle: k % 2 ? 25 : -25, yoyo: true, duration: 140 }); await wait(this, 250); }
           const bk = String(ev.itemId).replace('_labda', ''), own = this.textures.exists(`bfx_cb_${bk}_ok`);
           if (ev.caught) { Sfx.play('catch'); await this.fx(own ? [`cb_${bk}_ok`] : ['c_ok1', 'c_ok2', 'c_ok3'], ball.x, ball.y, 36 * this.sc, 150); ball.destroy(); }
-          else { ball.destroy(); Sfx.play('escape'); if (tgt) { tgt.clearTint(); this.fx(own ? [`cb_${bk}_esc`] : ['c_esc1', 'c_esc2'], tgt.x, tgt.y - 14 * this.sc, 36 * this.sc, 140); await tween(this, { targets: tgt, scale: 0.2 * this.sc, duration: 260 }); } }
+          else { ball.destroy(); Sfx.play('escape'); if (tgt) { tgt.clearTint(); this.fx(own ? [`cb_${bk}_esc`] : ['c_esc1', 'c_esc2'], tgt.x, tgt.y - 14 * this.sc, 36 * this.sc, 140); await tween(this, { targets: tgt, scale: this.foeScale * this.sc, duration: 260 }); } }
           break; }
         case 'end': Sfx.play(ev.result === 'lose' ? 'lose' : ev.result === 'run' ? 'run' : 'win'); break;
       }

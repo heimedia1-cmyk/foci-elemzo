@@ -1,5 +1,6 @@
-// Közös (2v2) harc logikája – a szerveren fut, így a két játékos ugyanazt látja.
-// Két játékos egy-egy aktív Mexivel harcol két vad Mexi ellen.
+// Közös harc logikája (Let's Go-stílus) – a szerveren fut, így a két játékos ugyanazt látja.
+// Két játékos egy-egy aktív Mexivel harcol EGY (megerősített) vad Mexi ellen.
+// Ha ugyanabban a körben mindketten labdát dobnak: közös dobás, nagyobb eséllyel, és siker esetén mindketten megkapják.
 // Szintkiegyenlítés: a harcban a túl erős Mexik a közös szinthatárra állnak be (csak erre a harcra).
 import { MEXIS } from '../data/mexis.js';
 import { MOVES, STATUS } from '../data/moves.js';
@@ -103,6 +104,13 @@ export class CoopBattle {
         ev.push({ t: 'msg', text: `${a.name}: Fussunk!` }, { t: 'msg', text: 'Sikerült elmenekülni!' });
         return this.finish(ev, 'run');
       }
+    }
+    // 2a) közös dobás: ha mindkét aktív játékos labdát választott
+    const throwers = this.allies.map((a, i) => i).filter(i => this.canAct(this.allies[i]) && this.pending[this.allies[i].id]?.type === 'ball' && this.allies[i].inventory[this.pending[this.allies[i].id].itemId] > 0);
+    if (throwers.length === 2) {
+      this.jointThrow(throwers, ev);
+      for (const i of throwers) delete this.pending[this.allies[i].id];
+      if (this.checkEnd(ev)) return this.done(ev);
     }
     // 2) csere, tárgy, labda – támadás előtt
     for (const [i, a] of this.allies.entries()) {
@@ -284,6 +292,24 @@ export class CoopBattle {
     } else ev.push({ t: 'msg', text: ['Kiugrott!', 'Majdnem sikerült!', 'Hajszálon múlt!', 'Hajszálon múlt!'][r.shakes] });
   }
 
+  /** Közös dobás: a jobbik labda ×1.5 eséllyel; siker esetén mindkét dobó kap egy példányt. */
+  jointThrow(throwers, ev) {
+    const live = this.livingFoes(); if (!live.length) return;
+    const ti = live[0], f = this.foes[ti];
+    const balls = throwers.map(i => this.pending[this.allies[i].id].itemId);
+    for (const [k, i] of throwers.entries()) this.allies[i].inventory[balls[k]]--;
+    const best = balls.reduce((b, x) => ((ITEMS[x].ballMult || 1) > (ITEMS[b].ballMult || 1) ? x : b), balls[0]);
+    const r = throwBall(f.mon, best, 1.5);
+    ev.push({ t: 'msg', text: `${this.allies[throwers[0]].name} és ${this.allies[throwers[1]].name} egyszerre dobott! 🎾🎾` },
+      { t: 'ball', ref: 'a' + throwers[0], target: 'f' + ti, itemId: best, shakes: r.shakes, caught: r.caught, joint: true });
+    if (r.caught) {
+      f.gone = true;
+      for (const i of throwers) this.allies[i].caught.push(clone(f.mon));
+      ev.push({ t: 'msg', text: `Megvan! ${MEXIS[f.mon.species].name} mindkettőtök csapatába bekerült! 🤝` });
+      this.reward(f.mon, ev);
+    } else ev.push({ t: 'msg', text: ['Kiugrott!', 'Majdnem sikerült!', 'Hajszálon múlt!', 'Hajszálon múlt!'][r.shakes] });
+  }
+
   checkEnd(ev) {
     if (this.over) return true;
     const foesLeft = this.livingFoes().length, alliesLeft = this.allies.some(a => this.canAct(a));
@@ -315,6 +341,6 @@ export class CoopBattle {
       for (const r of gainXp(m, xp)) events.push({ ...r, index, name: displayName(m) });
     }
     const totalXp = a.xpLog.reduce((s, x) => s + x.xp, 0);
-    return { result: this.result, party, caught: a.caught.map(clone), coins: this.result === 'lose' ? 0 : a.coins, inventory: a.inventory, xpEvents: events, totalXp };
+    return { result: this.result, party, caught: a.caught.map(m => { const c = clone(m); delete c._boss; c.stats = calcStats(c); c.hp = Math.max(1, Math.min(c.hp, c.stats.hp)); return c; }), coins: this.result === 'lose' ? 0 : a.coins, inventory: a.inventory, xpEvents: events, totalXp };
   }
 }

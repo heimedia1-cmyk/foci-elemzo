@@ -610,7 +610,8 @@ export function openPartyMenu() {
       body.append(el('h4', { style: 'margin:14px 0 4px' }, 'Hogyan működik?'),
         el('ul', { style: 'margin:0;padding-left:18px;font-size:14px;line-height:1.5' },
           el('li', {}, 'Ugyanazon a területen látjátok egymást és egymás Mexijét.'),
-          el('li', {}, 'Ha egymás közelében (10 lépésen belül) léptek a magas fűbe, közös 2v2 harc indul két vad Mexi ellen.'),
+          el('li', {}, 'Ha egymás közelében (10 lépésen belül) léptek a magas fűbe, közös harc indul: ketten együtt egy erősebb vad Mexi ellen (mint a Let\'s Go-ban).'),
+          el('li', {}, 'Ha ugyanabban a körben mindketten labdát dobtok, közös dobás lesz: nagyobb esély, és siker esetén mindketten megkapjátok a Mexit!'),
           el('li', {}, 'A vad Mexik a csapatotok szintjéhez igazodnak (1–2 szinttel erősebbek). Ha nagy a szintkülönbség köztetek, a harcban a magasabb szintű Mexik a közös szinthatárra állnak be.'),
           el('li', {}, 'XP, érme és tárgy mindenkinek külön jár. Akinek a labdája elkapja a Mexit, azé lesz.')));
       const d = coopDaily();

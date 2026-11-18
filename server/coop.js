@@ -61,7 +61,10 @@ function startBattle(p, initiator, data) {
   const eff = (Math.min(leadA.level, cap) + Math.min(leadB.level, cap)) / 2;
   const table = enc.table.filter(([sp]) => MEXIS[sp]);
   const pick = () => { const tot = table.reduce((s, [, w]) => s + w, 0); let r = rand() * tot; for (const [sp, w] of table) if ((r -= w) < 0) return sp; return table[0][0]; };
-  const foes = [0, 1].map(() => createMexi(pick(), Math.max(lmin, Math.min(100, Math.round(eff) + randInt(1, 2)))));
+  // Let's Go-stílus: egy vad Mexi, de erősebb (+2 szint, 1,8× HP), hogy ketten se legyen túl könnyű
+  const foe = createMexi(pick(), Math.max(lmin, Math.min(100, Math.round(eff) + randInt(2, 3))));
+  foe.stats.hp = Math.round(foe.stats.hp * 1.8); foe.hp = foe.stats.hp; foe._boss = true;
+  const foes = [foe];
   p.battle = new CoopBattle({
     players: [{ id: A.pid, name: A.name, party: partyA, inventory: safeInv(data.inventory, A.cloud) }, { id: B.pid, name: B.name, party: partyB, inventory: safeInv(B.pendingInventory, B.cloud) }],
     foes, cap,

@@ -22,3 +22,21 @@ for (let i = 0; i < total; i++) {
   assert.ok(r.party.every(m => m.hp <= m.stats.hp));
 }
 console.log(`✓ közös harc: ${total} szimuláció, győzelmi arány ${Math.round(wins / total * 100)}% (szinthatár mellett)`);
+
+// Let's Go-stílus: közös dobás → mindketten megkapják, normál statokkal
+{
+  const { setRng } = await import('../public/src/systems/mexi.js');
+  const foe = createMexi('virag', 10); foe.stats.hp = Math.round(foe.stats.hp * 1.8); foe.hp = foe.stats.hp; foe._boss = true;
+  const b = new CoopBattle({ players: [{ id: 'a', name: 'A', party: [createMexi('alap', 10)], inventory: { sima_labda: 2 } }, { id: 'b', name: 'B', party: [createMexi('lang', 10)], inventory: { profi_labda: 1 } }], foes: [foe], cap: 15 });
+  setRng(() => 0);
+  try {
+    b.submit('a', { type: 'ball', itemId: 'sima_labda', target: 0 });
+    b.submit('b', { type: 'ball', itemId: 'profi_labda', target: 0 });
+  } finally { setRng(Math.random); }
+  assert.ok(b.over, 'közös dobás után vége');
+  const ra = b.resultFor('a'), rb = b.resultFor('b');
+  assert.equal(ra.caught.length, 1); assert.equal(rb.caught.length, 1);
+  assert.ok(!ra.caught[0]._boss && ra.caught[0].hp <= ra.caught[0].stats.hp, 'normál statok');
+  assert.equal(ra.inventory.sima_labda, 1); assert.equal(rb.inventory.profi_labda, 0);
+  console.log('✓ közös dobás: mindketten megkapják');
+}

@@ -31,8 +31,8 @@ export function captureChance(target, ballId) {
  * Dobás eredménye: shakes 0–3, caught: bool.
  * 0 = azonnal kiugrik, 1–2 = "majdnem sikerült", 3 + siker = megvan.
  */
-export function throwBall(target, ballId) {
-  const p = shakeChance(captureValue(target, ballId));
+export function throwBall(target, ballId, bonus = 1) {
+  const p = shakeChance(captureValue(target, ballId) * bonus);
   let shakes = 0;
   for (let i = 0; i < 4; i++) {
     if (rand() < p) shakes++;
