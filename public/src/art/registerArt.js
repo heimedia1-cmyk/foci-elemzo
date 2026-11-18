@@ -25,6 +25,8 @@ const EVO_BASE = { mocsarkiraly: ['beka', -30, '#f0c040'], mehkiralyno: ['mehecs
 export const DRAWN_SPECIES = ['hosmexi', 'bajnok', 'langvezer', 'viharkacsa', 'kiborg', 'kofalo', 'gleccser', 'fomagus', 'kisertet', 'fonix', 'tengerur', 'aranymexi',
   'szikra', 'viharfarkas', 'virag', 'rozsakert', 'kaloz', 'kalozkapitany', 'vulkan', 'lavakiraly', 'lovag', 'pancellovag', 'szakacs', 'mesterszakacs',
   'urhajos', 'csillagjaro', 'vampir', 'vampirgrof', 'gomba', 'gombakiraly', 'angyal', 'arkangyal', 'rocker', 'rocksztar', 'kristaly', 'gyemant'];
+// Kézzel rajzolt sérülés/ájulás póz (assets/mexi/<faj>_hurt.png, _faint.png)
+const POSE_SPECIES = [...DRAWN_SPECIES, 'mocsarkiraly', 'mehkiralyno', 'arnyekmester'];
 const NEW_EVO = { hosmexi: 'alap', langvezer: 'lang', viharkacsa: 'kacsa', kiborg: 'kiber', kofalo: 'banyasz', gleccser: 'jeg', fomagus: 'magus', kisertet: 'szellem' };
 export const NPC_ROWS = ['apolo', 'boltos', 'professzor', 'anya', 'bacsi', 'kisfiu', 'edzo1', 'gyujto'];
 
@@ -42,6 +44,7 @@ export function preloadArt(scene) {
   L.image('src_map', 'assets/mexi_map.png');
   L.image('src_evo', 'assets/mexi_evo.png');
   for (const sp of DRAWN_SPECIES) { L.image(`mx_${sp}_f`, `assets/mexi/${sp}_f.png`); L.image(`mx_${sp}_b`, `assets/mexi/${sp}_b.png`); }
+  for (const sp of POSE_SPECIES) for (const k of ['hurt', 'faint']) L.image(`mx_${sp}_${k}`, `assets/mexi/${sp}_${k}.png`);
   L.image('src_anim_a', 'assets/anim_a.png');
   for (const n of FX_FILES) L.image('bfx_' + n, `assets/battle/${n}.png`);
   for (const n of ['pet1', 'pet2', 'pet3', 'eat1', 'eat2', 'eat3', 'happy1', 'happy2', 'happy3', 'sleep1', 'sleep2', 'sleep3']) L.image('ia_' + n, `assets/ui/ia_${n}.png`);
@@ -219,6 +222,8 @@ export function registerArt(scene) {
     const f = scene.textures.get('mf_' + sp + sfx).getSourceImage(), b = scene.textures.get('mb_' + sp + sfx)?.getSourceImage();
     for (const k of ['attack', 'hurt', 'faint', 'win']) {
       const key = `ma_${sp}_${k}${sfx}`;
+      const hand = `mx_${sp}_${k}`;
+      if (!scene.textures.exists(`ma_${sp}_${k}`) && scene.textures.exists(hand)) addCanvas(scene, `ma_${sp}_${k}`, crop(img(scene, hand), 0, 0, 192, 192));
       if (!scene.textures.exists(key)) {
         const drawn = shiny && scene.textures.exists(`ma_${sp}_${k}`) ? hueCanvas(scene.textures.get(`ma_${sp}_${k}`).getSourceImage(), 150) : pose(f, k, false);
         addCanvas(scene, key, drawn);
