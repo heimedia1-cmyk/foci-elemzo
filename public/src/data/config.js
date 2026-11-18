@@ -2,6 +2,7 @@
 export const CONFIG = {
   shinyChance: 1 / 512,
   encounterChanceTallGrass: 0.13,   // lépésenként a magas fűben
+  goModeEnabled: false,              // séta mód (GO) – egyelőre rejtve, később fejlesztjük tovább
   encounterChanceCave: 0.05,        // lépésenként a barlang padlóján
   encounterCooldownSteps: 2,         // ennyi lépés védett idő harc után
   maxLevel: 50,                      // később 100-ig bővíthető

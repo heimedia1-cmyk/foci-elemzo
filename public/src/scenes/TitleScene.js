@@ -2,6 +2,7 @@
 import { el, UI, pushKeys } from '../ui/ui.js';
 import { G, hasSave, load, newGameState, deleteSave, save, syncFromCloud, adoptGuestSave, guestSaveExists } from '../systems/state.js';
 import { Account } from '../systems/account.js';
+import { CONFIG } from '../data/config.js';
 import { choose, toast } from '../ui/ui.js';
 
 export class TitleScene extends Phaser.Scene {
@@ -34,7 +35,7 @@ export class TitleScene extends Phaser.Scene {
     const saveExists = hasSave();
     const btns = [];
     if (saveExists) btns.push(el('button', { class: 'btn primary', onclick: () => this.continueGame() }, '▶ Folytatás'));
-    if (saveExists) btns.push(el('button', { class: 'btn', onclick: () => { window.MEXI_OPEN_GO = true; this.continueGame(); } }, '🚶 Séta mód'));
+    if (saveExists && CONFIG.goModeEnabled) btns.push(el('button', { class: 'btn', onclick: () => { window.MEXI_OPEN_GO = true; this.continueGame(); } }, '🚶 Séta mód'));
     btns.push(el('button', { class: 'btn' + (saveExists ? '' : ' primary'), onclick: () => this.newGameForm() }, '✨ Új játék'));
     const acct = Account.current;
     const bar = window.MEXI_PREVIEW
@@ -49,7 +50,7 @@ export class TitleScene extends Phaser.Scene {
       el('h3', {}, 'Az elveszett Mexik'),
       el('div', { class: 'btns' }, ...btns),
       bar,
-      (/Android/i.test(navigator.userAgent) && !window.Capacitor?.isNativePlatform?.()) ? el('a', { class: 'btn', href: 'app/MexiVerse.apk', style: 'margin-top:10px;text-decoration:none', download: 'MexiVerse.apk' }, '📱 Android app letöltése') : null,
+      (CONFIG.goModeEnabled && /Android/i.test(navigator.userAgent) && !window.Capacitor?.isNativePlatform?.()) ? el('a', { class: 'btn', href: 'app/MexiVerse.apk', style: 'margin-top:10px;text-decoration:none', download: 'MexiVerse.apk' }, '📱 Android app letöltése') : null,
       el('div', { class: 'ver' }, 'v0.1 – első játszható verzió'));
     root.append(this.ui);
     this.offKeys?.();
