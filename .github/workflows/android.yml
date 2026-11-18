@@ -30,12 +30,11 @@ jobs:
       - name: APK feltöltése
         uses: actions/upload-artifact@v4
         with: { name: MexiVerse-apk, path: android/app/build/outputs/apk/debug/app-debug.apk }
-      - name: APK a játék oldalára
+      - name: APK a letöltési ágra (nem indít új Railway-telepítést)
+        env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk public/app/MexiVerse.apk
-          git config user.name "mexiverse-bot"
-          git config user.email "mexiverse-bot@users.noreply.github.com"
-          git add public/app/MexiVerse.apk
-          git commit -m "Android APK frissítése" || exit 0
-          git pull --rebase origin mexiverse
-          git push origin HEAD:mexiverse
+          mkdir out && cp android/app/build/outputs/apk/debug/app-debug.apk out/MexiVerse.apk && cd out
+          git init -q -b mexiverse-apk
+          git config user.name "mexiverse-bot"; git config user.email "mexiverse-bot@users.noreply.github.com"
+          git add MexiVerse.apk && git commit -qm "MexiVerse APK ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:mexiverse-apk

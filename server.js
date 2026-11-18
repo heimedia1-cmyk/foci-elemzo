@@ -91,6 +91,8 @@ app.put('/api/save', async (req, res) => {
 });
 
 app.get('/health', (_req, res) => res.json({ ok: true, game: 'MexiVerse' }));
+// Android app letöltése (a GitHub Actions építi, külön ágon tárolja)
+app.get('/app/MexiVerse.apk', (req, res) => res.redirect(302, 'https://raw.githubusercontent.com/heimedia1-cmyk/foci-elemzo/mexiverse-apk/MexiVerse.apk'));
 app.use('/vendor/leaflet', express.static(path.join(__dirname, 'node_modules/leaflet/dist'), { maxAge: '7d' }));
 app.use('/vendor', express.static(path.join(__dirname, 'node_modules/phaser/dist'), { maxAge: '7d' }));
 app.use(express.static(path.join(__dirname, 'public'), {
