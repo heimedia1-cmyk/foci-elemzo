@@ -583,17 +583,21 @@ function goToPartner(pos) {
 }
 export function openPartyMenu() {
   openWindow('Barátok – közös játék', (w) => {
+    // a kódmező egyszer jön létre: az újrarajzolás nem törli a beírt szöveget
+    const input = el('input', { maxlength: 5, placeholder: 'KÓD', inputmode: 'text', autocapitalize: 'characters', autocomplete: 'off', autocorrect: 'off', spellcheck: 'false', enterkeyhint: 'go', style: 'font:inherit;font-size:22px;letter-spacing:4px;width:140px;text-transform:uppercase;padding:6px;border:3px solid var(--line);border-radius:8px' });
+    const typing = () => document.activeElement === input || input.value.trim() !== '';
     const draw = () => w.render((body) => {
       if (!Net.online) body.append(el('p', { style: 'color:#c03030;font-weight:700' }, 'Kapcsolódás a szerverhez...'));
       const p = Net.party;
       if (!p) {
-        const input = el('input', { maxlength: 5, placeholder: 'KÓD', style: 'font:inherit;font-size:22px;letter-spacing:4px;width:140px;text-transform:uppercase;padding:6px;border:3px solid var(--line);border-radius:8px' });
+        const join = () => { const v = input.value.trim().toUpperCase(); if (v) Net.send({ t: 'party_join', code: v }); else toast('Írd be a barátod kódját.'); };
+        input.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') join(); };
         body.append(
           Net.online ? '' : el('p', { style: 'color:#b03030;font-weight:800' }, '📡 Nincs kapcsolat a szerverrel. A közös játékhoz internet kell – egyedül nyugodtan játszhatsz tovább, és amint visszajön a net, magától újracsatlakozunk.'),
           el('p', {}, 'Játssz egy barátoddal! Hozz létre egy partit, és küldd el neki a kódot – vagy írd be az ő kódját.'),
           el('div', { class: 'actions' },
             el('button', { class: 'btn primary', onclick: () => Net.send({ t: 'party_create' }) }, '➕ Party létrehozása'),
-            input, el('button', { class: 'btn', onclick: () => input.value.trim() && Net.send({ t: 'party_join', code: input.value.trim().toUpperCase() }) }, 'Csatlakozás')));
+            input, el('button', { class: 'btn', onclick: join }, 'Csatlakozás')));
       } else {
         const partner = p.members.find(m => m.pid !== Net.pid);
         body.append(
@@ -625,8 +629,9 @@ export function openPartyMenu() {
       }
     });
     draw();
-    const off = Net.on('party_state', draw); const off2 = Net.on('error', (m) => toast(m.text));
-    const iv = setInterval(draw, 4000);
+    const off = Net.on('party_state', () => { if (Net.party || !typing()) draw(); }); const off2 = Net.on('error', (m) => toast(m.text));
+    // időnkénti frissítés – de gépelés közben nem, különben kiugrik a mezőből
+    const iv = setInterval(() => { if (!(typing() && !Net.party)) draw(); }, 4000);
     w.modal.addEventListener('remove', () => {});
     const obs = new MutationObserver(() => { if (!document.body.contains(w.modal)) { off(); off2(); clearInterval(iv); obs.disconnect(); } });
     obs.observe(document.getElementById('ui'), { childList: true });
