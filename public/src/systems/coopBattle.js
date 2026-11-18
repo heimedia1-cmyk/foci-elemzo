@@ -285,8 +285,10 @@ export class CoopBattle {
 
   checkEnd(ev) {
     if (this.over) return true;
-    if (!this.livingFoes().length) { this.finish(ev, 'win'); return true; }
-    if (!this.allies.some(a => this.canAct(a))) { ev.push({ t: 'msg', text: 'Mindkettőtök Mexijei kidőltek...' }); this.finish(ev, 'lose'); return true; }
+    const foesLeft = this.livingFoes().length, alliesLeft = this.allies.some(a => this.canAct(a));
+    if (!foesLeft && !alliesLeft) { ev.push({ t: 'msg', text: 'Döntetlen! Mindkét oldal utolsó Mexije egyszerre esett ki.' }); this.finish(ev, 'draw'); return true; }
+    if (!foesLeft) { this.finish(ev, 'win'); return true; }
+    if (!alliesLeft) { ev.push({ t: 'msg', text: 'Mindkettőtök Mexijei kidőltek...' }); this.finish(ev, 'lose'); return true; }
     return false;
   }
 

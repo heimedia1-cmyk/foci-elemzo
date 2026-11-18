@@ -126,10 +126,11 @@ export function canEvolve(m) {
 }
 
 export function evolve(m, to) {
-  const hpLost = m.stats.hp - m.hp;
+  const hpLost = m.stats.hp - m.hp; const fainted = m.hp <= 0;
   m.species = to;
   m.stats = calcStats(m);
-  m.hp = Math.max(1, m.stats.hp - hpLost);
+  // az elveszett HP megmarad; ájult Mexi ájult marad (a fejlődés nem ingyenes feltámasztás)
+  m.hp = fainted ? 0 : Math.max(1, m.stats.hp - hpLost);
   const pending = [];
   for (const [lvl, moveId] of MEXIS[to].learnset) {
     if (lvl > m.level || m.moves.some(x => x.id === moveId)) continue;

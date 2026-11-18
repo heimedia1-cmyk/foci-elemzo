@@ -93,3 +93,33 @@ console.log(`\n${n} teszt sikeres.`);
   if (!ok) throw new Error('támadás-szabály sérült');
   console.log('✓ legfeljebb 4 támadás, újratanulási lista rendben');
 }
+
+// --- egyidejű kiütés, érvénytelen csere/tárgy, ájult fejlődés ---
+{
+  const { createMexi, evolve } = await import('../public/src/systems/mexi.js');
+  const { BattleEngine } = await import('../public/src/systems/battleEngine.js');
+  // körvégi égés mindkét utolsó Mexin → döntetlen (nem győzelem)
+  const p = createMexi('alap', 10), f = createMexi('alap', 10);
+  p.status = 'eges'; f.status = 'eges';
+  const e = new BattleEngine({ playerParty: [p], foeParty: [f], isTrainer: true, trainerName: 'X', inventory: {} });
+  p.hp = 1; f.hp = 1; const ev = []; e.endOfTurn(ev);
+  if (e.result !== 'draw') throw new Error('egyidejű kiütés eredménye hibás: ' + e.result);
+  // csak az ellenfél esik ki → győzelem; csak a játékos → vereség
+  const e2 = new BattleEngine({ playerParty: [createMexi('alap', 10)], foeParty: [createMexi('alap', 10)], isTrainer: false, inventory: {} });
+  e2.fm.hp = 0; e2.checkFaints([]); if (e2.result !== 'win') throw new Error('győzelem hibás');
+  // érvénytelen csere / tárgy nem veszi el a kört és nem fogy tárgy
+  const a = createMexi('alap', 8), b = createMexi('beka', 8); b.hp = 0;
+  const e3 = new BattleEngine({ playerParty: [a, b], foeParty: [createMexi('alap', 3)], isTrainer: false, inventory: { kis_ital: 1 } });
+  const hpBefore = a.hp;
+  e3.playerAction({ type: 'switch', index: 1 }); e3.playerAction({ type: 'switch', index: 7 }); e3.playerAction({ type: 'switch', index: 0 });
+  if (e3.p.active !== 0 || a.hp !== hpBefore) throw new Error('érvénytelen csere elfogadva vagy kört vett el');
+  e3.playerAction({ type: 'item', itemId: 'kis_ital', target: 9 });
+  e3.playerAction({ type: 'item', itemId: 'nagy_ital', target: 0 });
+  if (e3.inventory.kis_ital !== 1 || a.hp !== hpBefore) throw new Error('érvénytelen tárgyhasználat');
+  // ájult Mexi fejlődés után is ájult
+  const m = createMexi('alap', 18); m.hp = 0; evolve(m, 'hosmexi');
+  if (m.hp !== 0) throw new Error('fejlődés feltámasztotta az ájult Mexit');
+  const m2 = createMexi('alap', 18); m2.hp = 10; evolve(m2, 'hosmexi');
+  if (m2.hp <= 0) throw new Error('élő Mexi fejlődés után ájult');
+  console.log('✓ egyidejű kiütés = döntetlen, érvénytelen csere/tárgy elutasítva, ájult fejlődés nem gyógyít');
+}

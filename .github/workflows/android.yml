@@ -1,42 +1,55 @@
-# MexiVerse Android app (APK) építése a GitHub ingyenes szerverein.
-# Az APK a TELJES játékot tartalmazza (helyi fájlok, offline is indul); az online funkciók a Railway-szerverre csatlakoznak.
-# - Minden pushnál: TESZT változat (külön app: "MexiVerse TESZT", hu.mexiverse.app.teszt) → MexiVerse-teszt.apk
-# - Kézi indítással (variant = eles): az éles app (hu.mexiverse.app) → MexiVerse.apk
-# A kész APK-k a "mexiverse-apk" ágon vannak, a játék oldaláról letölthetők.
+# MexiVerse Android app – két, egymástól teljesen elkülönített csatorna:
+#
+#   TESZT  (hu.mexiverse.app.teszt, „MexiVerse TESZT”)
+#     • automatikusan épül minden push-nál a "mexiverse-dev" ágon
+#     • frissítései a test/ mappába kerülnek – az éles app ezt SOHA nem olvassa
+#
+#   ÉLES   (hu.mexiverse.app, „MexiVerse”)
+#     • CSAK kézzel indítható (Actions → Android APK → Run workflow → channel: stable),
+#       és csak az éles "mexiverse" ágról – tesztfejlesztésből nem lehet éles frissítés
+#     • frissítései a stable/ mappába kerülnek
+#
+# Frissítőcsomagok: verziózott fájlnevek (soha nem íródnak felül), SHA-256 ellenőrzőösszeg,
+# csatornánként az utolsó 3 marad meg. Minden a "mexiverse-apk" ágon tárolódik.
 name: Android APK
 on:
   workflow_dispatch:
     inputs:
-      variant: { description: 'teszt vagy eles', default: 'teszt', required: true }
+      channel: { description: 'test vagy stable (stable csak a mexiverse ágról!)', default: 'test', required: true }
   push:
-    branches: [mexiverse]
+    branches: [mexiverse-dev]
     paths: ['android/**', 'public/**', 'scripts/**', 'capacitor.config.json', 'package.json', '.github/workflows/android.yml']
 permissions:
   contents: write
-concurrency: { group: android-apk, cancel-in-progress: true }
+concurrency: { group: android-apk, cancel-in-progress: false }
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      VARIANT: ${{ github.event.inputs.variant || 'teszt' }}
+      CHANNEL: ${{ github.event.inputs.channel || 'test' }}
       VERSION_CODE: ${{ github.run_number }}
-      VERSION_NAME: 1.1.${{ github.run_number }}
+      VERSION_NAME: 1.2.${{ github.run_number }}
       BUNDLE_VERSION: b${{ github.run_number }}
     steps:
+      - name: Csatorna-őr
+        run: |
+          if [ "$CHANNEL" != "test" ] && [ "$CHANNEL" != "stable" ]; then echo "Ismeretlen csatorna: $CHANNEL"; exit 1; fi
+          if [ "$CHANNEL" = "stable" ] && [ "$GITHUB_REF_NAME" != "mexiverse" ]; then echo "Éles build csak a mexiverse ágról indítható (most: $GITHUB_REF_NAME)"; exit 1; fi
+          if [ "$CHANNEL" = "stable" ] && [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then echo "Éles build csak kézzel indítható"; exit 1; fi
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '21', cache: gradle }
-      # ugyanaz az aláíró kulcs minden építésnél → az app frissíthető, nem kell törölni
       - uses: actions/cache@v4
         with: { path: ~/.android/debug.keystore, key: mexiverse-debug-keystore-v1 }
       - run: npm ci
+      - run: npm test
       - name: Mobil build (helyi játékfájlok)
-        run: node scripts/build-mobile.mjs --api https://mexiverse.up.railway.app
+        run: node scripts/build-mobile.mjs --api https://mexiverse.up.railway.app --channel "$CHANNEL"
       - name: Változat beállítása
         run: |
-          if [ "$VARIANT" = "eles" ]; then echo "APP_ID=hu.mexiverse.app" >> $GITHUB_ENV; echo "APK_NAME=MexiVerse.apk" >> $GITHUB_ENV;
+          if [ "$CHANNEL" = "stable" ]; then echo "APP_ID=hu.mexiverse.app" >> $GITHUB_ENV; echo "APK_NAME=MexiVerse.apk" >> $GITHUB_ENV;
           else echo "APP_ID=hu.mexiverse.app.teszt" >> $GITHUB_ENV; echo "APK_NAME=MexiVerse-teszt.apk" >> $GITHUB_ENV;
             sed -i 's#<string name="app_name">MexiVerse</string>#<string name="app_name">MexiVerse TESZT</string>#' android/app/src/main/res/values/strings.xml; fi
       - run: npx cap sync android
@@ -45,20 +58,30 @@ jobs:
         run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle-build.log; exit ${PIPESTATUS[0]}
       - uses: actions/upload-artifact@v4
         with: { name: '${{ env.APK_NAME }}', path: android/app/build/outputs/apk/debug/app-debug.apk }
-      - name: APK a letöltési ágra (a másik változat APK-ja megmarad)
+      - name: Kiadás a csatornára (APK + verziózott frissítőcsomag + ellenőrzőösszeg)
         env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
         run: |
+          set -e
           mkdir out && cd out
           git init -q -b mexiverse-apk
           git config user.name "mexiverse-bot"; git config user.email "mexiverse-bot@users.noreply.github.com"
           REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git fetch -q --depth 1 "$REMOTE" mexiverse-apk && git checkout -q FETCH_HEAD -- . 2>/dev/null || true
+          mkdir -p "$CHANNEL/bundles"
           cp ../android/app/build/outputs/apk/debug/app-debug.apk "$APK_NAME"
-          # automatikus frissítés: a játékfájlok csomagja + verzióinfó (az app induláskor ezt nézi)
-          (cd ../mobile-dist && zip -qr ../out/bundle.zip .)
+          BUNDLE="$CHANNEL/bundles/$BUNDLE_VERSION.zip"
+          if [ -e "$BUNDLE" ]; then echo "A $BUNDLE már létezik – nem írjuk felül"; exit 1; fi
+          (cd ../mobile-dist && zip -qrX "../out/$BUNDLE" .)
+          SHA=$(sha256sum "$BUNDLE" | cut -d' ' -f1); SIZE=$(stat -c%s "$BUNDLE")
           NATIVE=$(grep -o 'const NATIVE = [0-9]*' ../scripts/build-mobile.mjs | grep -o '[0-9]*$')
-          echo "{\"version\":\"$BUNDLE_VERSION\",\"url\":\"https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/mexiverse-apk/bundle.zip\",\"minNative\":$NATIVE}" > version.json
-          git add -A && git commit -qm "$APK_NAME ${VERSION_NAME} (${GITHUB_SHA::7})"
+          URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/mexiverse-apk/$BUNDLE"
+          printf '{"channel":"%s","version":"%s","url":"%s","checksum":"%s","size":%s,"minNative":%s,"commit":"%s"}\n' "$CHANNEL" "$BUNDLE_VERSION" "$URL" "$SHA" "$SIZE" "$NATIVE" "${GITHUB_SHA::7}" > "$CHANNEL/version.json"
+          # régi (csatorna nélküli) teszt-appok kompatibilitása: a gyökér version.json CSAK a teszt csatornát követi
+          if [ "$CHANNEL" = "test" ]; then cp "$CHANNEL/version.json" version.json; fi
+          rm -f bundle.zip
+          # csatornánként az utolsó 3 csomag marad
+          ls -1t "$CHANNEL"/bundles/*.zip | tail -n +4 | xargs -r rm -f
+          git add -A && git commit -qm "$CHANNEL $BUNDLE_VERSION ($VERSION_NAME, ${GITHUB_SHA::7})"
           git push -f "$REMOTE" HEAD:mexiverse-apk
       - name: Hibanapló közzététele (csak hiba esetén)
         if: failure()
@@ -66,6 +89,6 @@ jobs:
         run: |
           mkdir logout && cd logout && git init -q -b mexiverse-buildlog
           git config user.name "mexiverse-bot"; git config user.email "mexiverse-bot@users.noreply.github.com"
-          tail -c 60000 ../gradle-build.log > build.log || echo "nincs napló" > build.log
+          tail -c 60000 ../gradle-build.log > build.log 2>/dev/null || echo "nincs napló" > build.log
           git add -A && git commit -qm "build log ${GITHUB_SHA::7}"
           git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:mexiverse-buildlog

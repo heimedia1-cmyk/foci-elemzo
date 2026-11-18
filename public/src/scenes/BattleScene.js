@@ -325,7 +325,7 @@ export class BattleScene extends Phaser.Scene {
           await this.play(this.engine.forcedSwitch(i));
           break; }
         case 'end':
-          Sfx.play(ev.result === 'lose' ? 'lose' : ev.result === 'run' ? 'run' : ev.result === 'caught' ? 'item' : 'win');
+          Sfx.play(ev.result === 'lose' || ev.result === 'draw' ? 'lose' : ev.result === 'run' ? 'run' : ev.result === 'caught' ? 'item' : 'win');
           if (ev.result === 'win' && this.meSpr?.alpha > 0) { this.pose('p', 'win'); this.tweens.add({ targets: this.meSpr, y: this.meSpr.y - 12, yoyo: true, repeat: 2, duration: 170 }); await wait(this, 800); }
           if (ev.result === 'lose' && this.foeSpr) { this.pose('f', 'win'); this.tweens.add({ targets: this.foeSpr, y: this.foeSpr.y - 14, yoyo: true, repeat: 2, duration: 180 }); await wait(this, 900); }
           break;

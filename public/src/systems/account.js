@@ -45,24 +45,36 @@ export const Account = {
     } catch { return 'offline'; }
   },
 
-  _timer: null, _pending: null,
-  /** Mentés feltöltése (összevonva, hogy ne menjen túl sok kérés). */
+  _timer: null, _pending: null, _inflight: false, _retry: 0, _force: false,
+  /**
+   * Mentés feltöltése. Egyszerre csak egy kérés megy (sorba rendezve), mindig a legfrissebb állapottal;
+   * hálózati hiba esetén később újrapróbálja. A szerver revíziószám alapján dönt az ütközésről.
+   */
   pushSave(state, immediate = false, force = false) {
     if (!this.loggedIn) return;
-    this._pending = state;
+    this._pending = state; this._force = this._force || force;
     clearTimeout(this._timer);
-    const go = () => {
-      const s = this._pending; this._pending = null; if (!s) return;
+    if (immediate) this._flush(); else this._timer = setTimeout(() => this._flush(), 1500);
+  },
+  async _flush() {
+    if (this._inflight || !this._pending) return;
+    const s = this._pending; const force = this._force; this._pending = null; this._force = false;
+    this._inflight = true;
+    let retry = false;
+    try {
       const body = JSON.stringify({ save: s, baseRev: Number.isFinite(s.rev) ? s.rev : null, force });
-      fetch(apiUrl('/api/save'), { method: 'PUT', headers: this.headers({ 'Content-Type': 'application/json' }), body, keepalive: body.length < 60000 })
-        .then(async (r) => {
-          if (r.status === 401) return window.dispatchEvent(new Event('mexi-auth-expired'));
-          const d = await r.json().catch(() => ({}));
-          if (r.ok && Number.isFinite(d.rev)) window.dispatchEvent(new CustomEvent('mexi-save-rev', { detail: d.rev }));
-          if (r.status === 409 && d.save) window.dispatchEvent(new CustomEvent('mexi-save-conflict', { detail: d.save }));
-        })
-        .catch(() => {});
-    };
-    if (immediate) go(); else this._timer = setTimeout(go, 1500);
+      const r = await fetch(apiUrl('/api/save'), { method: 'PUT', headers: this.headers({ 'Content-Type': 'application/json' }), body, keepalive: body.length < 60000 });
+      const d = await r.json().catch(() => ({}));
+      if (r.status === 401) window.dispatchEvent(new Event('mexi-auth-expired'));
+      else if (r.ok && Number.isFinite(d.rev)) { this._retry = 0; window.dispatchEvent(new CustomEvent('mexi-save-rev', { detail: d.rev })); if (d.corrected) window.dispatchEvent(new CustomEvent('mexi-save-corrected', { detail: d.corrected })); }
+      else if (r.status === 409 && d.save) window.dispatchEvent(new CustomEvent('mexi-save-conflict', { detail: d.save }));
+      else if (r.status >= 500) retry = true;
+    } catch { retry = true; }
+    this._inflight = false;
+    if (retry) { // hálózati vagy szerverhiba: a legfrissebb állapotot később újra küldjük
+      if (!this._pending) { this._pending = s; this._force = force; }
+      const wait = Math.min(60000, 5000 * 2 ** this._retry++);
+      clearTimeout(this._timer); this._timer = setTimeout(() => this._flush(), wait);
+    } else if (this._pending) this._flush();
   },
 };

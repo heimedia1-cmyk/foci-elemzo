@@ -97,13 +97,14 @@ app.put('/api/save', async (req, res) => {
   if (prev && baseRev != null && (prev.rev || 0) > baseRev && !req.body?.force) return res.status(409).json({ error: 'Másik eszközön újabb mentés készült.', save: prev });
   const r = sanitizeSave(req.body?.save, prev);
   if (r.error) return res.status(400).json({ error: r.error });
+  if (r.report?.length) console.log('mentés-ellenőrzés', user, r.report.slice(0, 8).join(', '));
   const s = r.save;
   s.rev = (prev?.rev || 0) + 1;
   s.serverSavedAt = Date.now();
   try {
     if (prev) writeBackup(user, prev);
     writeSave(user, s);
-    res.json({ ok: true, savedAt: s.serverSavedAt, rev: s.rev });
+    res.json({ ok: true, savedAt: s.serverSavedAt, rev: s.rev, ...(r.serious ? { corrected: s } : {}) });
   } catch (e) {
     console.error('Mentési hiba', e);
     res.status(500).json({ error: 'A szerver nem tudta elmenteni.' });

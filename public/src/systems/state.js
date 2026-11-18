@@ -2,6 +2,8 @@
 import { CONFIG } from '../data/config.js';
 import { calcStats } from './mexi.js';
 import { MEXIS } from '../data/mexis.js';
+import { MAPS } from '../data/maps.js';
+import { safePosition } from '../data/mapNav.js';
 import { Account } from './account.js';
 import { questEvent } from './quests.js';
 import { addLocalBackup } from './saveTransfer.js';
@@ -58,12 +60,25 @@ function migrate(s) {
   s.bones ??= {};
   if (!s.lastHeal || s.lastHeal.map === 'mancsfalva') s.lastHeal = { map: 'int_heal', x: 5, y: 3 };
   for (const m of [...s.party, ...s.storage]) m.stats = calcStats(m);
+  // érvénytelen térkép / falba, vízbe mentett pozíció javítása
+  if (!MAPS[s.map]) { s.map = 'mancsfalva'; s.pos = { x: 6, y: 20, dir: 'down' }; }
+  const sp = safePosition(s.map, s.pos?.x ?? -1, s.pos?.y ?? -1);
+  if (sp?.fixed) s.pos = { x: sp.x, y: sp.y, dir: s.pos?.dir || 'down' };
+  if (s.lastHeal && !MAPS[s.lastHeal.map]) s.lastHeal = { map: 'int_heal', x: 5, y: 3 };
   return s;
 }
 
 // felhős mentés visszajelzései
 if (typeof window !== 'undefined') {
-  window.addEventListener('mexi-save-rev', (e) => { if (G.state) { G.state.rev = e.detail; try { localStorage.setItem(keyFor(), JSON.stringify(G.state)); } catch {} } });
+  window.addEventListener('mexi-save-rev', (e) => { if (G.state) { G.state.rev = e.detail; G.state.syncedAt = Date.now(); try { localStorage.setItem(keyFor(), JSON.stringify(G.state)); } catch {} } });
+  window.addEventListener('mexi-save-corrected', (e) => {
+    // a szerver szabálytalan adatot talált és javított: a javított változatot vesszük át (előtte helyi másolat)
+    addLocalBackup('Szerver által javított mentés előtt');
+    const c = { ...e.detail, savedAt: Date.now() };
+    try { localStorage.setItem(keyFor(), JSON.stringify(c)); } catch {}
+    import('../ui/ui.js').then(({ toast }) => toast('A mentésedben szabálytalan adatot javítottunk. Újratöltés...', 3000));
+    setTimeout(() => location.reload(), 2500);
+  });
   window.addEventListener('mexi-save-conflict', async (e) => {
     if (window._mexiConflict) return; window._mexiConflict = true;
     const cloud = e.detail;
@@ -88,14 +103,43 @@ export function load() {
 export function deleteSave() { try { addLocalBackup('Új játék előtt'); localStorage.removeItem(keyFor()); } catch {} }
 
 /** Belépés után: a felhős és a helyi mentés közül az újabb marad. Visszaadja: 'cloud' | 'local' | 'none' | 'offline'. */
+/**
+ * Melyik mentés maradjon? (tiszta függvény, tesztelhető)
+ * Revíziószám alapján dönt (a kliens órája nem számít); régi, revízió nélküli mentéseknél az idő alapján.
+ * Visszaad: 'cloud' | 'local' | 'conflict' | 'none'
+ */
+export function pickSave(local, cloud) {
+  if (!cloud && !local) return 'none';
+  if (!cloud) return 'local';
+  if (!local) return 'cloud';
+  const dirty = (local.savedAt || 0) > (local.syncedAt || 0) + 2000; // helyben van még fel nem töltött haladás
+  if (Number.isFinite(cloud.rev) && Number.isFinite(local.rev)) {
+    if (cloud.rev > local.rev) return dirty ? 'conflict' : 'cloud';
+    return 'local';
+  }
+  if (Number.isFinite(cloud.rev) && !Number.isFinite(local.rev)) return dirty && (local.savedAt || 0) > (cloud.serverSavedAt || 0) ? 'conflict' : 'cloud';
+  return (cloud.savedAt || 0) >= (local.savedAt || 0) ? 'cloud' : 'local';
+}
+
+/** Belépés után / indításkor: a felhős és a helyi mentés összevetése. Visszaadja: 'cloud' | 'local' | 'none' | 'offline' | 'auth'. */
 export async function syncFromCloud() {
   if (!Account.loggedIn) return 'none';
   const cloud = await Account.fetchSave();
   if (cloud === 'auth') { Account.current = null; return 'auth'; }
   if (cloud === 'offline') return 'offline';
   let local = null; try { local = JSON.parse(localStorage.getItem(keyFor()) || 'null'); } catch {}
-  if (cloud && (!local || (cloud.savedAt || 0) >= (local.savedAt || 0))) { if (local) addLocalBackup('Felhős mentés betöltése előtt'); localStorage.setItem(keyFor(), JSON.stringify(cloud)); return 'cloud'; }
-  if (local) { Account.pushSave(local, true); return 'local'; }
+  let pick = pickSave(local, cloud);
+  if (pick === 'conflict') {
+    const { choose } = await import('../ui/ui.js');
+    const fmt = (s) => `${(s.party || []).map(m => MEXIS[m.species]?.name.replace(' Mexi', '') + ' ' + m.level).join(', ')} • ${s.money} 🪙`;
+    const c = await choose([`☁️ Felhős (másik eszköz): ${fmt(cloud)}`, `📱 Ezen az eszközön: ${fmt(local)}`], { question: 'A felhőben és ezen az eszközön is van újabb haladás. Melyik maradjon? (A másikról biztonsági másolat készül.)', cancel: false });
+    pick = c === 0 ? 'cloud' : 'local-force';
+  }
+  if (pick === 'cloud') { if (local) addLocalBackup('Felhős mentés betöltése előtt'); localStorage.setItem(keyFor(), JSON.stringify({ ...cloud, syncedAt: Date.now() })); return 'cloud'; }
+  if (pick === 'local' || pick === 'local-force') {
+    if (pick === 'local-force') local.rev = cloud.rev; // tudatos felülírás: a szerveren a régi is megmarad biztonsági mentésként
+    Account.pushSave(local, true, pick === 'local-force'); return 'local';
+  }
   return 'none';
 }
 

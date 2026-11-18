@@ -34,6 +34,7 @@ export class CoopBattleScene extends Phaser.Scene {
       Net.on('coop_events', (m) => this.queue.push(m)),
       Net.on('coop_wait', (m) => { this.waiting = m.waiting; if (this.awaiting) this.msg.textContent = m.waiting.includes(Net.sid) ? this.msg.textContent : 'Várakozás a társadra...'; }),
       Net.on('coop_end', (m) => { this.endMsg = m; }),
+      Net.on('coop_resync', (m) => { if (m.state.turn > this.state.turn) this.queue.push({ events: [{ t: 'msg', text: 'Újracsatlakozva – folytatjuk!' }], state: m.state }); }),
     ];
     this.queue = [];
     this.events.once('shutdown', () => { this.offs.forEach(f => f()); this.ui?.remove(); this.offKeys?.(); });
@@ -124,7 +125,7 @@ export class CoopBattleScene extends Phaser.Scene {
       const meA = this.state.allies[this.me];
       if (!meA.out && !this.sentThisTurn) {
         const action = await this.chooseAction();
-        Net.send({ t: 'coop_action', action });
+        Net.send({ t: 'coop_action', action, turn: this.state.turn });
         this.sentThisTurn = true;
         this.msg.textContent = 'Várakozás a társadra...';
         this.awaiting = true;

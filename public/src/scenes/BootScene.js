@@ -1,3 +1,4 @@
+import { markAppReady } from '../systems/liveUpdate.js';
 import { hideSplash } from '../systems/native.js';
 import { preloadArt, registerArt } from '../art/registerArt.js';
 
@@ -15,5 +16,7 @@ export class BootScene extends Phaser.Scene {
     registerArt(this);
     hideSplash();
     this.scene.start('Title');
+    // a grafika betöltött és a címképernyő indul → ez a játékverzió működik
+    setTimeout(() => markAppReady(), 1500);
   }
 }

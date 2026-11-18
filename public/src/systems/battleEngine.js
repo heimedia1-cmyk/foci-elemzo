@@ -96,7 +96,7 @@ export class BattleEngine {
     }
 
     if (action.type === 'switch') {
-      this.doSwitch('p', action.index, ev);
+      if (this.doSwitch('p', action.index, ev) === false) return ev; // érvénytelen csere: nem veszi el a kört
       this.foeTurnOnly(ev);
       return ev;
     }
@@ -138,7 +138,8 @@ export class BattleEngine {
   /** Harcképtelenség után a játékos új Mexit választ (nem kerül körbe). */
   forcedSwitch(index) {
     const ev = [];
-    this.doSwitch('p', index, ev, true);
+    const ok = this.p.party[index]?.hp > 0 ? index : this.p.party.findIndex(m => m.hp > 0);
+    if (ok >= 0) this.doSwitch('p', ok, ev, true);
     return ev;
   }
 
@@ -266,35 +267,31 @@ export class BattleEngine {
     this.checkFaints(ev);
   }
 
-  /** Igaz, ha a kör megszakad (valaki kiesett). */
+  /**
+   * Igaz, ha a kör megszakad (valaki kiesett).
+   * Egyidejű kiütés (pl. körvégi égés/méreg mindkét utolsó Mexin): DÖNTETLEN – a játékosnak nincs harcképes
+   * Mexije, ezért gyógyulni megy, de pénzt nem veszít; edző esetén nem számít győzelemnek.
+   */
   checkFaints(ev) {
-    let any = false;
-    if (this.fm.hp <= 0 && !this.fm._fainted) {
-      any = true;
+    const fF = this.fm.hp <= 0 && !this.fm._fainted;
+    const pF = this.pm.hp <= 0 && !this.pm._fainted;
+    if (!fF && !pF) return false;
+    if (fF) {
       this.fm._fainted = true;
-      ev.push({ t: 'faint', side: 'f' });
-      ev.push({ t: 'msg', text: `${this.label('f')} harcképtelen lett!` });
+      ev.push({ t: 'faint', side: 'f' }, { t: 'msg', text: `${this.label('f')} harcképtelen lett!` });
       this.awardXp(ev);
-      const next = this.f.party.findIndex(m => m.hp > 0);
-      if (next === -1) {
-        if (this.isTrainer) ev.push({ t: 'msg', text: `Legyőzted: ${this.trainerName}!` });
-        this.finish(ev, 'win');
-        return true;
-      }
-      this.doSwitch('f', next, ev, true);
     }
-    if (this.pm.hp <= 0 && !this.pm._fainted) {
-      any = true;
+    if (pF) {
       this.pm._fainted = true;
-      ev.push({ t: 'faint', side: 'p' });
-      ev.push({ t: 'msg', text: `${this.label('p')} harcképtelen lett!` });
-      if (this.p.party.some(m => m.hp > 0)) ev.push({ t: 'needSwitch' });
-      else {
-        ev.push({ t: 'msg', text: 'Nincs több harcképes Mexid...' });
-        this.finish(ev, 'lose');
-      }
+      ev.push({ t: 'faint', side: 'p' }, { t: 'msg', text: `${this.label('p')} harcképtelen lett!` });
     }
-    return any;
+    const foeLeft = this.f.party.some(m => m.hp > 0), meLeft = this.p.party.some(m => m.hp > 0);
+    if (!foeLeft && !meLeft) { ev.push({ t: 'msg', text: 'Döntetlen! Mindkét oldal utolsó Mexije egyszerre esett ki.' }); this.finish(ev, 'draw'); return true; }
+    if (!foeLeft) { if (this.isTrainer) ev.push({ t: 'msg', text: `Legyőzted: ${this.trainerName}!` }); this.finish(ev, 'win'); return true; }
+    if (!meLeft) { ev.push({ t: 'msg', text: 'Nincs több harcképes Mexid...' }); this.finish(ev, 'lose'); return true; }
+    if (fF) this.doSwitch('f', this.f.party.findIndex(m => m.hp > 0), ev, true);
+    if (pF) ev.push({ t: 'needSwitch' });
+    return true;
   }
 
   /** XP: aki harcolt, a teljes összeget kapja; a csapat többi harcképes tagja a felét (közös tapasztalat). */
@@ -323,6 +320,8 @@ export class BattleEngine {
 
   doSwitch(k, index, ev, forced = false) {
     const side = this.sideOf(k);
+    const target = side.party[index];
+    if (!Number.isInteger(index) || !target || target.hp <= 0 || (index === side.active && !forced)) { ev.push({ t: 'msg', text: 'Ezt a Mexit most nem lehet becserélni.' }); return false; }
     if (k === 'p' && !forced) ev.push({ t: 'msg', text: `Gyere vissza, ${displayName(this.pm)}!` });
     side.active = index;
     side.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
@@ -330,6 +329,7 @@ export class BattleEngine {
     if (k === 'p') side.participants.add(index);
     ev.push({ t: 'switch', side: k, index });
     ev.push({ t: 'msg', text: k === 'p' ? `Rajta, ${displayName(this.pm)}!` : `${this.trainerName} előhívta: ${displayName(this.fm)}!` });
+    return true;
   }
 
   useItem(itemId, target, ev) {
@@ -353,6 +353,7 @@ export class BattleEngine {
       return true;
     }
     const m = this.p.party[target];
+    if (!m) { ev.push({ t: 'msg', text: 'Nincs ilyen csapattag.' }); return false; }
     if (it.kind === 'heal') {
       if (m.hp <= 0 || m.hp >= m.stats.hp) { ev.push({ t: 'msg', text: 'Ennek most nincs hatása.' }); return false; }
       this.inventory[itemId]--;

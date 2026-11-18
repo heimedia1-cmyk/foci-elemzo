@@ -447,8 +447,8 @@ export class WorldScene extends Phaser.Scene {
     if (lines.length) await dialog(lines);
     for (const e of r.xpEvents || []) if (e.type === 'canLearn' && s.party[e.index]) await offerMove(s.party[e.index], e.move);
     for (const m of s.party) { const to = canEvolve(m); if (to && m.hp > 0) { const old = displayName(m); const pend = evolve(m, to); s.dex.seen[to] = s.dex.caught[to] = true; this.cameras.main.flash(500); Sfx.play('evolve'); await dialog(`Mi történik?! ${old} fejlődött: ${MEXIS[to].name}! 🌟`); for (const mv of pend) await offerMove(m, mv); } }
-    if (r.result === 'lose') {
-      await dialog('Mindkettőtök Mexijei kidőltek... Visszasiettél gyógyulni.');
+    if (r.result === 'lose' || r.result === 'draw') {
+      await dialog(r.result === 'draw' ? 'Döntetlen! Mindkét oldal utolsó Mexije egyszerre esett ki. Visszasiettél gyógyulni.' : 'Mindkettőtök Mexijei kidőltek... Visszasiettél gyógyulni.');
       for (const m of s.party) healFull(m);
       s.map = s.lastHeal.map; s.pos = { x: s.lastHeal.x, y: s.lastHeal.y, dir: 'down' }; if (s.lastHeal.ret) s.returnTo = s.lastHeal.ret;
       save(); this.cutscene = false; this.scene.restart(); return;
@@ -766,11 +766,11 @@ export class WorldScene extends Phaser.Scene {
       s.money += coins;
       toast(`Elkapási jutalom: +${coins} érme`);
     }
-    if (res === 'lose') {
+    if (res === 'lose' || res === 'draw') {
       this.cutscene = true;
-      const lost = Math.floor(s.money * 0.1);
+      const lost = res === 'draw' ? 0 : Math.floor(s.money * 0.1); // döntetlennél nincs pénzveszteség
       s.money -= lost;
-      await dialog([`Minden Mexid kimerült... Elvesztettél ${lost} érmét.`, 'Gyorsan visszasiettél a gyógyítóállomásra.']);
+      await dialog([res === 'draw' ? 'Döntetlen lett – a Mexijeid kimerültek, de pénzt nem vesztettél.' : `Minden Mexid kimerült... Elvesztettél ${lost} érmét.`, 'Gyorsan visszasiettél a gyógyítóállomásra.']);
       for (const m of s.party) healFull(m);
       s.map = s.lastHeal.map; s.pos = { x: s.lastHeal.x, y: s.lastHeal.y, dir: 'down' }; if (s.lastHeal.ret) s.returnTo = s.lastHeal.ret;
       save();

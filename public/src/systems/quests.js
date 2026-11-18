@@ -19,13 +19,18 @@ const POOL = [
 const WEEKLY = { id: 'weekly', text: 'Heti cél: kapj el 25 Mexit', key: 'caught', goal: 25, reward: { item: 'hos_labda', qty: 1 } };
 const TYPE_POOL = ['tuz', 'viz', 'noveny', 'fold', 'arnyek', 'villam', 'jeg', 'feny', 'gep', 'semleges'];
 
-const today = () => new Date().toLocaleDateString('sv-SE'); // helyi dátum (ÉÉÉÉ-HH-NN)
-const weekId = () => { const d = new Date(); const j = new Date(d.getFullYear(), 0, 1); return d.getFullYear() + '-W' + Math.ceil(((d - j) / 86400000 + j.getDay() + 1) / 7); };
+const pad = (n) => String(n).padStart(2, '0');
+/** Helyi dátum (ÉÉÉÉ-HH-NN). A napi küldetések helyi éjfélkor váltanak. */
+export const dayId = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+/** A hét azonosítója = a hét HÉTFŐJÉNEK helyi dátuma. A heti cél hétfő 00:00-kor vált. */
+export const weekId = (d = new Date()) => { const m = new Date(d.getFullYear(), d.getMonth(), d.getDate()); m.setDate(m.getDate() - ((m.getDay() + 6) % 7)); return 'W' + dayId(m); };
+const today = () => dayId();
 function hash(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 
 /** A mai küldetések (ha új nap van, újakat sorsol). */
 export function dailyQuests() {
   const s = G.state; const d = today();
+  s.questLog ??= { daily: {}, weekly: {} }; // átvett jutalmak naplója (óra-/időzónaváltás ellen)
   if (!s.quests || s.quests.date !== d) {
     const seed = hash(d + (s.player?.name || ''));
     const picks = []; const pool = [...POOL];
@@ -34,10 +39,11 @@ export function dailyQuests() {
       if (!picks.some(p => p.key === q.key || (q.key === 'typeCaught' && p.key === 'caught') || (q.key === 'caught' && p.key === 'typeCaught'))) picks.push(q);
     }
     const type = TYPE_POOL[seed % TYPE_POOL.length];
-    s.quests = { date: d, type, list: picks.map(q => ({ id: q.id, prog: 0, claimed: false })) };
+    const done = s.questLog.daily[d] || [];
+    s.quests = { date: d, type, list: picks.map(q => ({ id: q.id, prog: done.includes(q.id) ? questDef(q.id).goal : 0, claimed: done.includes(q.id) })) };
   }
   const w = weekId();
-  if (!s.weekly || s.weekly.week !== w) s.weekly = { week: w, prog: 0, claimed: false };
+  if (!s.weekly || s.weekly.week !== w) s.weekly = { week: w, prog: s.questLog.weekly[w] ? WEEKLY.goal : 0, claimed: !!s.questLog.weekly[w] };
   return s.quests;
 }
 export const questDef = (id) => (id === 'weekly' ? WEEKLY : POOL.find(q => q.id === id));
@@ -66,6 +72,9 @@ export function claimQuest(id) {
   const it = id === 'weekly' ? s.weekly : s.quests.list.find(x => x.id === id);
   if (!it || it.claimed || it.prog < def.goal) return null;
   it.claimed = true;
+  s.questLog ??= { daily: {}, weekly: {} };
+  if (id === 'weekly') s.questLog.weekly[s.weekly.week] = true; else (s.questLog.daily[s.quests.date] ||= []).push(id);
+  for (const k of ['daily', 'weekly']) { const keys = Object.keys(s.questLog[k]).sort(); for (const old of keys.slice(0, -21)) delete s.questLog[k][old]; }
   const r = def.reward;
   if (r.money) s.money += r.money;
   if (r.item) s.inventory[r.item] = (s.inventory[r.item] || 0) + r.qty;

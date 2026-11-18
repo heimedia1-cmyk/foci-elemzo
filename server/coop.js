@@ -9,6 +9,7 @@ import { sanitizeCoopParty, sanitizeInventory, sanitizeAction, serverEncounterTa
 import { verifyToken, readSave } from './auth.js';
 
 const TURN_MS = 45000;
+export const RECONNECT_MS = 30000;
 const clients = new Map();   // sid (titkos) -> { ws, sid, pid (nyilvános), name, gender, partyCode, pos, busy, user }
 const byPid = (pid) => [...clients.values()].find(c => c.pid === pid);
 const parties = new Map();   // code -> { code, members: [sid], battle }
@@ -35,10 +36,13 @@ function leave(c) {
 // Budapesti idő szerinti óra (napszak a vad Mexikhez)
 const budapestHour = () => +new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Europe/Budapest' }).format(new Date());
 
-/** Tárgyak: megtisztítva, és ha van felhős mentés, legfeljebb annyi, amennyi ott is van (+ egy kis késés-tűrés). */
-function safeInv(inv, cloud) {
+/** Vendég (nincs felhős mentés) ennél többet nem hozhat a közös harcba. */
+const GUEST_INV_CAP = { sima_labda: 10, profi_labda: 3, arany_labda: 0, hos_labda: 0, kis_ital: 3, nagy_ital: 1, ebreszto: 1 };
+/** Tárgyak: legfeljebb annyi, amennyi a (szerver által ellenőrzött) felhős mentésben van – eltérés-tűrés nélkül. */
+export function safeInv(inv, cloud) {
   const out = sanitizeInventory(inv);
-  if (cloud) for (const k of Object.keys(out)) out[k] = Math.min(out[k], (cloud.inventory?.[k] || 0) + 5);
+  for (const k of Object.keys(out)) out[k] = Math.min(out[k], cloud ? (cloud.inventory?.[k] || 0) : (GUEST_INV_CAP[k] ?? 0));
+  for (const k of Object.keys(out)) if (!out[k]) delete out[k];
   return out;
 }
 
@@ -89,7 +93,11 @@ function endBattle(p, forced = null, note = null) {
   if (forced && !b.over) b.finish([], forced);
   for (const sid of p.members) {
     const c = clients.get(sid);
-    if (c) { c.busy = false; send(c, { t: 'coop_end', note, ...b.resultFor(c.pid) }); }
+    if (!c) continue;
+    c.busy = false;
+    const msg = { t: 'coop_end', note, ...b.resultFor(c.pid) };
+    if (c.ws?.readyState === 1) send(c, msg); else c.pendingEnd = msg; // újracsatlakozáskor megkapja
+    clearTimeout(c.dropTimer);
   }
   p.battle = null;
 }
@@ -118,6 +126,13 @@ export function attachCoop(server) {
         c.cloud = user ? readSave(user) : null;
         clients.set(c.sid, c);
         send(c, { t: 'welcome', sid: c.sid, pid: c.pid });
+        clearTimeout(c.dropTimer); c.dropTimer = null;
+        if (c.pendingEnd) { send(c, c.pendingEnd); c.pendingEnd = null; }
+        const pp = parties.get(c.partyCode);
+        if (pp?.battle && !pp.battle.over) { // újracsatlakozás harc közben: aktuális állapot
+          send(c, { t: 'coop_resync', state: pp.battle.snapshot(), waiting: pp.battle.waitingFor() });
+          for (const sid of pp.members) if (sid !== c.sid) send(clients.get(sid), { t: 'toast', text: `${c.name} visszacsatlakozott.` });
+        }
         const p = parties.get(c.partyCode);
         if (p) broadcast(p, partyState(p)); else c.partyCode = null;
         return;
@@ -173,6 +188,7 @@ export function attachCoop(server) {
         }
         case 'coop_action': {
           if (!p?.battle) break;
+          if (Number.isInteger(msg.turn) && msg.turn !== p.battle.turn) break; // elavult (pl. kapcsolatszakadás alatt küldött) lépés
           const act = sanitizeAction(p.battle, c.pid, msg.action);
           if (!act) { send(c, { t: 'error', text: 'Érvénytelen lépés.' }); break; }
           let ev;
@@ -185,10 +201,15 @@ export function attachCoop(server) {
       }
     }
     ws.on('close', () => {
-      if (!c) return;
+      if (!c || c.ws !== ws) return; // egy régi, már lecserélt kapcsolat zárult le – az új munkamenetet nem érinti
       const p = parties.get(c.partyCode);
       if (p) {
-        if (p.battle) endBattle(p, 'run', 'A társad kapcsolata megszakadt.');
+        if (p.battle) {
+          // 30 mp türelmi idő: ha visszajön, folytatódik a harc; ha nem, lezárjuk
+          for (const sid of p.members) if (sid !== c.sid) send(clients.get(sid), { t: 'toast', text: `${c.name} kapcsolata megszakadt – várunk rá (30 mp)...` });
+          clearTimeout(c.dropTimer);
+          c.dropTimer = setTimeout(() => { if (c.ws === ws && p.battle) endBattle(p, 'run', 'A társad kapcsolata megszakadt.'); }, RECONNECT_MS);
+        }
         broadcast(p, partyState(p));
       }
       // 10 perc után végleg kilép a partiból, ha nem tér vissza

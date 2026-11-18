@@ -7,6 +7,17 @@ const listeners = {};
 let ws = null, sid = null, pid = null, retry = 0, queue = [];
 try { sid = localStorage.getItem('mexiverse_sid'); } catch {}
 
+// Kapcsolat nélkül csak a fontos üzeneteket tartjuk meg, korlátozott számban:
+//  • pozícióból csak a legutolsó • harci lépés/kérés nem (újracsatlakozáskor a szerver úgyis újraszinkronizál)
+const DROP_OFFLINE = new Set(['coop_action', 'coop_encounter', 'coop_party']);
+export const MAX_QUEUE = 20;
+export function enqueueOffline(q, msg) {
+  if (!msg || DROP_OFFLINE.has(msg.t)) return q;
+  const out = msg.t === 'pos' ? q.filter(m => m.t !== 'pos') : q.filter(m => !(m.t === msg.t && /^party_/.test(m.t)));
+  out.push(msg);
+  return out.slice(-MAX_QUEUE);
+}
+
 export const Net = {
   party: null,          // { code, members: [...] }
   partner: null,        // { pid, name, gender, pos }
@@ -14,7 +25,10 @@ export const Net = {
   get pid() { return pid; },
   get online() { return ws?.readyState === 1; },
   on(t, fn) { (listeners[t] ||= []).push(fn); return () => { listeners[t] = listeners[t].filter(f => f !== fn); }; },
-  send(msg) { if (ws?.readyState === 1) ws.send(JSON.stringify(msg)); else queue.push(msg); },
+  send(msg) {
+    if (ws?.readyState === 1) { ws.send(JSON.stringify(msg)); return; }
+    queue = enqueueOffline(queue, msg);
+  },
   connect() {
     if (window.MEXI_PREVIEW || ws) return;
     if (!isOnline()) { setTimeout(() => Net.connect(), 8000); return; }
