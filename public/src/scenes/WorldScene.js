@@ -109,6 +109,7 @@ export class WorldScene extends Phaser.Scene {
   cleanup() {
     (this.netOffs || []).forEach(f => f());
     this.partnerObj?.sprite.destroy(); this.partnerObj?.label.destroy(); this.partnerObj?.mexi.destroy();
+    this.partnerObj = null; // a jelenet újraindul (térképváltás) – az új térképen újra létre kell hozni
     this.input.keyboard.off('keydown');
     this.scale.off('resize', this.fitZoom, this);
     this.touch?.destroy();
@@ -396,6 +397,8 @@ export class WorldScene extends Phaser.Scene {
     ];
     this.sendPos();
     this.drawPartner();
+    // duóban 4 mp-enként frissítjük a helyzetünket – ha egy üzenet elveszett (pl. térképváltás, telefon háttérbe került), magától helyreáll
+    this.time.addEvent({ delay: 4000, loop: true, callback: () => { if (Net.party && Net.online) { this.sendPos(); this.drawPartner(); } } });
   }
 
   sendPos() {
