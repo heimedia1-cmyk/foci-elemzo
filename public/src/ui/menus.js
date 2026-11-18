@@ -243,7 +243,7 @@ export function openMainMenu(world) {
       el('div', { style: 'margin-bottom:10px;font-weight:700' }, `${s.player.name} • 💰 ${s.money} • Mexidex: ${Object.keys(s.dex.caught).length}/${SPECIES_ORDER.length} • Elkapva: ${s.stats.caught}`),
       el('div', { class: 'mainmenu' },
         b([el('img', { class: 'mico', src: 'assets/ui/m_map.png' }), '🎯 Következő cél: ' + nextGoal(s).short], () => dialog(nextGoal(G.state).long, '🎯 Következő cél')),
-        b([el('img', { class: 'mico', src: 'assets/ui/m_map.png' }), '✈️ Teleport (városok)'], () => openTeleport()),
+        b([el('img', { class: 'mico', src: 'assets/ui/m_map.png' }), '🗺️ Világtérkép / Teleport'], () => openTeleport()),
         b([el('img', { class: 'mico', src: 'assets/ui/badge_bodza.png' }), `🏅 Jelvények (${LEADER_ORDER.filter(l => s.defeatedTrainers.includes(l)).length}/${LEADER_ORDER.length})`], () => openBadges()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_dex.png' }), 'Mexidex (J)'], () => openDex()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_dex.png' }), questBadge('📜 Napi küldetések')], () => openQuests()),
@@ -682,15 +682,77 @@ export const TOWN_SPOTS = {
   neonvaros: { name: 'Neonváros', x: 5, y: 10 }, sakura: { name: 'Sakura-liget', x: 5, y: 10 }, jegvar: { name: 'Jégvár', x: 5, y: 10 },
   sarkanyhegy: { name: 'Sárkányhegy', x: 5, y: 10 }, holdmancs: { name: 'Holdmancs-aréna', x: 11, y: 16 },
 };
+// Világtérkép (Let's Go-stílusú Town Map): városok, utak, a jelenlegi helyed; a meglátogatott városokra koppintva teleportálsz.
+const WM_NODES = {
+  mancsfalva: { x: 80, y: 330, c: '#e8a050', label: 'Mancsfalva' },
+  erdo: { x: 80, y: 150, c: '#3a8a4a', label: 'Holdtisztás' },
+  nadas: { x: 220, y: 150, c: '#4a9a7a', label: 'Nádas' },
+  neonvaros: { x: 360, y: 150, c: '#a050e0', label: 'Neonváros' },
+  sakura: { x: 360, y: 40, c: '#f080b0', label: 'Sakura-liget' },
+  jegvar: { x: 220, y: -60, c: '#80c8f0', label: 'Jégvár' },
+  sarkanyhegy: { x: 380, y: -60, c: '#e04a2a', label: 'Sárkányhegy' },
+  holdmancs: { x: 380, y: -150, c: '#e8e0ff', label: 'Holdmancs-aréna' },
+};
+const WM_ROUTES = [
+  { key: 'osveny', a: 'mancsfalva', b: 'erdo', label: 'Mexi-ösvény' }, { key: 'ut_nadas', a: 'erdo', b: 'nadas', label: 'Nádas-mocsár' },
+  { key: 'ut_neon', a: 'nadas', b: 'neonvaros', label: 'Neon-sztráda' }, { key: 'ut_sakura', a: 'neonvaros', b: 'sakura', label: 'Sakura-ösvény' },
+  { key: 'ut_jeg', a: 'sakura', b: 'jegvar', label: 'Fagyos hágó' }, { key: 'ut_sarkany', a: 'jegvar', b: 'sarkanyhegy', label: 'Hamu-út' },
+  { key: 'holdmancs_ut', a: 'sarkanyhegy', b: 'holdmancs', label: '' },
+];
+const WM_EXTRA = { barlang: { x: 20, y: 240, label: 'Kristálybarlang', near: 'osveny' } };
+function whereAmI(s) {
+  let m = s.map;
+  if (MAPS[m]?.interior) m = s.returnTo?.map || (m.startsWith('int_gym_') ? ({ mancs: 'mancsfalva' }[m.slice(8)] || m.slice(8)) : 'mancsfalva');
+  return m;
+}
 export function openTeleport() {
-  const s = G.state;
-  const list = Object.entries(TOWN_SPOTS).filter(([k]) => k === 'mancsfalva' || s.flags['visit_' + k]);
+  const s = G.state; const here = whereAmI(s);
+  const visited = (k) => k === 'mancsfalva' || !!s.flags['visit_' + k];
   const world = window.MEXI_GAME?.scene?.getScene('World');
-  openWindow('✈️ Teleport', (w) => w.render((body) => {
-    body.append(el('p', { style: 'margin:0 0 8px' }, 'Hová utazzunk? Csak a már meglátogatott városok közül választhatsz.'));
-    for (const [k, t] of list) body.append(el('button', { class: 'btn' + (s.map === k ? '' : ' primary'), style: 'width:100%;margin-bottom:6px', disabled: s.map === k,
-      onclick: () => { w.close(); world?.warpTo({ to: k, tx: t.x, ty: t.y, dir: 'down' }); } }, (s.map === k ? '📍 ' : '') + t.name + (s.map === k ? ' (itt vagy)' : '')));
-    const missing = Object.keys(TOWN_SPOTS).length - list.length;
-    if (missing) body.append(el('small', {}, `Még ${missing} várost nem fedeztél fel.`));
+  const NS = 'http://www.w3.org/2000/svg';
+  const sv = (tag, attrs = {}, ...kids) => { const e = document.createElementNS(NS, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); kids.forEach(c => e.append(c)); return e; };
+  openWindow('🗺️ Világtérkép', (w) => w.render((body) => {
+    body.append(el('p', { style: 'margin:0 0 6px;font-size:14px' }, 'Koppints egy meglátogatott városra, és odarepülsz (a gyógyítóállomás elé). 📍 = itt vagy'));
+    const svg = sv('svg', { viewBox: '-20 -200 480 580', style: 'width:100%;max-height:62vh;background:linear-gradient(#bfe6ff,#9fd4a0);border:3px solid var(--line);border-radius:12px;touch-action:manipulation' });
+    // tenger és táj-foltok
+    svg.append(sv('rect', { x: -20, y: -200, width: 480, height: 580, fill: '#7cc0e8' }));
+    svg.append(sv('path', { d: 'M-5 380 L-5 0 Q20 -60 120 -110 L300 -190 L455 -190 L455 380 Z', fill: '#a8d890', stroke: '#6a9a50', 'stroke-width': 3 }));
+    svg.append(sv('ellipse', { cx: 300, cy: -100, rx: 140, ry: 70, fill: '#d8c8b8', opacity: .6 }));   // hegyek
+    svg.append(sv('ellipse', { cx: 230, cy: -60, rx: 60, ry: 40, fill: '#f4f8ff', opacity: .8 }));     // hó
+    svg.append(sv('ellipse', { cx: 390, cy: -70, rx: 50, ry: 35, fill: '#c86040', opacity: .5 }));    // vulkán
+    svg.append(sv('ellipse', { cx: 220, cy: 160, rx: 70, ry: 35, fill: '#5a9a7a', opacity: .5 }));    // mocsár
+    svg.append(sv('ellipse', { cx: 80, cy: 210, rx: 50, ry: 70, fill: '#2a6a3a', opacity: .45 }));    // erdő
+    // utak
+    for (const r of WM_ROUTES) {
+      const A = WM_NODES[r.a], B = WM_NODES[r.b], open = visited(r.b) || visited(r.a) && r.a !== 'mancsfalva' || r.key === 'osveny';
+      const cur = here === r.key || (r.key === 'holdmancs_ut' && false);
+      svg.append(sv('line', { x1: A.x, y1: A.y, x2: B.x, y2: B.y, stroke: cur ? '#ff4040' : '#c89858', 'stroke-width': cur ? 12 : 10, 'stroke-linecap': 'round', opacity: open ? 1 : .45 }));
+      svg.append(sv('line', { x1: A.x, y1: A.y, x2: B.x, y2: B.y, stroke: '#f2dca8', 'stroke-width': 4, 'stroke-dasharray': '6 6', 'stroke-linecap': 'round', opacity: open ? 1 : .45 }));
+      if (r.label) svg.append(sv('text', { x: (A.x + B.x) / 2 + 6, y: (A.y + B.y) / 2 - 6, 'font-size': 11, 'font-weight': 700, fill: '#3a2a1a', opacity: .75 }, r.label));
+    }
+    // barlang
+    { const c = WM_EXTRA.barlang, seen = here === 'barlang';
+      svg.append(sv('line', { x1: 80, y1: 240, x2: c.x, y2: c.y, stroke: '#8a7a6a', 'stroke-width': 5, 'stroke-dasharray': '4 4' }));
+      svg.append(sv('circle', { cx: c.x, cy: c.y, r: 9, fill: '#5a4a6a', stroke: seen ? '#ff4040' : '#2a1a2a', 'stroke-width': 3 }));
+      svg.append(sv('text', { x: c.x - 14, y: c.y + 24, 'font-size': 10, 'font-weight': 700, fill: '#2a1a2a' }, 'Barlang')); }
+    // városok
+    for (const [k, n] of Object.entries(WM_NODES)) {
+      const v = visited(k), isHere = here === k, t = TOWN_SPOTS[k];
+      const g = sv('g', { style: v && !isHere ? 'cursor:pointer' : '' });
+      g.append(sv('rect', { x: n.x - 17, y: n.y - 17, width: 34, height: 34, rx: 7, fill: v ? n.c : '#9a9a9a', stroke: isHere ? '#ff3030' : '#2a1a10', 'stroke-width': isHere ? 5 : 3 }));
+      const lead = Object.entries({ mancsfalva: 'bodza', nadas: 'lotti', neonvaros: 'volt', sakura: 'kaori', jegvar: 'frida', sarkanyhegy: 'pal', holdmancs: 'luna' }).find(([t2]) => t2 === k)?.[1];
+      if (lead && s.defeatedTrainers.includes(lead)) { const im = sv('image', { href: `assets/ui/badge_${lead}.png`, x: n.x - 13, y: n.y - 13, width: 26, height: 26 }); g.append(im); }
+      else g.append(sv('text', { x: n.x, y: n.y + 6, 'text-anchor': 'middle', 'font-size': 16 }, v ? (lead ? '🏟️' : '🏘️') : '🔒'));
+      g.append(sv('text', { x: n.x, y: n.y + 33, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 800, fill: '#1a1008', stroke: '#fff', 'stroke-width': 3, 'paint-order': 'stroke' }, v ? n.label : '???'));
+      if (isHere) g.append(sv('text', { x: n.x + 14, y: n.y - 16, 'font-size': 20 }, '📍'));
+      if (v && !isHere) g.addEventListener('click', () => { w.close(); toast('✈️ Irány: ' + n.label); world?.warpTo({ to: k, tx: t.x, ty: t.y, dir: 'down' }); });
+      svg.append(g);
+    }
+    // jelenlegi út jelölése
+    const r = WM_ROUTES.find(x => x.key === here);
+    if (r) { const A = WM_NODES[r.a], B = WM_NODES[r.b]; svg.append(sv('text', { x: (A.x + B.x) / 2 - 8, y: (A.y + B.y) / 2 + 8, 'font-size': 22 }, '📍')); }
+    body.append(svg);
+    const cnt = Object.keys(WM_NODES).filter(visited).length;
+    body.append(el('small', {}, `Felfedezett városok: ${cnt} / ${Object.keys(WM_NODES).length}`));
   }));
 }
