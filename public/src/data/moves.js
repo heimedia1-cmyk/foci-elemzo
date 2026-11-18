@@ -62,6 +62,21 @@ export const MOVES = {
   plazmaagyu:   { name: 'Plazmaágyú',     type: 'gep', cat: 'spec', power: 110, acc: 90, pp: 5, desc: 'Izzó plazmasugár.' },
   szivosag:     { name: 'Szívósság',      type: 'semleges', cat: 'stat', power: 0, acc: 100, pp: 15, effect: { stat: 'def', stages: 2, target: 'self' }, desc: 'Erősen növeli a saját védekezést.' },
 
+  villamharapas:{ name: 'Villámharapás',  type: 'villam', cat: 'fiz', power: 65, acc: 100, pp: 15, effect: { status: 'benitas', chance: 10 }, desc: 'Elektromos harapás, megbéníthat.' },
+  gitarszolo:   { name: 'Gitárszóló',     type: 'villam', cat: 'spec', power: 70, acc: 100, pp: 15, effect: { status: 'benitas', chance: 20 }, desc: 'Fülsiketítő elektromos szóló.' },
+  fakanal:      { name: 'Fakanálcsapás',  type: 'semleges', cat: 'fiz', power: 50, acc: 100, pp: 25, desc: 'Egy jól irányzott fakanál.' },
+  lakoma:       { name: 'Lakoma',         type: 'semleges', cat: 'stat', power: 0, acc: 100, pp: 10, effect: { heal: 0.5 }, desc: 'Eszik egy jót: visszaad a HP feléből.' },
+  kardvagas:    { name: 'Kardvágás',      type: 'gep', cat: 'fiz', power: 70, acc: 100, pp: 15, effect: { highCrit: true }, desc: 'Éles kardcsapás, gyakran kritikus.' },
+  pajzsfal:     { name: 'Pajzsfal',       type: 'gep', cat: 'stat', power: 0, acc: 100, pp: 20, effect: { stat: 'def', stages: 2, target: 'self' }, desc: 'Pajzs mögé bújik: erősen nő a védekezés.' },
+  deneverraj:   { name: 'Denevérraj',     type: 'arnyek', cat: 'spec', power: 65, acc: 100, pp: 15, desc: 'Denevérek csapata ront az ellenfélre.' },
+  sporafelho:   { name: 'Spórafelhő',     type: 'noveny', cat: 'stat', power: 0, acc: 85, pp: 15, effect: { status: 'mereg', chance: 100 }, desc: 'Mérgező spórák: megmérgezi az ellenfelet.' },
+  kristalytuske:{ name: 'Kristálytüske',  type: 'fold', cat: 'fiz', power: 70, acc: 100, pp: 15, desc: 'Éles kristályokat lő ki.' },
+  lavafolyam:   { name: 'Lávafolyam',     type: 'tuz', cat: 'fiz', power: 80, acc: 95, pp: 10, effect: { status: 'eges', chance: 20 }, desc: 'Izzó láva önti el a terepet.' },
+  kalozkard:    { name: 'Kalózkard',      type: 'viz', cat: 'fiz', power: 65, acc: 100, pp: 20, effect: { highCrit: true }, desc: 'Sós vízzel edzett kard.' },
+  csillagszor:  { name: 'Csillagszór',    type: 'feny', cat: 'spec', power: 40, acc: 100, pp: 25, desc: 'Apró csillagokat szór.' },
+  glorialang:   { name: 'Glórialáng',     type: 'tuz', cat: 'spec', power: 120, acc: 85, pp: 5, effect: { status: 'eges', chance: 30 }, desc: 'Szent tűz – a Főnix legendás támadása.' },
+  melytengeri:  { name: 'Mélytengeri ár', type: 'viz', cat: 'spec', power: 120, acc: 85, pp: 5, desc: 'Az óceán mélyének ereje – a Tengerúr legendás támadása.' },
+  aranyfeny:    { name: 'Aranyfény',      type: 'feny', cat: 'spec', power: 90, acc: 100, pp: 10, desc: 'Vakító arany ragyogás.' },
   tultoltes:    { name: 'Túltöltés',      type: 'gep', cat: 'stat', power: 0,  acc: 100, pp: 20, effect: { stat: 'spa', stages: 2, target: 'self' }, desc: 'Nagyon növeli a spec. támadást.' },
 };
 

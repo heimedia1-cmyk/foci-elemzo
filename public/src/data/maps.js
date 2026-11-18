@@ -228,8 +228,8 @@ export const MAPS = {
     ],
     encounters: {
       default: {
-        day:   [['alap', 30], ['beka', 30], ['mehecske', 18], ['kacsa', 12], ['nindzsa', 6], ['lang', 4]],
-        night: [['alap', 25], ['beka', 25], ['mehecske', 10], ['nindzsa', 20], ['szellem', 15], ['kacsa', 5]],
+        day:   [['alap', 26], ['beka', 24], ['mehecske', 15], ['szakacs', 12], ['kacsa', 10], ['virag', 8], ['nindzsa', 5], ['szikra', 4], ['lang', 3]],
+        night: [['alap', 22], ['beka', 20], ['nindzsa', 16], ['szellem', 12], ['rocker', 10], ['mehecske', 8], ['szakacs', 7], ['kacsa', 5]],
         levels: [2, 5],
       },
       zones: [
@@ -272,12 +272,12 @@ export const MAPS = {
     encounters: {
       cave: true,
       default: {
-        day:   [['banyasz', 32], ['kiber', 20], ['szellem', 16], ['alap', 12], ['nindzsa', 10], ['jeg', 10]],
-        night: [['banyasz', 28], ['szellem', 26], ['kiber', 16], ['nindzsa', 14], ['jeg', 10], ['alap', 6]],
+        day:   [['banyasz', 26], ['kiber', 16], ['kristaly', 13], ['szellem', 12], ['vulkan', 10], ['gomba', 8], ['alap', 8], ['jeg', 7]],
+        night: [['banyasz', 22], ['szellem', 22], ['kristaly', 13], ['kiber', 12], ['vulkan', 10], ['gomba', 9], ['nindzsa', 7], ['jeg', 5]],
         levels: [8, 11],
       },
       zones: [
-        { rect: [10, 2, 18, 7], id: 'to', day: [['jeg', 35], ['szellem', 25], ['banyasz', 20], ['kiber', 20]], night: [['szellem', 40], ['jeg', 35], ['banyasz', 15], ['kiber', 10]], levels: [10, 13] },
+        { rect: [10, 2, 18, 7], id: 'to', day: [['jeg', 30], ['kristaly', 22], ['szellem', 20], ['kiber', 14], ['banyasz', 14]], night: [['szellem', 35], ['jeg', 28], ['kristaly', 22], ['banyasz', 15]], levels: [10, 13] },
       ],
     },
   },
@@ -329,12 +329,12 @@ export const MAPS = {
     ],
     encounters: {
       default: {
-        day:   [['mehecske', 24], ['beka', 18], ['kacsa', 14], ['nindzsa', 14], ['lang', 12], ['alap', 12], ['magus', 6]],
-        night: [['szellem', 28], ['nindzsa', 24], ['magus', 10], ['beka', 14], ['kacsa', 12], ['mehecske', 12]],
+        day:   [['mehecske', 18], ['virag', 14], ['beka', 12], ['lovag', 11], ['kacsa', 10], ['kaloz', 9], ['nindzsa', 9], ['lang', 7], ['szikra', 6], ['magus', 4]],
+        night: [['szellem', 22], ['vampir', 18], ['nindzsa', 16], ['gomba', 12], ['magus', 8], ['beka', 10], ['kaloz', 8], ['rocker', 6]],
         levels: [8, 11],
       },
       zones: [
-        { rect: [22, 16, 9, 10], id: 'mely', day: [['nindzsa', 25], ['lang', 20], ['mehecske', 20], ['kiber', 20], ['magus', 15]], night: [['szellem', 35], ['nindzsa', 30], ['magus', 20], ['jeg', 15]], levels: [10, 13] },
+        { rect: [22, 16, 9, 10], id: 'mely', day: [['nindzsa', 20], ['angyal', 14], ['lang', 15], ['lovag', 14], ['kiber', 14], ['magus', 12], ['szikra', 11]], night: [['szellem', 26], ['vampir', 22], ['urhajos', 14], ['magus', 16], ['gomba', 12], ['jeg', 10]], levels: [10, 13] },
       ],
     },
   },

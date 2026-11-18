@@ -21,6 +21,10 @@ export const DIR_ROW = { down: 0, left: 1, right: 2, up: 3 };
 // A sprite-lapok sorrendje
 export const ART_SPECIES = ['alap', 'beka', 'mehecske', 'lang', 'kacsa', 'nindzsa', 'kiber', 'banyasz', 'jeg', 'magus', 'szellem', 'sarkany'];
 const EVO_BASE = { mocsarkiraly: ['beka', -30, '#f0c040'], mehkiralyno: ['mehecske', 25, '#f0c040'], arnyekmester: ['nindzsa', 40, '#d040f0'] };
+// Saját rajzolt képpel rendelkező fajok (assets/mexi/<faj>_f.png és _b.png)
+export const DRAWN_SPECIES = ['hosmexi', 'bajnok', 'langvezer', 'viharkacsa', 'kiborg', 'kofalo', 'gleccser', 'fomagus', 'kisertet', 'fonix', 'tengerur', 'aranymexi',
+  'szikra', 'viharfarkas', 'virag', 'rozsakert', 'kaloz', 'kalozkapitany', 'vulkan', 'lavakiraly', 'lovag', 'pancellovag', 'szakacs', 'mesterszakacs',
+  'urhajos', 'csillagjaro', 'vampir', 'vampirgrof', 'gomba', 'gombakiraly', 'angyal', 'arkangyal', 'rocker', 'rocksztar', 'kristaly', 'gyemant'];
 const NEW_EVO = { hosmexi: 'alap', langvezer: 'lang', viharkacsa: 'kacsa', kiborg: 'kiber', kofalo: 'banyasz', gleccser: 'jeg', fomagus: 'magus', kisertet: 'szellem' };
 export const NPC_ROWS = ['apolo', 'boltos', 'professzor', 'anya', 'bacsi', 'kisfiu', 'edzo1', 'gyujto'];
 
@@ -37,6 +41,7 @@ export function preloadArt(scene) {
   L.image('src_back', 'assets/mexi_back.png');
   L.image('src_map', 'assets/mexi_map.png');
   L.image('src_evo', 'assets/mexi_evo.png');
+  for (const sp of DRAWN_SPECIES) { L.image(`mx_${sp}_f`, `assets/mexi/${sp}_f.png`); L.image(`mx_${sp}_b`, `assets/mexi/${sp}_b.png`); }
   L.image('src_anim_a', 'assets/anim_a.png');
   for (const n of FX_FILES) L.image('bfx_' + n, `assets/battle/${n}.png`);
   for (const n of ['pet1', 'pet2', 'pet3', 'eat1', 'eat2', 'eat3', 'happy1', 'happy2', 'happy3', 'sleep1', 'sleep2', 'sleep3']) L.image('ia_' + n, `assets/ui/ia_${n}.png`);
@@ -166,8 +171,21 @@ export function registerArt(scene) {
     g.shadowColor = color; g.shadowBlur = 18; const S = 192 * 1.1, o = (192 - S) / 2;
     g.drawImage(src, o, o - 6, S, S); g.shadowBlur = 0; g.drawImage(src, o, o - 6, S, S); return c;
   };
+  // saját rajzú fajok: harc elöl/hátul, shiny színváltozat, és a térképes figura a harci képekből kicsinyítve
+  for (const sp of DRAWN_SPECIES) {
+    if (!scene.textures.exists(`mx_${sp}_f`) || !scene.textures.exists(`mx_${sp}_b`)) continue;
+    const f = img(scene, `mx_${sp}_f`), b = img(scene, `mx_${sp}_b`);
+    const fc = crop(f, 0, 0, 192, 192), bc = crop(b, 0, 0, 192, 192), fs = hueCanvas(fc, 150);
+    addCanvas(scene, 'mf_' + sp, fc); addCanvas(scene, 'mf_' + sp + '_s', fs);
+    addCanvas(scene, 'mb_' + sp, bc); addCanvas(scene, 'mb_' + sp + '_s', hueCanvas(bc, 150));
+    urlCache[sp] = fc.toDataURL(); urlCache[sp + '_s'] = fs.toDataURL();
+    const map = cv(96, 128); const g = map.getContext('2d'); g.imageSmoothingQuality = 'high';
+    const put = (src, col, row, flip, dy) => { g.save(); if (flip) { g.translate(col * 32 + 32, 0); g.scale(-1, 1); g.drawImage(src, 0, row * 32 + dy, 32, 32); } else g.drawImage(src, col * 32, row * 32 + dy, 32, 32); g.restore(); };
+    [0, 1, 0].forEach((dy, i) => { put(fc, i, 0, false, -dy); put(fc, i, 1, false, -dy); put(fc, i, 2, true, -dy); put(bc, i, 3, false, -dy); });
+    addSheet(scene, 'mm_' + sp, map, 32, 32); addSheet(scene, 'mm_' + sp + '_s', hueCanvas(map, 150), 32, 32);
+  }
   for (const [evo, base] of Object.entries(NEW_EVO)) {
-    if (scene.textures.exists('src_evo_' + evo)) continue;
+    if (scene.textures.exists('mf_' + evo)) continue;
     const col = TYPES[MEXIS[evo].types[MEXIS[evo].types.length - 1]].color;
     const f = glow(scene.textures.get('mf_' + base).getSourceImage(), col);
     const b = glow(scene.textures.get('mb_' + base).getSourceImage(), col);
@@ -176,6 +194,37 @@ export function registerArt(scene) {
     addCanvas(scene, 'mb_' + evo, b); addCanvas(scene, 'mb_' + evo + '_s', hueCanvas(b, 150));
     urlCache[evo] = f.toDataURL(); urlCache[evo + '_s'] = fs.toDataURL();
     for (const sx of ['', '_s']) addSheet(scene, 'mm_' + evo + sx, hueCanvas(scene.textures.get('mm_' + base + sx).getSourceImage(), 0, 1.35), 32, 32);
+  }
+  // harci pózok kóddal mindenkinek, akinek nincs rajzolt: támadás, sérülés, ájulás, győzelem (+ shiny és saját oldal)
+  const pose = (src, kind, back) => {
+    const c = cv(192, 192); const g = c.getContext('2d');
+    g.save(); g.translate(96, 184);
+    if (kind === 'attack') { g.rotate(back ? 0.1 : -0.12); g.translate(back ? 12 : -14, back ? -10 : 6); g.scale(1.08, 1.04); }
+    if (kind === 'hurt') { g.rotate(back ? -0.12 : 0.14); g.translate(back ? -8 : 10, 0); g.scale(1.04, 0.94); }
+    if (kind === 'faint') { g.translate(0, -60); g.rotate(back ? -1.45 : 1.45); g.scale(0.8, 0.8); g.globalAlpha = 0.9; g.filter = 'grayscale(0.65) brightness(0.85)'; g.drawImage(src, -96, -96); }
+    if (kind === 'win') { g.translate(0, -14); g.scale(1.02, 1.06); }
+    if (kind !== 'faint') g.drawImage(src, -96, -184);
+    g.restore();
+    if (kind === 'hurt') { // piros felvillanás csak a figurán
+      g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(255,40,40,0.38)'; g.fillRect(0, 0, 192, 192); g.globalCompositeOperation = 'source-over';
+      g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 3; g.font = 'bold 30px sans-serif'; g.strokeText('!', back ? 40 : 140, 50); g.fillText('!', back ? 40 : 140, 50);
+    }
+    if (kind === 'faint') { g.strokeStyle = '#ffe060'; g.lineWidth = 3; g.beginPath(); for (let a = 0; a < 6.3 * 2; a += 0.3) { const r = 4 + a * 1.6; g.lineTo(96 + Math.cos(a) * r, 70 + Math.sin(a) * r * 0.5); } g.stroke(); }
+    if (kind === 'win') { g.fillStyle = '#ffe060'; g.strokeStyle = '#a07000'; g.lineWidth = 2; for (const [x, y, r] of [[30, 40, 9], [160, 30, 7], [170, 90, 6], [22, 110, 6]]) { g.beginPath(); for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 - Math.PI / 2, rr = i % 2 ? r * 0.45 : r; g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } g.closePath(); g.fill(); g.stroke(); } }
+    return c;
+  };
+  for (const sp of Object.keys(MEXIS)) for (const shiny of [false, true]) {
+    const sfx = shiny ? '_s' : '';
+    if (!scene.textures.exists('mf_' + sp + sfx)) continue;
+    const f = scene.textures.get('mf_' + sp + sfx).getSourceImage(), b = scene.textures.get('mb_' + sp + sfx)?.getSourceImage();
+    for (const k of ['attack', 'hurt', 'faint', 'win']) {
+      const key = `ma_${sp}_${k}${sfx}`;
+      if (!scene.textures.exists(key)) {
+        const drawn = shiny && scene.textures.exists(`ma_${sp}_${k}`) ? hueCanvas(scene.textures.get(`ma_${sp}_${k}`).getSourceImage(), 150) : pose(f, k, false);
+        addCanvas(scene, key, drawn);
+      }
+      if (b && !scene.textures.exists(`mbp_${sp}_${k}${sfx}`)) addCanvas(scene, `mbp_${sp}_${k}${sfx}`, pose(b, k, true));
+    }
   }
   // biztonsági tartalék: ha valamelyik fajnak nincs képe, a kódból rajzolt változat (2× nagyítva)
   for (const sp of Object.keys(MEXIS)) for (const s of [false, true]) {

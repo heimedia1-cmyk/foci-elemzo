@@ -112,9 +112,10 @@ export class BattleScene extends Phaser.Scene {
   pose(side, pose) {
     const spr = side === 'p' ? this.meSpr : this.foeSpr;
     const m = this.shownMon(side);
-    if (!spr || side === 'p') return;
-    const key = pose ? `ma_${m.species}_${pose}` : this.texFor(m, false);
-    if (pose && (m.shiny || !this.textures.exists(key))) return;
+    if (!spr || !m) return;
+    const back = side === 'p';
+    const key = pose ? `${back ? 'mbp' : 'ma'}_${m.species}_${pose}${m.shiny ? '_s' : ''}` : this.texFor(m, back);
+    if (pose && !this.textures.exists(key)) return;
     spr.setTexture(key);
   }
 
@@ -306,7 +307,7 @@ export class BattleScene extends Phaser.Scene {
         case 'faint': {
           const spr = ev.side === 'p' ? this.meSpr : this.foeSpr;
           this.pose(ev.side, 'faint'); Sfx.play('faint');
-          if (ev.side === 'f') await wait(this, 600);
+          await wait(this, ev.side === 'f' ? 600 : 450);
           await tween(this, { targets: spr, y: spr.y + 30, alpha: 0, duration: 450 }); break; }
         case 'switch': Sfx.play('switch_in', { delay: 0.2 }); await this.switchAnim(ev.side, ev.index); break;
         case 'xp': case 'levelup': this.renderInfo('p'); if (ev.t === 'levelup') Sfx.play('levelup', { throttle: 800 }); if (ev.t === 'levelup' && ev.index === this.shown.p) { this.fx(['lvl1', 'lvl2', 'lvl1', 'lvl2'], this.mePos.x, this.mePos.y - 30 * this.sc, 50 * this.sc, 150); } break;
@@ -318,6 +319,7 @@ export class BattleScene extends Phaser.Scene {
           break; }
         case 'end':
           Sfx.play(ev.result === 'lose' ? 'lose' : ev.result === 'run' ? 'run' : ev.result === 'caught' ? 'item' : 'win');
+          if (ev.result === 'win' && this.meSpr?.alpha > 0) { this.pose('p', 'win'); this.tweens.add({ targets: this.meSpr, y: this.meSpr.y - 12, yoyo: true, repeat: 2, duration: 170 }); await wait(this, 800); }
           if (ev.result === 'lose' && this.foeSpr) { this.pose('f', 'win'); this.tweens.add({ targets: this.foeSpr, y: this.foeSpr.y - 14, yoyo: true, repeat: 2, duration: 180 }); await wait(this, 900); }
           break;
       }
