@@ -1,0 +1,14 @@
+{
+  "appId": "hu.mexiverse.app",
+  "appName": "MexiVerse",
+  "webDir": "app-shell",
+  "server": {
+    "url": "https://mexiverse.up.railway.app",
+    "cleartext": false,
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#1b1430"
+  }
+}

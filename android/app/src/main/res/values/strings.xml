@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MexiVerse</string>
+    <string name="title_activity_main">MexiVerse</string>
+    <string name="package_name">hu.mexiverse.app</string>
+    <string name="custom_url_scheme">hu.mexiverse.app</string>
+</resources>

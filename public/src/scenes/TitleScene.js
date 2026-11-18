@@ -49,6 +49,7 @@ export class TitleScene extends Phaser.Scene {
       el('h3', {}, 'Az elveszett Mexik'),
       el('div', { class: 'btns' }, ...btns),
       bar,
+      (/Android/i.test(navigator.userAgent) && !window.Capacitor?.isNativePlatform?.()) ? el('a', { class: 'btn', href: 'app/MexiVerse.apk', style: 'margin-top:10px;text-decoration:none', download: 'MexiVerse.apk' }, '📱 Android app letöltése') : null,
       el('div', { class: 'ver' }, 'v0.1 – első játszható verzió'));
     root.append(this.ui);
     this.offKeys?.();
