@@ -5,8 +5,9 @@
 #     • frissítései a test/ mappába kerülnek – az éles app ezt SOHA nem olvassa
 #
 #   ÉLES   (hu.mexiverse.app, „MexiVerse”)
-#     • CSAK kézzel indítható (Actions → Android APK → Run workflow → channel: stable),
-#       és csak az éles "mexiverse" ágról – tesztfejlesztésből nem lehet éles frissítés
+#     • CSAK tudatos kiadással: kézzel (Actions → Run workflow → channel: stable a mexiverse ágon),
+#       vagy a "mexiverse-release" ágra küldött kiadással, ami PONTOSAN az éles mexiverse ág csúcsa lehet.
+#       Tesztfejlesztésből (mexiverse-dev) nem lehet éles frissítés.
 #     • frissítései a stable/ mappába kerülnek
 #
 # Frissítőcsomagok: verziózott fájlnevek (soha nem íródnak felül), SHA-256 ellenőrzőösszeg,
@@ -17,7 +18,7 @@ on:
     inputs:
       channel: { description: 'test vagy stable (stable csak a mexiverse ágról!)', default: 'test', required: true }
   push:
-    branches: [mexiverse-dev]
+    branches: [mexiverse-dev, mexiverse-release]
     paths: ['android/**', 'public/**', 'scripts/**', 'capacitor.config.json', 'package.json', '.github/workflows/android.yml']
 permissions:
   contents: write
@@ -26,7 +27,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      CHANNEL: ${{ github.event.inputs.channel || 'test' }}
+      CHANNEL: ${{ github.event.inputs.channel || (github.ref_name == 'mexiverse-release' && 'stable') || 'test' }}
       VERSION_CODE: ${{ github.run_number }}
       VERSION_NAME: 1.2.${{ github.run_number }}
       BUNDLE_VERSION: b${{ github.run_number }}
@@ -34,8 +35,16 @@ jobs:
       - name: Csatorna-őr
         run: |
           if [ "$CHANNEL" != "test" ] && [ "$CHANNEL" != "stable" ]; then echo "Ismeretlen csatorna: $CHANNEL"; exit 1; fi
-          if [ "$CHANNEL" = "stable" ] && [ "$GITHUB_REF_NAME" != "mexiverse" ]; then echo "Éles build csak a mexiverse ágról indítható (most: $GITHUB_REF_NAME)"; exit 1; fi
-          if [ "$CHANNEL" = "stable" ] && [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ]; then echo "Éles build csak kézzel indítható"; exit 1; fi
+          if [ "$CHANNEL" = "stable" ]; then
+            case "$GITHUB_EVENT_NAME:$GITHUB_REF_NAME" in
+              workflow_dispatch:mexiverse) ;;
+              push:mexiverse-release)
+                LIVE=$(git ls-remote "https://github.com/${GITHUB_REPOSITORY}.git" refs/heads/mexiverse | cut -f1)
+                if [ "$LIVE" != "$GITHUB_SHA" ]; then echo "A kiadás ($GITHUB_SHA) nem az éles mexiverse ág csúcsa ($LIVE) – megszakítva"; exit 1; fi ;;
+              *) echo "Éles build csak kézi indítással vagy mexiverse-release kiadással: $GITHUB_EVENT_NAME:$GITHUB_REF_NAME"; exit 1 ;;
+            esac
+          fi
+          if [ "$CHANNEL" = "test" ] && [ "$GITHUB_REF_NAME" = "mexiverse-release" ]; then exit 1; fi
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
