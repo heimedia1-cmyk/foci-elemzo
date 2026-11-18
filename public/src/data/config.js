@@ -4,7 +4,7 @@ export const CONFIG = {
   encounterChanceTallGrass: 0.13,   // lépésenként a magas fűben
   goModeEnabled: false,              // séta mód (GO) – egyelőre rejtve, később fejlesztjük tovább
   encounterChanceCave: 0.05,        // lépésenként a barlang padlóján
-  encounterCooldownSteps: 2,         // ennyi lépés védett idő harc után
+  encounterCooldownSteps: 3,         // ennyi lépés védett idő harc után
   maxLevel: 50,                      // később 100-ig bővíthető
   partySize: 6,
   critChance: 1 / 16,

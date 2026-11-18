@@ -18,6 +18,7 @@ import { MOVES } from '../data/moves.js';
 import { offerMove, moveReminder, openTransfer } from '../ui/menus.js';
 import { BONES } from '../systems/bones.js';
 import { questEvent } from '../systems/quests.js';
+import { nextGoal } from '../systems/goals.js';
 import { Sfx } from '../systems/sfx.js';
 
 const CHAR_SCALE = 0.76; // ember-sprite méret a világban (~1,25 mező magas)
@@ -333,7 +334,9 @@ export class WorldScene extends Phaser.Scene {
     if (!this.hud) return;
     const now = new Date();
     this.hud.innerHTML = '';
+    const goal = nextGoal(G.state);
     this.hud.append(...[
+      el('div', { class: 'chip goal', title: goal.long, onclick: () => !UI.busy && dialog(goal.long, '🎯 Következő cél') }, '🎯 ' + goal.short),
       el('div', { class: 'chip' }, '📍 ' + this.map.name),
       el('div', { class: 'chip' }, (isNight(now) ? '🌙 ' : '☀️ ') + now.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })),
       this.map.interior ? null : el('div', { class: 'chip' }, WEATHER[this.weather].icon + ' ' + WEATHER[this.weather].name),
@@ -756,7 +759,7 @@ export class WorldScene extends Phaser.Scene {
     }
     if (res === 'win') s.stats.wins++;
     if (res === 'win' && !opts.isTrainer) {
-      const coins = Math.max(10, Math.round(opts.foeParty[0].level * 12));
+      const coins = Math.max(10, Math.round(opts.foeParty[0].level * 8));
       s.money += coins;
       toast(`A vad Mexi elejtett ${coins} érmét!`);
     }

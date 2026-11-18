@@ -223,6 +223,8 @@ export class BattleEngine {
       if (!def.status && rand() * 100 < chance) {
         if (e.status === 'eges' && MEXIS[def.species].types.includes('tuz')) { if (move.cat === 'stat') ev.push({ t: 'msg', text: 'Nincs hatása...' }); return; }
         if (e.status === 'fagyas' && MEXIS[def.species].types.includes('jeg')) return;
+        // altatási szabály: a játékos ugyanazt az ellenfelet egy harcban csak egyszer altathatja el
+        if (e.status === 'alvas' && oKey === 'f') { this.slept ??= new Set(); if (this.slept.has(def)) { if (move.cat === 'stat') ev.push({ t: 'msg', text: `${this.label('f')} már egyszer elaludt ebben a harcban – most nem alszik el.` }); return; } this.slept.add(def); }
         def.status = e.status;
         if (e.status === 'alvas') oSide.sleep = randInt(1, 3);
         ev.push({ t: 'status', side: oKey, status: e.status });

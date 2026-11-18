@@ -187,6 +187,7 @@ export class CoopBattle {
     if (e.status && TM.hp > 0 && !selfTarget) {
       const chance = e.chance ?? 100;
       if (!TM.status && rand() * 100 < chance && !(e.status === 'eges' && MEXIS[TM.species].types.includes('tuz')) && !(e.status === 'fagyas' && MEXIS[TM.species].types.includes('jeg'))) {
+        if (e.status === 'alvas' && T[0] === 'f') { this.slept ??= new Set(); if (this.slept.has(T)) { if (move.cat === 'stat') ev.push({ t: 'msg', text: `${this.label(T)} már egyszer elaludt ebben a harcban – most nem alszik el.` }); return; } this.slept.add(T); }
         TM.status = e.status; if (e.status === 'alvas') TS.sleep = randInt(1, 3);
         ev.push({ t: 'status', ref: T, status: e.status }, { t: 'msg', text: `${this.label(T)}: ${STATUS[e.status].name}!` });
       } else if (move.cat === 'stat') ev.push({ t: 'msg', text: 'Nem sikerült!' });
@@ -236,7 +237,7 @@ export class CoopBattle {
   reward(foe, ev) {
     for (const a of this.allies) {
       const amount = xpYield(foe, false);
-      a.coins += Math.max(10, Math.round(foe.level * 12));
+      a.coins += Math.max(10, Math.round(foe.level * 8));
       a.party.forEach((m, k) => {
         if (m.hp <= 0) return;
         const got = a.participants.has(k) ? amount : Math.max(1, Math.floor(amount * CONFIG.xpShare));
@@ -244,7 +245,7 @@ export class CoopBattle {
       });
       a.participants = new Set([a.active]);
     }
-    ev.push({ t: 'msg', text: `Mindketten XP-t és ${Math.max(10, Math.round(foe.level * 12))} érmét kaptatok!` });
+    ev.push({ t: 'msg', text: `Mindketten XP-t és ${Math.max(10, Math.round(foe.level * 8))} érmét kaptatok!` });
   }
 
   doSwitch(i, index, ev, forced = false) {

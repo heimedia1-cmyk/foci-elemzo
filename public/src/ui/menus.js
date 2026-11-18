@@ -2,6 +2,7 @@
 import { el, openWindow, choose, dialog, toast, hpBar, UI, askText } from './ui.js';
 import { G, save, keyFor } from '../systems/state.js';
 import { Account } from '../systems/account.js';
+import { nextGoal } from '../systems/goals.js';
 import { dailyQuests, questDef, questText, claimQuest } from '../systems/quests.js';
 import { localBackups, addLocalBackup, summarize, writeLocalSave, makeTransferCode, fetchTransferCode, saveToText, textToSave, downloadSave } from '../systems/saveTransfer.js';
 import { MEXIS, RARITY, SPECIES_ORDER, NATURES, STAT_NAMES } from '../data/mexis.js';
@@ -238,6 +239,7 @@ export function openMainMenu(world) {
     w.body.append(
       el('div', { style: 'margin-bottom:10px;font-weight:700' }, `${s.player.name} • 💰 ${s.money} • Mexidex: ${Object.keys(s.dex.caught).length}/${SPECIES_ORDER.length} • Elkapva: ${s.stats.caught}`),
       el('div', { class: 'mainmenu' },
+        b([el('img', { class: 'mico', src: 'assets/ui/m_map.png' }), '🎯 Következő cél: ' + nextGoal(s).short], () => dialog(nextGoal(G.state).long, '🎯 Következő cél')),
         b([el('img', { class: 'mico', src: 'assets/ui/m_dex.png' }), 'Mexidex (J)'], () => openDex()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_dex.png' }), questBadge('📜 Napi küldetések')], () => openQuests()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_party.png' }), 'Csapat (P)'], () => openParty()),

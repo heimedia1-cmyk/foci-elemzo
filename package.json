@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/logic.test.js && node tests/maps.test.js && node tests/coop.test.js && node tests/go.test.js && node tests/security.test.js && node tests/update.test.js && node tests/net.test.js && node tests/reconnect.test.js && node tests/save.test.js && node tests/quests.test.js",
+    "test": "node tests/logic.test.js && node tests/maps.test.js && node tests/coop.test.js && node tests/go.test.js && node tests/security.test.js && node tests/update.test.js && node tests/net.test.js && node tests/reconnect.test.js && node tests/save.test.js && node tests/quests.test.js && node tests/goals.test.js",
     "build:mobile": "node scripts/build-mobile.mjs && npx cap sync android"
   },
   "keywords": [],

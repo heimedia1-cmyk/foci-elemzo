@@ -265,3 +265,4 @@ html, body { overscroll-behavior: none; -webkit-touch-callout: none; -webkit-tap
 .win .body, .choices, body.tc-on #dialog, .bbox .msg, .moves { touch-action: pan-y; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 input, textarea { user-select: text; -webkit-user-select: text; touch-action: manipulation; }
 img { -webkit-user-drag: none; user-select: none; }
+#hud .chip.goal { pointer-events: auto; cursor: pointer; background: rgba(240,160,48,.92); color: #2a1a08; border-color: #fff; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
