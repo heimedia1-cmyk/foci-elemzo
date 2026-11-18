@@ -340,6 +340,7 @@ export const MAPS = {
   },
 };
 
+// Sima edzők: 1–2 Mexi. Gym-vezetők: 3 Mexi, mind azonos típusú.
 export const TRAINERS = {
   bence: {
     name: 'Bence, a kezdő edző', sprite: 'edzo1', reward: 300, sight: 4,
@@ -348,27 +349,27 @@ export const TRAINERS = {
   },
   lili: {
     name: 'Lili, a kalandor', sprite: 'edzo2', reward: 450, sight: 4,
-    team: [['mehecske', 6], ['nindzsa', 7], ['kacsa', 7]],
+    team: [['mehecske', 5], ['kacsa', 6]],
     intro: 'Az én csapatom gyors és trükkös! Készen állsz?', lose: 'Hűha, ügyes vagy! Mostantól az erdő őre téged is átenged.', after: 'Az alvó Mexit sokkal könnyebb elkapni! Az erdő északon van, a barlang nyugaton.',
   },
   kristof: {
     name: 'Kristóf, a bányász', sprite: 'edzo4', reward: 650, sight: 4,
-    team: [['banyasz', 10], ['kiber', 10], ['banyasz', 11]],
+    team: [['banyasz', 11], ['kiber', 12]],
     intro: 'Ebben a barlangban én vagyok a főnök! Lássuk, mit tudsz!', lose: 'Kő kövön nem marad... legyőztél!', after: 'A Víz és a Növény támadások ellen a Bányász Mexim gyenge.',
   },
   hanna: {
     name: 'Hanna, a barlangkutató', sprite: 'edzo2', reward: 750, sight: 4,
-    team: [['szellem', 11], ['jeg', 11], ['nindzsa', 12]],
+    team: [['szellem', 12], ['jeg', 13]],
     intro: 'Pszt! A tó körül a Mexik nagyon erősek. Készen állsz egy próbára?', lose: 'Hihetetlen! A kincsesláda a tó mögött vár rád.', after: 'A ládához a tó északi partján jutsz el.',
   },
   mate: {
     name: 'Máté, a mágus-tanonc', sprite: 'edzo5', reward: 600, sight: 4,
-    team: [['mehecske', 11], ['lang', 12], ['beka', 12]],
+    team: [['lang', 12], ['beka', 13]],
     intro: 'Az erdő szellemei megsúgták, hogy jössz! Harcoljunk!', lose: 'Ezt nem jósolták meg a szellemek...', after: 'A mély erdőben, keletre, Mágus Mexik is élnek.',
   },
   reka: {
     name: 'Réka, az erdőjáró', sprite: 'edzo3', reward: 700, sight: 4,
-    team: [['nindzsa', 11], ['kacsa', 11], ['szellem', 12]],
+    team: [['nindzsa', 12], ['szellem', 13]],
     intro: 'Senki sem jut át az erdőn úgy, hogy ne mérkőzne meg velem!', lose: 'Rendben, átengedlek. Holdtisztás északra van.', after: 'Éjjel a Szellem Mexik sokkal gyakoribbak.',
   },
 };

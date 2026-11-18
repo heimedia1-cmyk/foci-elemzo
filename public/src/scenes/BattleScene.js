@@ -150,21 +150,27 @@ export class BattleScene extends Phaser.Scene {
     box.classList.remove('hidden');
     const caughtMark = side === 'f' && !this.opts.isTrainer && G.state.dex.caught[m.species] ? ' 🎾' : '';
     box.innerHTML = '';
-    (this._hp ??= {})[side] = m.hp;
-    const pct = Math.max(0, m.hp / m.stats.hp * 100);
+    // a kijelzett HP: a motor a teljes kört előre kiszámolja, ezért a sávot csak az események mozgatják
+    const hp = this.shownHp(m);
+    const pct = Math.max(0, hp / m.stats.hp * 100);
     box.append(...[
       el('div', { class: 'top' }, el('span', {}, displayName(m), m.shiny ? ' ✨' : '', caughtMark, m.status ? el('span', { class: 'st', style: `background:${STATUS[m.status].color}` }, el('img', { class: 'ico', src: `assets/ui/s_${m.status}.png` }), STATUS[m.status].short) : null), el('span', {}, 'Sz. ' + m.level)),
       el('div', {}, ...MEXIS[m.species].types.map(typeBadge)),
-      el('div', { class: 'hpbar ' + hpClass(m.hp, m.stats.hp), style: 'margin-top:4px' }, el('i', { style: `width:${pct}%` })),
-      side === 'p' ? el('div', { class: 'hpnum' }, `${m.hp} / ${m.stats.hp}`) : null,
+      el('div', { class: 'hpbar ' + hpClass(hp, m.stats.hp), style: 'margin-top:4px' }, el('i', { style: `width:${pct}%` })),
+      side === 'p' ? el('div', { class: 'hpnum' }, `${hp} / ${m.stats.hp}`) : null,
       side === 'p' ? (() => { const a = xpForLevel(m.level), b = xpForLevel(m.level + 1); const x = m.level >= CONFIG.maxLevel ? 100 : (m.xp - a) / (b - a) * 100; return el('div', { class: 'xpbar' }, el('i', { style: `width:${Math.max(0, Math.min(100, x))}%` })); })() : null].filter(Boolean));
   }
+
+  /** A képernyőn mutatott HP (a kör előtti állapotból indul, az események frissítik). */
+  shownHp(m) { return this.dispHp?.has(m) ? this.dispHp.get(m) : m.hp; }
+  /** Kör előtt/után: a kijelzés igazodik a valódi állapothoz. */
+  syncHp() { this.dispHp = new Map(); for (const m of [...this.engine.p.party, ...this.engine.f.party]) this.dispHp.set(m, m.hp); }
 
   async animateHp(side, hp, max) {
     const box = side === 'p' ? this.meBox : this.foeBox;
     const bar = box.querySelector('.hpbar'); const fill = bar?.querySelector('i');
     if (!fill) return;
-    (this._hp ??= {})[side] = hp;
+    this.dispHp?.set(this.shownMon(side), hp);
     fill.style.width = Math.max(0, hp / max * 100) + '%';
     bar.className = 'hpbar ' + hpClass(hp, max);
     const num = box.querySelector('.hpnum'); if (num) num.textContent = `${hp} / ${max}`;
@@ -236,8 +242,11 @@ export class BattleScene extends Phaser.Scene {
     while (!this.engine.over) {
       const action = await this.chooseAction();
       if (!action) continue;
+      this.syncHp();
       const ev = this.engine.playerAction(action);
       await this.play(ev);
+      // ha egy HP-változásnak nem volt eseménye, a kör végén igazítjuk (ugrás nélkül, ha egyezik)
+      if (!this.engine.over) { const fix = ['p', 'f'].filter(sd => this.shownHp(this.shownMon(sd)) !== this.shownMon(sd).hp); this.syncHp(); fix.forEach(sd => this.renderInfo(sd)); }
       if (this.opts.tutorial && !this.engine.over && !this._tutHint && this.engine.fm.hp < this.engine.fm.stats.hp * 0.6) {
         this._tutHint = true;
         await this.say('Prof. Szimat: Most gyenge! Nyisd meg a Táskát és dobj rá egy teniszlabdát! 🎾', { auto: 3500 });
@@ -323,7 +332,7 @@ export class BattleScene extends Phaser.Scene {
           if (!ev.dot) { this.cameras.main.shake(ev.eff >= 2 ? 220 : 120, ev.eff >= 2 ? 0.008 : 0.004); }
           this.pose(ev.side, 'hurt');
           { const pos = ev.side === 'p' ? this.mePos : this.foePos; this.fx(ev.crit ? ['crit1', 'crit2', 'crit3'] : ['hit1', 'hit2', 'hit3'], pos.x, pos.y - 26 * this.sc, (ev.crit ? 44 : 30) * this.sc, 80, 23);
-            const dmg = Math.max(0, (this._hp?.[ev.side] ?? ev.hp) - ev.hp);
+            const dmg = Math.max(0, this.shownHp(this.shownMon(ev.side)) - ev.hp);
             if (!ev.dot) { const col = typeColor(this._lastMoveType); burst(this, pos.x, pos.y - 24 * this.sc, col); impact(this, { crit: ev.crit, eff: ev.eff, color: col }); }
             if (dmg > 0) popNumber(this, pos.x + 18 * this.sc, pos.y - 44 * this.sc, '-' + dmg, { crit: ev.crit, eff: ev.dot ? 1 : ev.eff }); }
           spr.setTintFill(0xffffff); this.time.delayedCall(70, () => spr.active && spr.clearTint());
@@ -332,7 +341,7 @@ export class BattleScene extends Phaser.Scene {
           if (ev.hp > 0) this.time.delayedCall(250, () => this.pose(ev.side, null));
           await this.animateHp(ev.side, ev.hp, ev.max);
           break; }
-        case 'heal': { Sfx.play('heal_hp'); const pos = ev.side === 'p' ? this.mePos : this.foePos; { const d = ev.hp - (this._hp?.[ev.side] ?? ev.hp); if (d > 0) popNumber(this, pos.x + 18 * this.sc, pos.y - 44 * this.sc, '+' + d, { heal: true }); } this.fx(['heal1', 'heal2', 'heal1', 'heal2'], pos.x, pos.y - 24 * this.sc, 40 * this.sc, 140); await this.animateHp(ev.side, ev.hp, ev.max); break; }
+        case 'heal': { Sfx.play('heal_hp'); const pos = ev.side === 'p' ? this.mePos : this.foePos; { const d = ev.hp - this.shownHp(this.shownMon(ev.side)); if (d > 0) popNumber(this, pos.x + 18 * this.sc, pos.y - 44 * this.sc, '+' + d, { heal: true }); } this.fx(['heal1', 'heal2', 'heal1', 'heal2'], pos.x, pos.y - 24 * this.sc, 40 * this.sc, 140); await this.animateHp(ev.side, ev.hp, ev.max); break; }
         case 'status': {
           this.renderInfo(ev.side);
           if (ev.status) { Sfx.play('status'); const pos = ev.side === 'p' ? this.mePos : this.foePos; await this.fx([`st_${ev.status}1`, `st_${ev.status}2`, `st_${ev.status}1`, `st_${ev.status}2`], pos.x, pos.y - 30 * this.sc, 34 * this.sc, 150); }
@@ -350,6 +359,7 @@ export class BattleScene extends Phaser.Scene {
         case 'ball': await this.ballAnim(ev.itemId, ev.shakes, ev.caught); break;
         case 'needSwitch': {
           const i = await openParty({ mode: 'pick', title: 'Válassz új Mexit!', canPick: (m) => m.hp > 0, forced: true });
+          this.syncHp();
           await this.play(this.engine.forcedSwitch(i));
           break; }
         case 'end':
