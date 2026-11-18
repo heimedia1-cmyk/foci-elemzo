@@ -24,6 +24,23 @@ const BG = {
   osveny: [0x8ac8f0, 0xe0f4e8, 0x5ab048],
 };
 
+const _ch = new Map();
+/** Egy textúra nem átlátszó részének magassága (képpontban), gyorsítótárazva. */
+function contentHeight(scene, key) {
+  if (_ch.has(key)) return _ch.get(key);
+  let h = 0;
+  try {
+    const src = scene.textures.get(key).getSourceImage(); const fr = scene.textures.getFrame(key);
+    const c = document.createElement('canvas'); c.width = fr.width; c.height = fr.height;
+    const g = c.getContext('2d'); g.drawImage(src, fr.cutX, fr.cutY, fr.width, fr.height, 0, 0, fr.width, fr.height);
+    const d = g.getImageData(0, 0, c.width, c.height).data; let top = -1, bot = -1;
+    for (let y = 0; y < c.height && top < 0; y++) for (let x = 0; x < c.width; x++) if (d[(y * c.width + x) * 4 + 3] > 40) { top = y; break; }
+    for (let y = c.height - 1; y >= 0 && bot < 0; y--) for (let x = 0; x < c.width; x++) if (d[(y * c.width + x) * 4 + 3] > 40) { bot = y; break; }
+    h = top >= 0 ? bot - top + 1 : 0;
+  } catch { h = 0; }
+  _ch.set(key, h); return h;
+}
+
 export class BattleScene extends Phaser.Scene {
   constructor() { super('Battle'); }
 
@@ -115,10 +132,16 @@ export class BattleScene extends Phaser.Scene {
   onResize() {
     this.layout();
     if (this.foeSpr) { this.foeSpr.setPosition(this.foePos.x, this.foePos.y).setScale(this.sc / 4); }
-    if (this.meSpr) { this.meSpr.setPosition(this.mePos.x, this.mePos.y).setScale(this.sc * 0.27); }
+    if (this.meSpr) { this.meSpr.setPosition(this.mePos.x, this.mePos.y).setScale(this.meScale()); }
   }
 
   /** Animációs póz az ellenfél Mexijén (támadás, sérülés, ájulás, győzelem), ha van hozzá kép. */
+  /** A saját Mexi mérete: a kép tényleges (nem átlátszó) magasságához igazítva, hogy ugyanakkorának lássék, mint az ellenfél. */
+  meScale() {
+    const key = this.meSpr?.texture?.key || this.texFor(this.engine.pm, true);
+    const ch = contentHeight(this, key);
+    return ch ? Math.min(this.sc * 0.42, (54 * this.sc) / ch) : this.sc * 0.27;
+  }
   shownMon(side) { return side === 'p' ? this.engine.p.party[this.shown.p] : this.engine.f.party[this.shown.f]; }
 
   pose(side, pose) {
@@ -230,9 +253,9 @@ export class BattleScene extends Phaser.Scene {
       pl.destroy();
       this.meSpr = this.add.sprite(this.mePos.x, this.mePos.y, this.texFor(e.pm, true)).setOrigin(0.5, 1).setScale(0);
       enterFlash(this, this.meSpr);
-      await tween(this, { targets: this.meSpr, scale: this.sc * 0.27, duration: 320, ease: 'Back.out' });
+      await tween(this, { targets: this.meSpr, scale: this.meScale(), duration: 320, ease: 'Back.out' });
     } else {
-      this.meSpr = this.add.sprite(-100, this.mePos.y, this.texFor(e.pm, true)).setOrigin(0.5, 1).setScale(this.sc * 0.27);
+      this.meSpr = this.add.sprite(-100, this.mePos.y, this.texFor(e.pm, true)).setOrigin(0.5, 1).setScale(this.meScale());
       await tween(this, { targets: this.meSpr, x: this.mePos.x, duration: 450, ease: 'Cubic.out' });
     }
     this.renderInfo('p');
@@ -384,7 +407,7 @@ export class BattleScene extends Phaser.Scene {
       if (this.meSpr) { await tween(this, { targets: this.meSpr, x: -100, duration: 250 }); this.meSpr.destroy(); }
       this.meSpr = this.add.sprite(this.mePos.x, this.mePos.y, this.texFor(mon, true)).setOrigin(0.5, 1).setScale(0);
       enterFlash(this, this.meSpr);
-      await tween(this, { targets: this.meSpr, scale: this.sc * 0.27, duration: 300, ease: 'Back.out' });
+      await tween(this, { targets: this.meSpr, scale: this.meScale(), duration: 300, ease: 'Back.out' });
       this.renderInfo('p');
     } else {
       this.foeSpr?.destroy();

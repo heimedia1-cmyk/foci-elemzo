@@ -243,6 +243,7 @@ export function openMainMenu(world) {
       el('div', { style: 'margin-bottom:10px;font-weight:700' }, `${s.player.name} • 💰 ${s.money} • Mexidex: ${Object.keys(s.dex.caught).length}/${SPECIES_ORDER.length} • Elkapva: ${s.stats.caught}`),
       el('div', { class: 'mainmenu' },
         b([el('img', { class: 'mico', src: 'assets/ui/m_map.png' }), '🎯 Következő cél: ' + nextGoal(s).short], () => dialog(nextGoal(G.state).long, '🎯 Következő cél')),
+        b([el('img', { class: 'mico', src: 'assets/ui/m_map.png' }), '✈️ Teleport (városok)'], () => openTeleport()),
         b([el('img', { class: 'mico', src: 'assets/ui/badge_bodza.png' }), `🏅 Jelvények (${LEADER_ORDER.filter(l => s.defeatedTrainers.includes(l)).length}/${LEADER_ORDER.length})`], () => openBadges()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_dex.png' }), 'Mexidex (J)'], () => openDex()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_dex.png' }), questBadge('📜 Napi küldetések')], () => openQuests()),
@@ -672,4 +673,24 @@ export function showBadge(id, tr) {
         el('button', { class: 'btn primary', onclick: () => w.close() }, 'Szuper!')));
     }), { onClose: resolve });
   });
+}
+
+// ===================== TELEPORT =====================
+// Már meglátogatott városok közötti utazás (a gyógyítóállomás elé érkezel).
+export const TOWN_SPOTS = {
+  mancsfalva: { name: 'Mancsfalva', x: 24, y: 11 }, erdo: { name: 'Holdtisztás', x: 6, y: 11 }, nadas: { name: 'Nádas', x: 5, y: 10 },
+  neonvaros: { name: 'Neonváros', x: 5, y: 10 }, sakura: { name: 'Sakura-liget', x: 5, y: 10 }, jegvar: { name: 'Jégvár', x: 5, y: 10 },
+  sarkanyhegy: { name: 'Sárkányhegy', x: 5, y: 10 }, holdmancs: { name: 'Holdmancs-aréna', x: 11, y: 16 },
+};
+export function openTeleport() {
+  const s = G.state;
+  const list = Object.entries(TOWN_SPOTS).filter(([k]) => k === 'mancsfalva' || s.flags['visit_' + k]);
+  const world = window.MEXI_GAME?.scene?.getScene('World');
+  openWindow('✈️ Teleport', (w) => w.render((body) => {
+    body.append(el('p', { style: 'margin:0 0 8px' }, 'Hová utazzunk? Csak a már meglátogatott városok közül választhatsz.'));
+    for (const [k, t] of list) body.append(el('button', { class: 'btn' + (s.map === k ? '' : ' primary'), style: 'width:100%;margin-bottom:6px', disabled: s.map === k,
+      onclick: () => { w.close(); world?.warpTo({ to: k, tx: t.x, ty: t.y, dir: 'down' }); } }, (s.map === k ? '📍 ' : '') + t.name + (s.map === k ? ' (itt vagy)' : '')));
+    const missing = Object.keys(TOWN_SPOTS).length - list.length;
+    if (missing) body.append(el('small', {}, `Még ${missing} várost nem fedeztél fel.`));
+  }));
 }

@@ -50,6 +50,7 @@ export class WorldScene extends Phaser.Scene {
     this.buildMap();
     this.buildBuildings();
     this.buildFieldItems();
+    if (['erdo', 'nadas', 'neonvaros', 'sakura', 'jegvar', 'sarkanyhegy', 'holdmancs'].includes(this.mapKey)) G.state.flags['visit_' + this.mapKey] = true;
     this.buildNpcs();
     this.buildRoamers();
 
