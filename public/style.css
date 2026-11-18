@@ -266,3 +266,9 @@ html, body { overscroll-behavior: none; -webkit-touch-callout: none; -webkit-tap
 input, textarea { user-select: text; -webkit-user-select: text; touch-action: manipulation; }
 img { -webkit-user-drag: none; user-select: none; }
 #hud .chip.goal { pointer-events: auto; cursor: pointer; background: rgba(240,160,48,.92); color: #2a1a08; border-color: #fff; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+#fsbtn { position: fixed; top: max(6px, env(safe-area-inset-top)); right: max(6px, env(safe-area-inset-right)); z-index: 9000; width: 34px; height: 34px; border-radius: 8px; border: 2px solid #fff; background: rgba(30,20,40,.55); color: #fff; font-size: 18px; line-height: 1; cursor: pointer; opacity: .75; padding: 0; }
+#fsbtn:hover { opacity: 1; }
+#fsbtn.on { opacity: .35; }
+body.tc-on #fsbtn { top: calc(14px + var(--st, 0px)); right: calc(20px + 50px * var(--tc-scale, 1) + var(--sr, 0px)); width: 40px; height: 40px; }
+body.tc-on:has(#touch.lefty) #fsbtn { right: calc(10px + var(--sr, 0px)); }

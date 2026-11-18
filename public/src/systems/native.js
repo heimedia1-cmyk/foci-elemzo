@@ -25,7 +25,7 @@ export async function initNative(game) {
   // böngészőben és appban is: láthatóság-váltás
   document.addEventListener('visibilitychange', () => (document.hidden ? pauseGame(game) : resumeGame(game)));
   window.addEventListener('pagehide', () => { try { if (G.state) save(); } catch { /* */ } });
-  if (!IS_APP) return;
+  if (!IS_APP) { initBrowserFullscreen(); return; }
   document.body.classList.add('is-app');
 
   const StatusBar = plugin('StatusBar');
@@ -50,3 +50,30 @@ export async function initNative(game) {
 
 /** Az indítóképernyő eltüntetése, ha betöltött a játék. */
 export function hideSplash() { try { plugin('SplashScreen')?.hide({ fadeOutDuration: 250 }); } catch { /* */ } }
+
+// ---- Böngésző: teljes képernyő (első érintésre magától, utána a ⛶ gombbal ki/be) ----
+const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+const fsOk = () => !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+export async function toggleFullscreen(on = !fsEl()) {
+  try {
+    if (on && !fsEl()) {
+      const d = document.documentElement;
+      await (d.requestFullscreen ? d.requestFullscreen({ navigationUI: 'hide' }) : d.webkitRequestFullscreen());
+    } else if (!on && fsEl()) await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen());
+  } catch { /* a böngésző elutasította (pl. nem felhasználói mozdulatból) */ }
+}
+function initBrowserFullscreen() {
+  if (!fsOk()) return;   // pl. iPhone Safari: nincs Fullscreen API
+  const btn = document.createElement('button');
+  btn.id = 'fsbtn'; btn.title = 'Teljes képernyő (F)'; btn.setAttribute('aria-label', 'Teljes képernyő');
+  const sync = () => { btn.textContent = fsEl() ? '🗗' : '⛶'; btn.classList.toggle('on', !!fsEl()); setTimeout(() => window.dispatchEvent(new Event('resize')), 120); };
+  btn.addEventListener('click', (e) => { e.stopPropagation(); toggleFullscreen(); });
+  document.body.appendChild(btn); sync();
+  document.addEventListener('fullscreenchange', sync); document.addEventListener('webkitfullscreenchange', sync);
+  window.addEventListener('keydown', (e) => { if ((e.key === 'f' || e.key === 'F') && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName || '')) toggleFullscreen(); });
+  // első érintés/kattintás: automatikusan teljes képernyő (a böngésző csak felhasználói mozdulatra engedi)
+  let asked = false;
+  const first = () => { if (asked) return; asked = true; toggleFullscreen(true); };
+  document.addEventListener('pointerup', first, { capture: true });
+  document.addEventListener('keyup', first, { capture: true });
+}
