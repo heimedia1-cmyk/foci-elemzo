@@ -39,3 +39,14 @@ window.MEXI_DEBUG = { G, game };
 
 import { toast } from './ui/ui.js';
 window.addEventListener('mexi-auth-expired', () => toast('Lejárt a belépésed – a mentés csak ezen az eszközön van. Lépj be újra a főmenüben.', 5000));
+
+// Szövegmezőbe íráskor a játék billentyűkezelése szünetel (különben a W, A, S, D, E, I, J, P betűk nem íródnak be).
+const isField = (t) => t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+document.addEventListener('focusin', (e) => {
+  if (!isField(e.target)) return;
+  for (const sc of game.scene.getScenes(true)) { const kb = sc.input?.keyboard; if (kb) { kb.enabled = false; kb.disableGlobalCapture?.(); kb.resetKeys?.(); } }
+});
+document.addEventListener('focusout', (e) => {
+  if (!isField(e.target)) return;
+  for (const sc of game.scene.getScenes(true)) { const kb = sc.input?.keyboard; if (kb) { kb.enabled = true; kb.enableGlobalCapture?.(); } }
+});
