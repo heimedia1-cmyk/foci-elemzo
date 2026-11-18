@@ -66,7 +66,7 @@ function startBattle(p, initiator, data) {
     players: [{ id: A.pid, name: A.name, party: partyA, inventory: safeInv(data.inventory, A.cloud) }, { id: B.pid, name: B.name, party: partyB, inventory: safeInv(B.pendingInventory, B.cloud) }],
     foes, cap,
   });
-  p.battle.bg = ['route', 'route_night', 'village', 'forest', 'forest_night', 'crystal'].includes(data.bg) ? data.bg : 'route';
+  p.battle.bg = ['route', 'route_night', 'village', 'forest', 'forest_night', 'crystal', 'swamp', 'neon', 'shrine', 'volcano'].includes(data.bg) ? data.bg : 'route';
   A.busy = B.busy = true;
   broadcast(p, { t: 'coop_begin', state: p.battle.snapshot(), bg: p.battle.bg, you: null });
   armTimer(p);

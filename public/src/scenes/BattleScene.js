@@ -31,7 +31,11 @@ export class BattleScene extends Phaser.Scene {
 
   bgName() {
     const map = G.state.map; const night = new Date().getHours() >= 20 || new Date().getHours() < 6;
-    const base = { mancsfalva: 'village', osveny: 'route', erdo: 'forest', barlang: 'crystal' }[map] || (map.startsWith('int_') ? 'village' : 'route');
+    const BIOME_BG = { swamp: 'swamp', neon: 'neon', shrine: 'shrine', volcano: 'volcano', snow: 'crystal' };
+    // gym-belső: a város tája szerint (int_gym_nadas → nadas)
+    const town = map.startsWith('int_gym_') ? map.slice(8).replace('mancs', 'mancsfalva') : map;
+    const biome = MAPS[town]?.biome;
+    const base = biome ? BIOME_BG[biome] : { mancsfalva: 'village', osveny: 'route', erdo: 'forest', barlang: 'crystal' }[map] || (map.startsWith('int_') ? 'village' : 'route');
     return { bg: night && (base === 'route' || base === 'forest') ? base + '_night' : base, pad: base };
   }
 

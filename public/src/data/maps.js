@@ -6,6 +6,9 @@
 //  h  gyanús bokor (szimatolással nyitható)                     p  feltárt ösvény
 //  :  barlangpadló (vad Mexik!)  K  sziklafal   g  kavics      d  sötét fű     B  híd
 export const SOLID = new Set(['~', 'T', 'b', 'r', 'F', 'h', '#', 'W', 'w', 'P', 'K']);
+import { MAPS2, TRAINERS2, BIOME_SOLID } from './world2.js';
+/** Tömör-e egy csempe az adott térképen (a tájas térképek saját jelkészletet használnak). */
+export const isSolidCh = (map, ch) => (map && map.biome ? BIOME_SOLID.has(ch) : SOLID.has(ch));
 
 function grid(w, h, ch = '.') { return Array.from({ length: h }, () => Array(w).fill(ch)); }
 function rect(g, x, y, w, h, ch) { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (g[j] && g[j][i] !== undefined) g[j][i] = ch; }
@@ -136,6 +139,7 @@ function buildErdo() {
   rect(g, 18, 33, 10, 3, 'd'); rect(g, 3, 34, 4, 3, 'd'); rect(g, 19, 22, 2, 5, 'd');
   for (const [x, y] of [[5, 38], [29, 34], [12, 41], [28, 18]]) g[y][x] = 'r';
   for (const [x, y] of [[20, 9], [31, 9]]) g[y][x] = 'b';
+  rect(g, 31, 11, 3, 2, 'c');            // keleti kapu → Nádas-mocsár
   return g;
 }
 
@@ -146,7 +150,7 @@ export const MAPS = {
     // x: bal szél, y: az ajtó sora (az épület alja)
     buildings: [
       { key: 'lab',    x: 4,  y: 10,  action: 'lab',   name: 'Mexi-kutató labor' },
-      { key: 'gym',    x: 10, y: 10, action: 'gym',   name: 'Mexi Gym' },
+      { key: 'gym_mancs', interior: 'gym_mancs', x: 10, y: 10, action: 'gym', name: 'Mancsfalva Gym' },
       { key: 'heal',   x: 22, y: 10, action: 'heal',  name: 'Mexi-gyógyítóállomás' },
       { key: 'house2', x: 27, y: 10, action: 'house2', name: 'Kék ház' },
       { key: 'home',   x: 4,  y: 19, action: 'home',  name: 'Otthon' },
@@ -299,7 +303,7 @@ export const MAPS = {
       { x: 18, y: 46, text: 'TITOKZATOS ERDŐ\nDél: Mexi-ösvény ↓   Észak: Holdtisztás ↑' },
       { x: 10, y: 34, text: 'Figyelem! A patak mentén a Kacsa Mexik csapatban járnak.' },
       { x: 15, y: 13, text: 'HOLDTISZTÁS\nA Holdmancs-rend faluja.' },
-      { x: 17, y: 3, text: 'Észak: Kőmancs-hegység\nAz út még járhatatlan. (Hamarosan!)' },
+      { x: 30, y: 10, text: 'Kelet: Nádas-mocsár →\nCsak Napmancs-jelvénnyel!' },
     ],
     npcs: [
       { id: 'edzo_mate', sprite: 'edzo5', x: 12, y: 18, dir: 'down', wander: 0, trainer: 'mate' },
@@ -310,10 +314,12 @@ export const MAPS = {
       { id: 'ht_kisfiu', sprite: 'kisfiu', x: 6, y: 24, dir: 'right', wander: 2, talk: ['A híd alatt néha valami csillog...'] },
     ],
     warps: [
+      { x: 33, y: 11, to: 'ut_nadas', tx: 1, ty: 8, dir: 'right' },
+      { x: 33, y: 12, to: 'ut_nadas', tx: 1, ty: 9, dir: 'right' },
       { x: 16, y: 49, to: 'osveny', tx: 13, ty: 1, dir: 'down' },
       { x: 17, y: 49, to: 'osveny', tx: 14, ty: 1, dir: 'down' },
     ],
-    triggers: [],
+    triggers: [{ x: 31, y: 11, w: 1, h: 2, id: 'gate', need: 'bodza', who: 'Kapuőr', back: 'left', text: ['Állj! Keletre a Nádas-mocsár kezdődik.', 'Csak a Napmancs-jelvénnyel mehetsz tovább. Győzd le Bodzát a Mancsfalvi Gymben!'] }],
     hidden: [
       { id: 'er_hid', x: 10, y: 33, item: 'profi_labda', qty: 3 },
       { id: 'er_mely', x: 30, y: 16, item: 'arany_labda', qty: 1 },
@@ -556,3 +562,7 @@ Object.assign(MAPS, {
     warps: exitTo(6, 11, 13, 11).slice(0, 1),
   },
 });
+
+// a nagy világ: városok, utak, gymek (world2.js)
+Object.assign(MAPS, MAPS2);
+Object.assign(TRAINERS, TRAINERS2);

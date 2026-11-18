@@ -8,8 +8,9 @@ assert.match(nextGoal({ ...base, flags: { starter: 1, firstFrog: 1 } }).short, /
 assert.match(nextGoal({ ...base, flags: { starter: 1, firstFrog: 1 }, defeatedTrainers: ['bence'] }).short, /Lilit/);
 assert.match(nextGoal({ ...base, flags: { starter: 1, firstFrog: 1 }, defeatedTrainers: ['bence', 'lili'] }).short, /Erdő/);
 assert.match(nextGoal({ ...base, map: 'erdo', flags: { starter: 1, firstFrog: 1 }, defeatedTrainers: ['bence', 'lili'] }).short, /Edzők/);
-assert.match(nextGoal({ ...base, flags: { starter: 1, firstFrog: 1 }, defeatedTrainers: ['bence', 'lili', 'mate', 'reka'] }).short, /Kristály/);
-assert.match(nextGoal({ ...base, flags: { starter: 1, firstFrog: 1 }, defeatedTrainers: ['bence', 'lili', 'mate', 'reka', 'kristof', 'hanna'] }).short, /Mexidex: 0\//);
+assert.match(nextGoal({ ...base, flags: { starter: 1, firstFrog: 1 }, defeatedTrainers: ['bence', 'lili', 'mate', 'reka'] }).short, /Bodz/);
+assert.match(nextGoal({ ...base, flags: { starter: 1, firstFrog: 1 }, defeatedTrainers: ['bence', 'lili', 'mate', 'reka', 'bodza'] }).short, /Lotti/);
+assert.match(nextGoal({ ...base, flags: { starter: 1, firstFrog: 1 }, defeatedTrainers: ['bence', 'lili', 'mate', 'reka', 'bodza', 'lotti', 'volt', 'kaori', 'frida', 'pal', 'luna'] }).short, /Mexidex: 0\//);
 console.log('goals ok');
 
 // altatási szabály: ugyanaz az ellenfél egy harcban csak egyszer altatható el

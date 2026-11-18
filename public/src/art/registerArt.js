@@ -29,7 +29,8 @@ export const DRAWN_SPECIES = ['hosmexi', 'bajnok', 'langvezer', 'viharkacsa', 'k
 // Kézzel rajzolt sérülés/ájulás póz (assets/mexi/<faj>_hurt.png, _faint.png)
 const POSE_SPECIES = [...DRAWN_SPECIES, 'mocsarkiraly', 'mehkiralyno', 'arnyekmester'];
 // edzők és a játékos harci képe (assets/battle/tr)
-export const TRAINER_ART = ['bence', 'lili', 'hanna', 'kristof', 'mate', 'reka', 'player_fiu', 'player_lany'];
+export const LEADERS = ['bodza', 'lotti', 'volt', 'kaori', 'frida', 'pal', 'luna'];
+export const TRAINER_ART = ['bence', 'lili', 'hanna', 'kristof', 'mate', 'reka', 'player_fiu', 'player_lany', ...LEADERS];
 // ülő követő-pózok egy közös lapon (8 oszlop, 32×32), ebben a sorrendben
 export const SIT_ORDER = ['alap', 'beka', 'mehecske', 'lang', 'kacsa', 'nindzsa', 'kiber', 'banyasz', 'jeg', 'magus', 'szellem', 'mocsarkiraly', 'mehkiralyno', 'arnyekmester', 'szikra', 'viharfarkas',
   'virag', 'rozsakert', 'kaloz', 'kalozkapitany', 'vulkan', 'lavakiraly', 'lovag', 'pancellovag', 'szakacs', 'mesterszakacs', 'urhajos', 'csillagjaro', 'vampir', 'vampirgrof', 'gomba', 'gombakiraly',
@@ -48,6 +49,8 @@ export function preloadArt(scene) {
   L.image('src_fringe', 'assets/fringe.png');
   L.image('src_player', 'assets/player.png');
   L.image('src_npcs', 'assets/npcs.png');
+  L.spritesheet('tiles2', 'assets/tiles2.png', { frameWidth: 32, frameHeight: 32 });
+  for (const n of LEADERS) L.image('src_ldr_' + n, `assets/ldr_${n}.png`);
   L.image('src_front', 'assets/mexi_front.png');
   L.image('src_back', 'assets/mexi_back.png');
   L.image('src_map', 'assets/mexi_map.png');
@@ -192,6 +195,13 @@ export function registerArt(scene) {
     for (let d = 0; d < 4; d++) for (let f = 0; f < 3; f++) ctx.drawImage(np, d * PW, row * PH, PW, PH, f * PW, d * PH, PW, PH);
     addSheet(scene, 'p_' + key, c, PW, PH);
   });
+  // gym-vezetők: soronként 4 irány (le, bal, jobb, fel) → 3 egyforma fázis
+  for (const n of LEADERS) {
+    if (!scene.textures.exists('src_ldr_' + n)) continue;
+    const src = img(scene, 'src_ldr_' + n), c = cv(PW * 3, PH * 4), ctx = c.getContext('2d');
+    for (let d = 0; d < 4; d++) for (let f = 0; f < 3; f++) ctx.drawImage(src, d * PW, 0, PW, PH, f * PW, d * PH, PW, PH);
+    addSheet(scene, 'p_ldr_' + n, c, PW, PH);
+  }
   // további edző-változatok színezéssel
   addSheet(scene, 'p_edzo3', hueCanvas(scene.textures.get('p_fiu').getSourceImage(), 220, 1.0), PW, PH);
   addSheet(scene, 'p_edzo4', hueCanvas(scene.textures.get('p_gyujto').getSourceImage(), 90, 1.1), PW, PH);
