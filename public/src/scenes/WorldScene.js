@@ -17,6 +17,7 @@ import { canEvolve, evolve, scaleWildLevel } from '../systems/mexi.js';
 import { MOVES } from '../data/moves.js';
 import { offerMove, moveReminder, openTransfer } from '../ui/menus.js';
 import { BONES } from '../systems/bones.js';
+import { questEvent } from '../systems/quests.js';
 import { Sfx } from '../systems/sfx.js';
 
 const CHAR_SCALE = 0.76; // ember-sprite méret a világban (~1,25 mező magas)
@@ -88,6 +89,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.buildHud();
     this.setupNet();
+    if (!window._mexiQuestHook) { window._mexiQuestHook = true; window.addEventListener('mexi-quest-done', (e) => this.scene.manager.getScene('World')?.questDone(e.detail)); }
     if (window.MEXI_OPEN_GO) { window.MEXI_OPEN_GO = false; this.time.delayedCall(500, () => import('../go/goMode.js').then(m => m.openGoMode(this))); }
     this.events.on('resume', () => this.onResume());
     this.events.once('shutdown', () => this.cleanup());
@@ -408,7 +410,7 @@ export class WorldScene extends Phaser.Scene {
     const table = weatherTable((zone && (night ? zone.night : zone.day)) || (night ? enc.default.night : enc.default.day), this.weather);
     this.cutscene = true;
     this._coopFallback = fallback;
-    Net.send({ t: 'coop_encounter', map: this.mapKey, table, levels: zone?.levels || enc.default.levels, party: G.state.party, inventory: G.state.inventory, bg: this.mapKey === 'osveny' ? (night ? 'route_night' : 'route') : 'village' });
+    Net.send({ t: 'coop_encounter', map: this.mapKey, x: this.player.x, y: this.player.y, party: G.state.party, inventory: G.state.inventory, bg: this.mapKey === 'osveny' ? (night ? 'route_night' : 'route') : 'village' });
   }
 
   launchCoop(m) {
@@ -643,7 +645,7 @@ export class WorldScene extends Phaser.Scene {
   async onStep(warp) {
     const s = G.state; const p = this.player;
     s.pos = { x: p.x, y: p.y, dir: p.dir };
-    s.stats.steps++;
+    s.stats.steps++; if (s.stats.steps % 10 === 0) this.questDone(questEvent('steps', {}, 10));
     this.sendPos();
     if (warp) { this.warpTo(warp); return; }
 
@@ -756,6 +758,12 @@ export class WorldScene extends Phaser.Scene {
       s.money += coins;
       toast(`A vad Mexi elejtett ${coins} érmét!`);
     }
+    if (res === 'caught' && !opts.isTrainer) {
+      // elkapásért is jár egy kis jutalom (a labdák árának egy részét visszahozza)
+      const coins = Math.max(10, Math.round(opts.foeParty[0].level * 8));
+      s.money += coins;
+      toast(`Elkapási jutalom: +${coins} érme`);
+    }
     if (res === 'lose') {
       this.cutscene = true;
       const lost = Math.floor(s.money * 0.1);
@@ -770,16 +778,22 @@ export class WorldScene extends Phaser.Scene {
     }
     if (opts.trainerNpc && res === 'win') {
       const tr = opts.trainerNpc.tr;
-      s.defeatedTrainers.push(opts.trainerNpc.trainer);
-      s.money += tr.reward;
-      await dialog([tr.lose, `Kaptál ${tr.reward} Mexi-érmét!`], tr.name);
+      const reward = opts.rematch ? Math.round(tr.reward * 0.6) : tr.reward;
+      if (opts.rematch) { s.rematch ??= {}; s.rematch[opts.trainerNpc.trainer] = new Date().toLocaleDateString('sv-SE'); }
+      else if (!s.defeatedTrainers.includes(opts.trainerNpc.trainer)) s.defeatedTrainers.push(opts.trainerNpc.trainer);
+      s.money += reward;
+      this.questDone(questEvent('trainerWins'));
+      await dialog([tr.lose, `Kaptál ${reward} Mexi-érmét!`], tr.name);
     }
+    if (res === 'win' && !opts.isTrainer) this.questDone(questEvent('wildWins'));
     if (opts.tutorial && res === 'caught') {
       await dialog(['Ügyes! Elkaptad az első vad Mexidet!', 'Nézd meg a Mexidexben (J) vagy a csapatodnál (P).', 'A magas fűben még sok Mexi rejtőzik. Ha megsérültek, a falu gyógyítóállomásán ingyen meggyógyulnak!'], 'Prof. Szimat');
     }
     save();
     this.updateHud();
   }
+
+  questDone(def) { if (def) { Sfx.play('item'); toast(`📜 Küldetés teljesítve: ${def.text.replace('{type}', '')} – vedd át a jutalmat a menüben!`); } }
 
   // ---------------- Edzők ----------------
   async checkTrainerSight() {
@@ -813,11 +827,13 @@ export class WorldScene extends Phaser.Scene {
     this.startTrainerBattle(n);
   }
 
-  startTrainerBattle(n) {
+  startTrainerBattle(n, rematch = false) {
     if (!G.state.party.some(m => m.hp > 0)) { dialog('A Mexijeid kimerültek!'); return; }
-    const team = n.tr.team.map(([sp, lv]) => createMexi(sp, lv, { shiny: false }));
+    // visszavágón az edző a csapatodhoz igazodik (a legerősebb Mexidnél 1–2 szinttel gyengébb, de nem gyengébb az eredetinél)
+    const top = Math.max(...G.state.party.map(m => m.level));
+    const team = n.tr.team.map(([sp, lv], i) => createMexi(sp, rematch ? Math.min(CONFIG.maxLevel, Math.max(lv, top - 2 + (i === n.tr.team.length - 1 ? 1 : 0))) : lv, { shiny: false }));
     team.forEach(m => markSeen(m.species));
-    this.launchBattle({ foeParty: team, isTrainer: true, trainerName: n.tr.name, trainerSprite: n.sprite.texture.key, trainerNpc: n });
+    this.launchBattle({ foeParty: team, isTrainer: true, trainerName: n.tr.name, trainerSprite: n.sprite.texture.key, trainerNpc: n, rematch });
   }
 
   // ---------------- NPC-k mozgása ----------------
@@ -924,7 +940,14 @@ export class WorldScene extends Phaser.Scene {
   async talkTo(n) {
     this.setFacing(n, OPP[this.player.dir]);
     if (n.tr) {
-      if (G.state.defeatedTrainers.includes(n.trainer)) await dialog(n.tr.after, n.tr.name);
+      if (G.state.defeatedTrainers.includes(n.trainer)) {
+        await dialog(n.tr.after, n.tr.name);
+        const today = new Date().toLocaleDateString('sv-SE'); G.state.rematch ??= {};
+        if (G.state.rematch[n.trainer] !== today) {
+          const c = await choose(['⚔️ Visszavágó!', 'Most nem'], { question: `${n.tr.name}: Azóta sokat edzettem! Naponta egyszer újra megmérkőzhetünk.` });
+          if (c === 0) this.startTrainerBattle(n, true);
+        }
+      }
       else { await dialog(n.tr.intro, n.tr.name); this.startTrainerBattle(n); }
       return;
     }

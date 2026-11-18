@@ -3,9 +3,10 @@ import { CONFIG } from '../data/config.js';
 import { calcStats } from './mexi.js';
 import { MEXIS } from '../data/mexis.js';
 import { Account } from './account.js';
+import { questEvent } from './quests.js';
 
 // Vendég: egy helyi mentés. Belépve: a fiókhoz tartozó helyi másolat + felhős mentés.
-const keyFor = () => Account.loggedIn ? 'mexiverse_save_u_' + Account.current.username.toLowerCase() : 'mexiverse_save';
+export const keyFor = () => Account.loggedIn ? 'mexiverse_save_u_' + Account.current.username.toLowerCase() : 'mexiverse_save';
 export const GUEST_KEY = 'mexiverse_save';
 
 export function newGameState(name = 'Kalandor', gender = 'fiu') {
@@ -59,6 +60,21 @@ function migrate(s) {
   return s;
 }
 
+// felhős mentés visszajelzései
+if (typeof window !== 'undefined') {
+  window.addEventListener('mexi-save-rev', (e) => { if (G.state) { G.state.rev = e.detail; try { localStorage.setItem(keyFor(), JSON.stringify(G.state)); } catch {} } });
+  window.addEventListener('mexi-save-conflict', async (e) => {
+    if (window._mexiConflict) return; window._mexiConflict = true;
+    const cloud = e.detail;
+    const { choose } = await import('../ui/ui.js');
+    const fmt = (s) => `${(s.party || []).map(m => MEXIS[m.species]?.name.replace(' Mexi', '') + ' ' + m.level).join(', ')} • ${s.money} 🪙`;
+    const c = await choose([`☁️ A másik eszköz mentése (${fmt(cloud)})`, `📱 Ez a mostani (${fmt(G.state)})`], { question: 'Egy másik eszközön újabb mentés készült. Melyik maradjon meg? (A másikat biztonsági mentésként megőrizzük.)', cancel: false });
+    window._mexiConflict = false;
+    if (c === 0) { localStorage.setItem(keyFor(), JSON.stringify(cloud)); location.reload(); }
+    else { G.state.rev = cloud.rev; Account.pushSave(G.state, true, true); }
+  });
+}
+
 export function load() {
   try {
     const raw = localStorage.getItem(keyFor());
@@ -106,6 +122,7 @@ export function addCaught(m, where) {
   if (m.shiny) { s.dex.shiny[m.species] = true; s.stats.shinyCaught++; }
   s.stats.caught++;
   s.bones ??= {}; const fam = familyRoot(m.species); s.bones[fam] = (s.bones[fam] || 0) + 3;
+  const qd = questEvent('caught', { species: m.species }); if (qd) window.dispatchEvent?.(new CustomEvent('mexi-quest-done', { detail: qd }));
   if (s.party.length < CONFIG.partySize) { s.party.push(m); return 'party'; }
   s.storage.push(m); return 'storage';
 }

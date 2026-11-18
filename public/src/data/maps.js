@@ -282,7 +282,7 @@ export const MAPS = {
     },
   },
   erdo: {
-    name: 'Titokzatos Erdő',
+    name: 'Titokzatos Erdő', requires: { trainer: 'lili', text: 'előbb győzd le Lilit' },
     tiles: buildErdo(),
     buildings: [
       { key: 'heal',   x: 4,  y: 10, action: 'heal',   name: 'Holdtisztási gyógyítóállomás' },
@@ -343,12 +343,12 @@ export const MAPS = {
 export const TRAINERS = {
   bence: {
     name: 'Bence, a kezdő edző', sprite: 'edzo1', reward: 300, sight: 4,
-    team: [['alap', 6], ['beka', 7]],
+    team: [['alap', 5], ['beka', 6]],
     intro: 'Hé! Te is Mexi-edző vagy? Mérkőzzünk meg!', lose: 'Jaj, ez gyors volt! Még gyakorolnom kell.', after: 'A Béka Mexi ellen a Növény-támadások nagyon hatékonyak!',
   },
   lili: {
     name: 'Lili, a kalandor', sprite: 'edzo2', reward: 450, sight: 4,
-    team: [['mehecske', 7], ['nindzsa', 7], ['kacsa', 8]],
+    team: [['mehecske', 6], ['nindzsa', 7], ['kacsa', 7]],
     intro: 'Az én csapatom gyors és trükkös! Készen állsz?', lose: 'Hűha, ügyes vagy! Mostantól az erdő őre téged is átenged.', after: 'Az alvó Mexit sokkal könnyebb elkapni! Az erdő északon van, a barlang nyugaton.',
   },
   kristof: {

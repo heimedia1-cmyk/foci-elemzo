@@ -5,9 +5,12 @@ import crypto from 'node:crypto';
 import { CoopBattle, coopLevelCap } from '../public/src/systems/coopBattle.js';
 import { createMexi, randInt, rand } from '../public/src/systems/mexi.js';
 import { MEXIS } from '../public/src/data/mexis.js';
+import { sanitizeCoopParty, sanitizeInventory, sanitizeAction, serverEncounterTable } from './validate.js';
+import { verifyToken, readSave } from './auth.js';
 
 const TURN_MS = 45000;
-const clients = new Map();   // sid -> { ws, sid, name, gender, partyCode, pos, busy }
+const clients = new Map();   // sid (titkos) -> { ws, sid, pid (nyilvános), name, gender, partyCode, pos, busy, user }
+const byPid = (pid) => [...clients.values()].find(c => c.pid === pid);
 const parties = new Map();   // code -> { code, members: [sid], battle }
 
 const send = (c, msg) => { try { if (c?.ws?.readyState === 1) c.ws.send(JSON.stringify(msg)); } catch {} };
@@ -16,7 +19,7 @@ const code5 = () => { let c; do { c = Array.from({ length: 5 }, () => 'ABCDEFGHJ
 function partyState(p) {
   return {
     t: 'party_state', code: p.code,
-    members: p.members.map(sid => { const c = clients.get(sid); return { sid, name: c?.name || '?', gender: c?.gender, pos: c?.pos || null, online: !!c?.ws && c.ws.readyState === 1, inBattle: !!p.battle }; }),
+    members: p.members.map(sid => { const c = clients.get(sid); return { pid: c?.pid, name: c?.name || '?', gender: c?.gender, pos: c?.pos || null, online: !!c?.ws && c.ws.readyState === 1, inBattle: !!p.battle }; }),
   };
 }
 function broadcast(p, msg) { for (const sid of p.members) send(clients.get(sid), msg); }
@@ -29,31 +32,37 @@ function leave(c) {
   if (!p.members.length) parties.delete(p.code); else broadcast(p, partyState(p));
 }
 
-// ---- Mexi-adatok ellenőrzése (ne lehessen kliensből lehetetlen Mexit küldeni) ----
-function sanitizeParty(arr) {
-  if (!Array.isArray(arr)) return [];
-  return arr.slice(0, 6).filter(m => m && MEXIS[m.species] && Number.isInteger(m.level) && m.level >= 1 && m.level <= 100 && m.stats && m.moves?.length)
-    .map(m => ({ ...m, hp: Math.max(0, Math.min(m.hp, m.stats.hp)) }));
+// Budapesti idő szerinti óra (napszak a vad Mexikhez)
+const budapestHour = () => +new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hourCycle: 'h23', timeZone: 'Europe/Budapest' }).format(new Date());
+
+/** Tárgyak: megtisztítva, és ha van felhős mentés, legfeljebb annyi, amennyi ott is van (+ egy kis késés-tűrés). */
+function safeInv(inv, cloud) {
+  const out = sanitizeInventory(inv);
+  if (cloud) for (const k of Object.keys(out)) out[k] = Math.min(out[k], (cloud.inventory?.[k] || 0) + 5);
+  return out;
 }
 
 function startBattle(p, initiator, data) {
   const [aSid, bSid] = [initiator.sid, p.members.find(s => s !== initiator.sid)];
   const A = clients.get(aSid), B = clients.get(bSid);
-  const partyA = sanitizeParty(data.party), partyB = sanitizeParty(B.pendingParty);
+  // a vad Mexik táblázata és szintje a szerver saját térképadataiból jön (a kliens nem választhat)
+  const enc = serverEncounterTable(data.map, data.x | 0, data.y | 0, budapestHour());
+  if (!enc) return false;
+  const [lmin, lmax] = enc.levels;
+  const guestMax = lmax + 8; // vendégnél (nincs felhős mentés) ennél erősebb Mexit nem fogadunk el
+  const partyA = sanitizeCoopParty(data.party, A.cloud, guestMax), partyB = sanitizeCoopParty(B.pendingParty, B.cloud, guestMax);
   if (!partyA.some(m => m.hp > 0) || !partyB.some(m => m.hp > 0)) return false;
   const leadA = partyA.find(m => m.hp > 0), leadB = partyB.find(m => m.hp > 0);
-  const [lmin, lmax] = Array.isArray(data.levels) ? data.levels : [2, 5];
   const cap = coopLevelCap(leadA.level, leadB.level, lmax);
   const eff = (Math.min(leadA.level, cap) + Math.min(leadB.level, cap)) / 2;
-  // vad Mexik: a táblázatból, a csapat szintjénél 1–2-vel erősebbek (de legalább a terület szintje)
-  const table = Array.isArray(data.table) && data.table.length ? data.table.filter(([sp]) => MEXIS[sp]) : [['alap', 1]];
+  const table = enc.table.filter(([sp]) => MEXIS[sp]);
   const pick = () => { const tot = table.reduce((s, [, w]) => s + w, 0); let r = rand() * tot; for (const [sp, w] of table) if ((r -= w) < 0) return sp; return table[0][0]; };
   const foes = [0, 1].map(() => createMexi(pick(), Math.max(lmin, Math.min(100, Math.round(eff) + randInt(1, 2)))));
   p.battle = new CoopBattle({
-    players: [{ id: aSid, name: A.name, party: partyA, inventory: data.inventory || {} }, { id: bSid, name: B.name, party: partyB, inventory: B.pendingInventory || {} }],
+    players: [{ id: A.pid, name: A.name, party: partyA, inventory: safeInv(data.inventory, A.cloud) }, { id: B.pid, name: B.name, party: partyB, inventory: safeInv(B.pendingInventory, B.cloud) }],
     foes, cap,
   });
-  p.battle.bg = data.bg || 'route';
+  p.battle.bg = ['route', 'route_night', 'village', 'forest', 'forest_night', 'crystal'].includes(data.bg) ? data.bg : 'route';
   A.busy = B.busy = true;
   broadcast(p, { t: 'coop_begin', state: p.battle.snapshot(), bg: p.battle.bg, you: null });
   armTimer(p);
@@ -64,8 +73,7 @@ function armTimer(p) {
   clearTimeout(p.timer);
   p.timer = setTimeout(() => {
     if (!p.battle || p.battle.over) return;
-    const ev = p.battle.forceResolve();
-    afterEvents(p, ev);
+    try { afterEvents(p, p.battle.forceResolve()); } catch (e) { console.error('coop időtúllépés-hiba', e?.message); endBattle(p, 'run', 'Hiba történt, a harc véget ért.'); }
   }, TURN_MS);
 }
 
@@ -81,24 +89,35 @@ function endBattle(p, forced = null, note = null) {
   if (forced && !b.over) b.finish([], forced);
   for (const sid of p.members) {
     const c = clients.get(sid);
-    if (c) { c.busy = false; send(c, { t: 'coop_end', note, ...b.resultFor(sid) }); }
+    if (c) { c.busy = false; send(c, { t: 'coop_end', note, ...b.resultFor(c.pid) }); }
   }
   p.battle = null;
 }
 
 export function attachCoop(server) {
-  const wss = new WebSocketServer({ server, path: '/ws' });
+  const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 64 * 1024 });
   wss.on('connection', (ws) => {
-    let c = null;
-    ws.on('message', (raw) => {
+    let c = null; let bucket = 40, last = Date.now();
+    ws.on('message', async (raw) => {
+      // egyszerű sebességkorlát: kb. 20 üzenet/mp, löketben 40
+      const now = Date.now(); bucket = Math.min(40, bucket + (now - last) / 50); last = now;
+      if (bucket < 1) return; bucket--;
       let msg; try { msg = JSON.parse(raw); } catch { return; }
+      if (!msg || typeof msg !== 'object') return;
+      try { await handle(msg); } catch (e) { console.error('coop üzenethiba', msg?.t, e?.message); }
+    });
+    async function handle(msg) {
       if (msg.t === 'hello') {
-        const sid = /^[a-f0-9]{24}$/.test(msg.sid || '') ? msg.sid : crypto.randomBytes(12).toString('hex');
-        c = clients.get(sid) || { sid };
+        // a sid titkos (csak a saját eszköz ismeri); másoknak csak a nyilvános pid látszik
+        const sid = /^[a-f0-9]{32}$/.test(msg.sid || '') ? msg.sid : crypto.randomBytes(16).toString('hex');
+        c = clients.get(sid) || { sid, pid: crypto.randomBytes(6).toString('hex') };
         if (c.ws && c.ws !== ws) { try { c.ws.close(); } catch {} }
-        Object.assign(c, { ws, name: String(msg.name || 'Kalandor').slice(0, 16), gender: msg.gender === 'lany' ? 'lany' : 'fiu' });
-        clients.set(sid, c);
-        send(c, { t: 'welcome', sid });
+        const user = await verifyToken(msg.token);
+        if (c.user && user && c.user !== user) { c = { sid: crypto.randomBytes(16).toString('hex'), pid: crypto.randomBytes(6).toString('hex') }; }
+        Object.assign(c, { ws, user: user || null, name: String(user || msg.name || 'Kalandor').slice(0, 16), gender: msg.gender === 'lany' ? 'lany' : 'fiu' });
+        c.cloud = user ? readSave(user) : null;
+        clients.set(c.sid, c);
+        send(c, { t: 'welcome', sid: c.sid, pid: c.pid });
         const p = parties.get(c.partyCode);
         if (p) broadcast(p, partyState(p)); else c.partyCode = null;
         return;
@@ -125,8 +144,8 @@ export function attachCoop(server) {
         }
         case 'party_leave': if (p) leave(c); send(c, { t: 'party_state', code: null, members: [] }); break;
         case 'pos': {
-          c.pos = { map: String(msg.map), x: msg.x | 0, y: msg.y | 0, dir: msg.dir, lead: msg.lead || null };
-          if (p) for (const sid of p.members) if (sid !== c.sid) send(clients.get(sid), { t: 'partner_pos', sid: c.sid, name: c.name, gender: c.gender, pos: c.pos });
+          c.pos = { map: String(msg.map).slice(0, 30), x: msg.x | 0, y: msg.y | 0, dir: ['up', 'down', 'left', 'right'].includes(msg.dir) ? msg.dir : 'down', lead: typeof msg.lead === 'object' && msg.lead && MEXIS[msg.lead.species] ? { species: msg.lead.species, shiny: !!msg.lead.shiny } : null };
+          if (p) for (const sid of p.members) if (sid !== c.sid) send(clients.get(sid), { t: 'partner_pos', pid: c.pid, name: c.name, gender: c.gender, pos: c.pos });
           break;
         }
         case 'coop_encounter': {
@@ -148,18 +167,23 @@ export function attachCoop(server) {
           const init = clients.get(p.pendingEncounter.from); const data = p.pendingEncounter.data; p.pendingEncounter = null;
           if (!msg.ok) { send(init, { t: 'coop_declined' }); break; }
           c.pendingParty = msg.party; c.pendingInventory = msg.inventory;
+          if (init?.user) init.cloud = readSave(init.user); if (c.user) c.cloud = readSave(c.user); // friss felhős mentés
           if (!startBattle(p, init, data)) send(init, { t: 'coop_declined' });
           break;
         }
         case 'coop_action': {
           if (!p?.battle) break;
-          const ev = p.battle.submit(c.sid, msg.action);
+          const act = sanitizeAction(p.battle, c.pid, msg.action);
+          if (!act) { send(c, { t: 'error', text: 'Érvénytelen lépés.' }); break; }
+          let ev;
+          try { ev = p.battle.submit(c.pid, act); }
+          catch (e) { console.error('coop harchiba', e?.message); endBattle(p, 'run', 'Hiba történt, a harc véget ért.'); break; }
           if (ev) afterEvents(p, ev);
           else broadcast(p, { t: 'coop_wait', waiting: p.battle.waitingFor() });
           break;
         }
       }
-    });
+    }
     ws.on('close', () => {
       if (!c) return;
       const p = parties.get(c.partyCode);

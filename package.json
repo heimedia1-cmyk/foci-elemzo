@@ -1,11 +1,11 @@
 {
   "name": "mexiverse",
   "version": "1.0.0",
-  "description": "MexiVerse – Az elveszett Mexik",
+  "description": "MexiVerse \u2013 Az elveszett Mexik",
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/logic.test.js && node tests/maps.test.js && node tests/coop.test.js && node tests/go.test.js"
+    "test": "node tests/logic.test.js && node tests/maps.test.js && node tests/coop.test.js && node tests/go.test.js && node tests/security.test.js"
   },
   "keywords": [],
   "author": "",

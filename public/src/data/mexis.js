@@ -116,7 +116,7 @@ export const MEXIS = {
     base: { hp: 80, atk: 95, def: 75, spa: 90, spd: 70, spe: 80 }, catchRate: 3, xpYield: 200,
     learnset: [[1, 'langmancs'], [1, 'harapas'], [20, 'tuzlehelet'], [25, 'kozapor'], [35, 'pokoltuz'], [42, 'foldindulas']],
     desc: 'Legendák szerint a Sárkányhegy csúcsán alszik.',
-    location: 'Sárkányhegy (később)',
+    location: '🔒 Későbbi tartalom – a Sárkányhegyen vár rád (még nem elérhető)',
     art: { body: '#b8302a', tan: '#f0c040', acc: 'dragon' },
   },
   // ---- Fejlődési alakok ----
@@ -210,23 +210,23 @@ export const MEXIS = {
   },
   fonix: {
     no: 25, name: 'Főnix Mexi', types: ['tuz', 'feny'], rarity: 'legendas', role: 'Legendás támadó',
-    base: { hp: 90, atk: 95, def: 85, spa: 120, spd: 95, spe: 100 }, catchRate: 3, xpYield: 260,
+    base: { hp: 90, atk: 95, def: 85, spa: 120, spd: 95, spe: 100 }, catchRate: 10, xpYield: 260,
     learnset: [[1, 'langmancs'], [1, 'fenysugar'], [30, 'tuzlehelet'], [40, 'holdsugar'], [50, 'glorialang']],
-    desc: 'Legendás Mexi. Lángjából újjászületik, ahol jár, ott virág nyílik.', location: 'Legenda – a hírek szerint egyszer felbukkan...',
+    desc: 'Legendás Mexi. Lángjából újjászületik, ahol jár, ott virág nyílik.', location: '🔒 Legendás esemény – hamarosan (még nem elérhető)',
     art: { body: '#f08020', tan: '#d9a35a', acc: null, big: true },
   },
   tengerur: {
     no: 26, name: 'Tengerúr Mexi', types: ['viz'], rarity: 'legendas', role: 'Legendás védő',
-    base: { hp: 105, atk: 90, def: 95, spa: 110, spd: 100, spe: 80 }, catchRate: 3, xpYield: 260,
+    base: { hp: 105, atk: 90, def: 95, spa: 110, spd: 100, spe: 80 }, catchRate: 10, xpYield: 260,
     learnset: [[1, 'hullamcsapas'], [1, 'harapas'], [30, 'aradat'], [40, 'szivosag'], [50, 'melytengeri']],
-    desc: 'Legendás Mexi. A tengerek ura, szigonyával hullámokat parancsol.', location: 'Legenda – a mély vizek őrzője...',
+    desc: 'Legendás Mexi. A tengerek ura, szigonyával hullámokat parancsol.', location: '🔒 Legendás esemény – hamarosan (még nem elérhető)',
     art: { body: '#2a7ad0', tan: '#d9a35a', acc: null, big: true },
   },
   aranymexi: {
     no: 27, name: 'Arany Mexi', types: ['semleges', 'feny'], rarity: 'titkos', role: 'Titokzatos',
-    base: { hp: 80, atk: 80, def: 90, spa: 80, spd: 90, spe: 80 }, catchRate: 3, xpYield: 320,
+    base: { hp: 80, atk: 80, def: 90, spa: 80, spd: 90, spe: 80 }, catchRate: 15, xpYield: 320,
     learnset: [[1, 'aranyfeny'], [1, 'gyorsmancs'], [20, 'szivosag'], [35, 'vadroham']],
-    desc: 'Titkos Mexi tömör aranyból. Aki látta, szerencsét hoz neki.', location: 'Ismeretlen',
+    desc: 'Titkos Mexi tömör aranyból. Aki látta, szerencsét hoz neki.', location: '🔒 Titkos esemény – hamarosan (még nem elérhető)',
     art: { body: '#f0c030', tan: '#d9a35a', acc: null, big: true },
   },
   szikra: {

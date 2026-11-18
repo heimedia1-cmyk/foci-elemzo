@@ -1,6 +1,8 @@
 // Játékmenük: Mexidex, csapat, tároló, táska, bolt, Mexi-adatlap.
 import { el, openWindow, choose, dialog, toast, hpBar, UI, askText } from './ui.js';
-import { G, save } from '../systems/state.js';
+import { G, save, keyFor } from '../systems/state.js';
+import { Account } from '../systems/account.js';
+import { dailyQuests, questDef, questText, claimQuest } from '../systems/quests.js';
 import { MEXIS, RARITY, SPECIES_ORDER, NATURES, STAT_NAMES } from '../data/mexis.js';
 import { MOVES, STATUS } from '../data/moves.js';
 import { ITEMS, SHOP_STOCK, itemIcon } from '../data/items.js';
@@ -89,6 +91,54 @@ export function openTransfer() {
   }, { onClose: resolve }));
 }
 
+// ===================== NAPI KÜLDETÉSEK =====================
+function questBadge(label) {
+  const q = dailyQuests(); const ready = [...q.list, { id: 'weekly', ...G.state.weekly }].filter(it => !it.claimed && it.prog >= questDef(it.id).goal).length;
+  return ready ? `${label} (${ready}!)` : label;
+}
+export function openQuests() {
+  openWindow('Napi küldetések', (w) => {
+    const draw = () => w.render((body) => {
+      const q = dailyQuests();
+      body.append(el('p', { style: 'margin:0 0 8px;font-size:13px' }, 'Minden nap éjfélkor 3 új küldetés jön. A heti cél hétfőn indul újra.'));
+      const row = (it, def, text) => {
+        const done = it.prog >= def.goal; const r = def.reward;
+        const rw = r.money ? `${r.money} érme` : r.item ? `${r.qty}× ${ITEMS[r.item].name}` : `${r.bonesAny} csont (az első csapattagod családjából)`;
+        return el('div', { class: 'row', style: 'cursor:default' },
+          el('div', { class: 'grow' }, el('b', {}, text), el('div', { style: 'font-size:13px' }, `${it.prog}/${def.goal} • Jutalom: ${rw}`),
+            el('div', { class: 'xpbar' }, el('i', { style: `width:${Math.min(100, it.prog / def.goal * 100)}%` }))),
+          it.claimed ? el('b', {}, '✔') : el('button', { class: 'btn' + (done ? ' primary' : ''), disabled: !done, onclick: () => { if (claimQuest(it.id)) { Sfx.play('item'); save(); toast('Jutalom megszerezve: ' + rw); draw(); } } }, 'Átvétel'));
+      };
+      for (const it of q.list) body.append(row(it, questDef(it.id), questText(it)));
+      body.append(el('h4', { style: 'margin:12px 0 4px' }, '🏆 Heti cél'), row({ id: 'weekly', ...G.state.weekly }, questDef('weekly'), questDef('weekly').text));
+    });
+    draw();
+  });
+}
+
+// ===================== FELHŐS BIZTONSÁGI MENTÉSEK =====================
+export function openBackups() {
+  openWindow('Mentések visszaállítása', async (w) => {
+    w.body.append(el('p', {}, 'Betöltés...'));
+    const list = await Account.backups();
+    w.render((body) => {
+      if (!list) { body.append(el('p', {}, 'A szerver most nem érhető el.')); return; }
+      if (!list.length) { body.append(el('p', {}, 'Még nincs biztonsági mentés. A szerver játék közben kb. negyedóránként automatikusan készít egyet (az utolsó 12 marad meg).')); return; }
+      body.append(el('p', { style: 'margin:0 0 8px' }, 'Ha valami elromlott vagy elveszett, visszaállhatsz egy korábbi állapotra. A mostani állapotot is elmentjük, így ez is visszavonható.'));
+      for (const b of list) body.append(el('div', { class: 'row' },
+        el('div', { class: 'grow' }, el('b', {}, new Date(b.at).toLocaleString('hu-HU')), el('div', { style: 'font-size:13px' }, `${b.party.map(m => (MEXIS[m.species]?.name || m.species).replace(' Mexi', '') + ' ' + m.level).join(', ')} • ${b.money} 🪙 • ${b.caught} faj`)),
+        el('button', { class: 'btn', onclick: async () => {
+          const ok = await choose(['Igen, visszaállítom', 'Mégse'], { question: `Visszaállítod a ${new Date(b.at).toLocaleString('hu-HU')} állapotot?` });
+          if (ok !== 0) return;
+          const s = await Account.restore(b.id);
+          if (!s) { toast('Nem sikerült visszaállítani.'); return; }
+          localStorage.setItem(keyFor(), JSON.stringify(s));
+          toast('Visszaállítva! Újratöltés...'); setTimeout(() => location.reload(), 800);
+        } }, 'Visszaállítás')));
+    });
+  });
+}
+
 // ===================== HANG =====================
 export function openSound() {
   openWindow('Hangeffektek', (w) => {
@@ -115,12 +165,14 @@ export function openMainMenu(world) {
       el('div', { style: 'margin-bottom:10px;font-weight:700' }, `${s.player.name} • 💰 ${s.money} • Mexidex: ${Object.keys(s.dex.caught).length}/${SPECIES_ORDER.length} • Elkapva: ${s.stats.caught}`),
       el('div', { class: 'mainmenu' },
         b([el('img', { class: 'mico', src: 'assets/ui/m_dex.png' }), 'Mexidex (J)'], () => openDex()),
+        b([el('img', { class: 'mico', src: 'assets/ui/m_dex.png' }), questBadge('📜 Napi küldetések')], () => openQuests()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_party.png' }), 'Csapat (P)'], () => openParty()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_bag.png' }), 'Táska (I)'], () => openBag()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_map.png' }), 'Mexi-tároló'], () => openStorage()),
         CONFIG.goModeEnabled && b([el('img', { class: 'mico', src: 'assets/ui/m_map.png' }), '🚶 Séta mód'], () => { w.close(); import('../go/goMode.js').then(m => m.openGoMode(world)); }),
         b([el('img', { class: 'mico', src: 'assets/ui/m_party.png' }), 'Barátok (party)'], () => openPartyMenu()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_save.png' }), 'Mentés'], () => { save() ? toast('Játék elmentve!') : toast('Mentés sikertelen'); }),
+        Account.loggedIn && b([el('img', { class: 'mico', src: 'assets/ui/m_save.png' }), 'Mentések visszaállítása'], () => openBackups()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_settings.png' }), `Hang: ${Math.round(Sfx.volume * 100)}%`], () => openSound()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_settings.png' }), 'Irányítás'], () => dialog(['WASD / nyilak: mozgás\nE: beszélgetés, interakció\nSpace: szimatolás', 'I: táska • J: Mexidex • P: csapat\nEsc: menü\nMobilon: joystick + A gomb + 🐾 + ☰'])),
         b([el('img', { class: 'mico', src: 'assets/ui/m_exit.png' }), 'Főmenü'], () => world.scene.start('Title')),
@@ -444,6 +496,10 @@ export function coopDaily() {
 function goToPartner(pos) {
   const world = window.MEXI_DEBUG?.game?.scene.getScene('World');
   if (!world || world.inBattle || world.cutscene) { toast('Most nem lehet – fejezd be, amit csinálsz!'); return; }
+  const map = MAPS[pos.map];
+  if (!map || map.interior) { toast('A társad épp egy épületben van – várd meg, amíg kijön!'); return; }
+  const need = map.requires;
+  if (need?.trainer && !G.state.defeatedTrainers.includes(need.trainer)) { toast(`Ezt a területet még nem nyitottad meg (${need.text}).`); return; }
   const spot = [pos.x, pos.y]; // a társ mezője biztosan járható
   toast('Irány a társad! 🐾');
   world.warpTo({ to: pos.map, tx: spot[0], ty: spot[1], dir: 'up' });
@@ -461,7 +517,7 @@ export function openPartyMenu() {
             el('button', { class: 'btn primary', onclick: () => Net.send({ t: 'party_create' }) }, '➕ Party létrehozása'),
             input, el('button', { class: 'btn', onclick: () => input.value.trim() && Net.send({ t: 'party_join', code: input.value.trim().toUpperCase() }) }, 'Csatlakozás')));
       } else {
-        const partner = p.members.find(m => m.sid !== Net.sid);
+        const partner = p.members.find(m => m.pid !== Net.pid);
         body.append(
           el('div', { style: 'font-size:15px' }, 'Party-kód: ', el('b', { style: 'font-size:26px;letter-spacing:4px' }, p.code)),
           el('p', {}, partner ? `Társad: ${partner.name} ${partner.online ? '🟢' : '⚪ (nem elérhető)'}${partner.pos && MAPS[partner.pos.map] ? ' – itt van: ' + MAPS[partner.pos.map].name : ''}` : 'Várakozás a társadra... Küldd el neki a kódot!'),

@@ -11,6 +11,7 @@ import { openParty, openBag, offerMove, typeBadge } from '../ui/menus.js';
 import { CONFIG } from '../data/config.js';
 import { MAPS } from '../data/maps.js';
 import { Sfx } from '../systems/sfx.js';
+import { questEvent } from '../systems/quests.js';
 
 const wait = (scene, ms) => new Promise(r => scene.time.delayedCall(ms, r));
 const tween = (scene, cfg) => new Promise(r => scene.tweens.add({ ...cfg, onComplete: r }));
@@ -288,6 +289,7 @@ export class BattleScene extends Phaser.Scene {
         case 'msg': if (ev.text === 'De nem talált!') Sfx.play('miss'); await this.say(ev.text); break;
         case 'anim': if (ev.cat !== 'stat') Sfx.move(ev.moveType); await this.attackAnim(ev.side, ev.moveType, ev.cat); break;
         case 'damage': {
+          if (ev.side === 'f' && ev.eff > 1 && !ev.dot) questEvent('superHits');
           const spr = ev.side === 'p' ? this.meSpr : this.foeSpr;
           Sfx.hit({ crit: ev.crit, eff: ev.dot ? 0.5 : ev.eff });
           if (!ev.dot) { this.cameras.main.shake(ev.eff >= 2 ? 220 : 120, ev.eff >= 2 ? 0.008 : 0.004); }
@@ -310,7 +312,7 @@ export class BattleScene extends Phaser.Scene {
           await wait(this, ev.side === 'f' ? 600 : 450);
           await tween(this, { targets: spr, y: spr.y + 30, alpha: 0, duration: 450 }); break; }
         case 'switch': Sfx.play('switch_in', { delay: 0.2 }); await this.switchAnim(ev.side, ev.index); break;
-        case 'xp': case 'levelup': this.renderInfo('p'); if (ev.t === 'levelup') Sfx.play('levelup', { throttle: 800 }); if (ev.t === 'levelup' && ev.index === this.shown.p) { this.fx(['lvl1', 'lvl2', 'lvl1', 'lvl2'], this.mePos.x, this.mePos.y - 30 * this.sc, 50 * this.sc, 150); } break;
+        case 'xp': case 'levelup': this.renderInfo('p'); if (ev.t === 'levelup') { Sfx.play('levelup', { throttle: 800 }); questEvent('levelUps'); } if (ev.t === 'levelup' && ev.index === this.shown.p) { this.fx(['lvl1', 'lvl2', 'lvl1', 'lvl2'], this.mePos.x, this.mePos.y - 30 * this.sc, 50 * this.sc, 150); } break;
         case 'canLearn': { const m = G.state.party[ev.index]; this.ui.classList.add('hidden'); await offerMove(m, ev.move); this.ui.classList.remove('hidden'); break; }
         case 'ball': await this.ballAnim(ev.itemId, ev.shakes, ev.caught); break;
         case 'needSwitch': {

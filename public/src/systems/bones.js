@@ -5,6 +5,7 @@ import { G } from './state.js';
 import { MEXIS } from '../data/mexis.js';
 import { CONFIG } from '../data/config.js';
 import { xpForLevel, gainXp, ivPercent } from './mexi.js';
+import { questEvent } from './quests.js';
 
 export const BONES = { catch: 3, transfer: 1, evolveCost: 25, levelCap: 40 };
 
@@ -55,7 +56,7 @@ export function transfer(m) {
   const s = G.state; const n = transferReward(m);
   const pi = s.party.indexOf(m); if (pi >= 0) s.party.splice(pi, 1);
   const si = s.storage.indexOf(m); if (si >= 0) s.storage.splice(si, 1);
-  addBones(m.species, n); s.stats.transferred = (s.stats.transferred || 0) + 1;
+  addBones(m.species, n); s.stats.transferred = (s.stats.transferred || 0) + 1; questEvent('transfers');
   return { bones: n };
 }
 

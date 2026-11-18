@@ -13,36 +13,12 @@ import { attachCoop } from './server/coop.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ACCOUNT_API = String(process.env.ACCOUNT_API || 'https://animebg.up.railway.app').replace(/\/$/, '');
-const DATA_DIR = process.env.DATA_DIR || (fs.existsSync('/data') ? '/data' : path.join(__dirname, 'data'));
-const SAVE_DIR = path.join(DATA_DIR, 'saves');
-fs.mkdirSync(SAVE_DIR, { recursive: true });
+import { ACCOUNT_API, DATA_DIR, SAVE_DIR, accountFor, saveFile, backupDir, readSave } from './server/auth.js';
+import { sanitizeSave } from './server/validate.js';
 
 app.disable('x-powered-by');
 app.use(express.json({ limit: '1mb' }));
 
-// ---------- Fiók ellenőrzése az Anime Battlegrounds szerverén ----------
-const tokenCache = new Map(); // sha256(token) -> { username, exp }
-async function accountFor(req) {
-  const raw = /^Bearer ([a-f0-9]{64})$/.exec(req.headers.authorization || '')?.[1];
-  if (!raw) return null;
-  const h = crypto.createHash('sha256').update(raw).digest('hex');
-  const c = tokenCache.get(h);
-  if (c && c.exp > Date.now()) return c.username;
-  try {
-    const r = await fetch(ACCOUNT_API + '/api/me', { headers: { Authorization: 'Bearer ' + raw }, signal: AbortSignal.timeout(6000) });
-    if (!r.ok) { tokenCache.delete(h); return null; }
-    const d = await r.json();
-    if (!d?.username) return null;
-    tokenCache.set(h, { username: d.username, exp: Date.now() + 10 * 60000 });
-    if (tokenCache.size > 5000) for (const [k, v] of tokenCache) if (v.exp < Date.now()) tokenCache.delete(k);
-    return d.username;
-  } catch {
-    return c ? c.username : null; // ha a fiókszerver épp nem érhető el, a korábban ellenőrzött belépés marad
-  }
-}
-
-// Belépés / regisztráció: továbbítjuk a fiókszervernek (így nincs böngészős CORS-gond)
 async function forward(pathname, req, res) {
   try {
     const r = await fetch(ACCOUNT_API + pathname, {
@@ -62,32 +38,78 @@ app.post('/api/register', (req, res) => forward('/api/register', req, res));
 app.post('/api/logout', (req, res) => forward('/api/logout', req, res));
 
 // ---------- Felhős mentés ----------
-const saveFile = (username) => path.join(SAVE_DIR, crypto.createHash('sha1').update(username.toLowerCase()).digest('hex') + '.json');
-
 app.get('/api/save', async (req, res) => {
   const user = await accountFor(req);
   if (!user) return res.status(401).json({ error: 'Lépj be újra.' });
-  try { res.json({ username: user, save: JSON.parse(fs.readFileSync(saveFile(user), 'utf8')) }); }
-  catch { res.json({ username: user, save: null }); }
+  res.json({ username: user, save: readSave(user) });
 });
+
+const MAX_BACKUPS = 12;
+function writeBackup(user, prev) {
+  try {
+    const dir = backupDir(user); fs.mkdirSync(dir, { recursive: true });
+    const files = fs.readdirSync(dir).filter(f => f.endsWith('.json')).sort();
+    const lastTs = files.length ? +files[files.length - 1].split('.')[0] : 0;
+    if (Date.now() - lastTs < 15 * 60000) return; // legfeljebb 15 percenként egy biztonsági mentés
+    fs.writeFileSync(path.join(dir, Date.now() + '.json'), JSON.stringify(prev));
+    for (const f of files.slice(0, Math.max(0, files.length + 1 - MAX_BACKUPS))) fs.unlinkSync(path.join(dir, f));
+  } catch (e) { console.error('Biztonsági mentés hiba', e.message); }
+}
+function writeSave(user, s) {
+  fs.mkdirSync(SAVE_DIR, { recursive: true });
+  const file = saveFile(user);
+  fs.writeFileSync(file + '.tmp', JSON.stringify(s));
+  fs.renameSync(file + '.tmp', file);
+}
 
 app.put('/api/save', async (req, res) => {
   const user = await accountFor(req);
   if (!user) return res.status(401).json({ error: 'Lépj be újra.' });
-  const s = req.body?.save;
-  if (!s || typeof s !== 'object' || !Array.isArray(s.party) || !Array.isArray(s.storage) || typeof s.money !== 'number') return res.status(400).json({ error: 'Hibás mentés.' });
-  if (s.party.length > 6 || s.storage.length > 3000) return res.status(400).json({ error: 'Hibás mentés.' });
+  const prev = readSave(user);
+  // két eszköz egyszerre: ha a szerveren újabb mentés van, mint amire ez épült, nem írjuk felül vakon
+  const baseRev = Number.isFinite(req.body?.baseRev) ? req.body.baseRev : null;
+  if (prev && baseRev != null && (prev.rev || 0) > baseRev && !req.body?.force) return res.status(409).json({ error: 'Másik eszközön újabb mentés készült.', save: prev });
+  const r = sanitizeSave(req.body?.save, prev);
+  if (r.error) return res.status(400).json({ error: r.error });
+  const s = r.save;
+  s.rev = (prev?.rev || 0) + 1;
   s.serverSavedAt = Date.now();
   try {
-    fs.mkdirSync(SAVE_DIR, { recursive: true });
-    const file = saveFile(user);
-    fs.writeFileSync(file + '.tmp', JSON.stringify(s));
-    fs.renameSync(file + '.tmp', file);
-    res.json({ ok: true, savedAt: s.serverSavedAt });
+    if (prev) writeBackup(user, prev);
+    writeSave(user, s);
+    res.json({ ok: true, savedAt: s.serverSavedAt, rev: s.rev });
   } catch (e) {
     console.error('Mentési hiba', e);
     res.status(500).json({ error: 'A szerver nem tudta elmenteni.' });
   }
+});
+
+// Biztonsági mentések listája és visszaállítása
+app.get('/api/save/backups', async (req, res) => {
+  const user = await accountFor(req);
+  if (!user) return res.status(401).json({ error: 'Lépj be újra.' });
+  try {
+    const dir = backupDir(user);
+    const list = fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => f.endsWith('.json')).sort().reverse().map(f => {
+      const s = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+      return { id: f.split('.')[0], at: +f.split('.')[0], party: (s.party || []).map(m => ({ species: m.species, level: m.level })), money: s.money, caught: Object.keys(s.dex?.caught || {}).length };
+    }) : [];
+    res.json({ backups: list });
+  } catch { res.json({ backups: [] }); }
+});
+app.post('/api/save/restore', async (req, res) => {
+  const user = await accountFor(req);
+  if (!user) return res.status(401).json({ error: 'Lépj be újra.' });
+  const id = String(req.body?.id || '');
+  if (!/^\d{10,15}$/.test(id)) return res.status(400).json({ error: 'Hibás azonosító.' });
+  try {
+    const old = JSON.parse(fs.readFileSync(path.join(backupDir(user), id + '.json'), 'utf8'));
+    const prev = readSave(user);
+    if (prev) { const dir = backupDir(user); fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, Date.now() + '.json'), JSON.stringify(prev)); }
+    old.rev = (prev?.rev || 0) + 1; old.serverSavedAt = Date.now(); old.savedAt = Date.now();
+    writeSave(user, old);
+    res.json({ ok: true, save: old });
+  } catch { res.status(404).json({ error: 'Nincs ilyen biztonsági mentés.' }); }
 });
 
 app.get('/health', (_req, res) => res.json({ ok: true, game: 'MexiVerse' }));

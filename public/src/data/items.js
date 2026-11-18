@@ -3,7 +3,7 @@ export const ITEMS = {
   sima_labda:  { name: 'Sima Teniszlabda', kind: 'ball', ballMult: 1,   price: 100, desc: 'Alap befogási esély. Olcsó.', color: '#d8f040' },
   profi_labda: { name: 'Profi Teniszlabda', kind: 'ball', ballMult: 1.6, price: 300, desc: 'Jobb befogási esély.', color: '#40a0f0' },
   arany_labda: { name: 'Arany Teniszlabda', kind: 'ball', ballMult: 2, rareBonus: 1.5, price: 0, desc: 'Ritka Mexiknél még erősebb.', color: '#f0c030' },
-  hos_labda:   { name: 'Hős Teniszlabda', kind: 'ball', ballMult: 4, price: 0, desc: 'Legendás labda. Szinte biztos fogás.', color: '#e84040' },
+  hos_labda:   { name: 'Hős Teniszlabda', kind: 'ball', ballMult: 255, price: 0, desc: 'Legendás labda. Biztos fogás – bármelyik Mexit elkapja!', color: '#e84040' },
 
   kis_ital:    { name: 'Csontital', kind: 'heal', heal: 20, price: 150, desc: '20 HP-t gyógyít.' },
   nagy_ital:   { name: 'Nagy Csontital', kind: 'heal', heal: 60, price: 450, desc: '60 HP-t gyógyít.' },

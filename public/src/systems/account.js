@@ -19,6 +19,15 @@ export const Account = {
     return this.current;
   },
 
+  async backups() {
+    const r = await fetch('/api/save/backups', { headers: this.headers() }).catch(() => null);
+    return r?.ok ? (await r.json()).backups : null;
+  },
+  async restore(id) {
+    const r = await fetch('/api/save/restore', { method: 'POST', headers: this.headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ id }) }).catch(() => null);
+    return r?.ok ? (await r.json()).save : null;
+  },
+
   logout() {
     const h = this.headers();
     fetch('/api/logout', { method: 'POST', headers: h }).catch(() => {});
@@ -37,14 +46,20 @@ export const Account = {
 
   _timer: null, _pending: null,
   /** Mentés feltöltése (összevonva, hogy ne menjen túl sok kérés). */
-  pushSave(state, immediate = false) {
+  pushSave(state, immediate = false, force = false) {
     if (!this.loggedIn) return;
     this._pending = state;
     clearTimeout(this._timer);
     const go = () => {
-      const s = this._pending; this._pending = null;
-      fetch('/api/save', { method: 'PUT', headers: this.headers({ 'Content-Type': 'application/json' }), body: JSON.stringify({ save: s }), keepalive: true })
-        .then((r) => { if (r.status === 401) window.dispatchEvent(new Event('mexi-auth-expired')); })
+      const s = this._pending; this._pending = null; if (!s) return;
+      const body = JSON.stringify({ save: s, baseRev: Number.isFinite(s.rev) ? s.rev : null, force });
+      fetch('/api/save', { method: 'PUT', headers: this.headers({ 'Content-Type': 'application/json' }), body, keepalive: body.length < 60000 })
+        .then(async (r) => {
+          if (r.status === 401) return window.dispatchEvent(new Event('mexi-auth-expired'));
+          const d = await r.json().catch(() => ({}));
+          if (r.ok && Number.isFinite(d.rev)) window.dispatchEvent(new CustomEvent('mexi-save-rev', { detail: d.rev }));
+          if (r.status === 409 && d.save) window.dispatchEvent(new CustomEvent('mexi-save-conflict', { detail: d.save }));
+        })
         .catch(() => {});
     };
     if (immediate) go(); else this._timer = setTimeout(go, 1500);
