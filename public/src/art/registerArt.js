@@ -11,6 +11,7 @@ export const TS = 32; // a világ csempemérete
 const PW = 44, PH = 56; // ember-sprite képkocka
 const FX_TYPES = ['semleges', 'tuz', 'viz', 'noveny', 'villam', 'fold', 'jeg', 'arnyek', 'feny', 'gep'];
 export const FX_FILES = [
+  ...['profi', 'arany', 'hos'].flatMap(b => ['fly', 'open', 'beam', 'wob', 'ok', 'esc'].map(k => `cb_${b}_${k}`)),
   'hit1', 'hit2', 'hit3', 'crit1', 'crit2', 'crit3', 'up1', 'up2', 'down1', 'down2', 'heal1', 'heal2', 'lvl1', 'lvl2',
   ...['eges', 'mereg', 'benitas', 'alvas', 'fagyas'].flatMap(s => [`st_${s}1`, `st_${s}2`]),
   ...FX_TYPES.flatMap(t => [1, 2, 3].map(k => `fx_${t}${k}`)),
@@ -27,6 +28,8 @@ export const DRAWN_SPECIES = ['hosmexi', 'bajnok', 'langvezer', 'viharkacsa', 'k
   'urhajos', 'csillagjaro', 'vampir', 'vampirgrof', 'gomba', 'gombakiraly', 'angyal', 'arkangyal', 'rocker', 'rocksztar', 'kristaly', 'gyemant'];
 // Kézzel rajzolt sérülés/ájulás póz (assets/mexi/<faj>_hurt.png, _faint.png)
 const POSE_SPECIES = [...DRAWN_SPECIES, 'mocsarkiraly', 'mehkiralyno', 'arnyekmester'];
+// edzők és a játékos harci képe (assets/battle/tr)
+export const TRAINER_ART = ['bence', 'lili', 'hanna', 'kristof', 'mate', 'reka', 'player_fiu', 'player_lany'];
 // ülő követő-pózok egy közös lapon (8 oszlop, 32×32), ebben a sorrendben
 export const SIT_ORDER = ['alap', 'beka', 'mehecske', 'lang', 'kacsa', 'nindzsa', 'kiber', 'banyasz', 'jeg', 'magus', 'szellem', 'mocsarkiraly', 'mehkiralyno', 'arnyekmester', 'szikra', 'viharfarkas',
   'virag', 'rozsakert', 'kaloz', 'kalozkapitany', 'vulkan', 'lavakiraly', 'lovag', 'pancellovag', 'szakacs', 'mesterszakacs', 'urhajos', 'csillagjaro', 'vampir', 'vampirgrof', 'gomba', 'gombakiraly',
@@ -53,6 +56,8 @@ export function preloadArt(scene) {
   for (const sp of POSE_SPECIES) for (const k of ['hurt', 'faint']) L.image(`mx_${sp}_${k}`, `assets/mexi/${sp}_${k}.png`);
   for (const sp of MAP_SPECIES) L.image(`mx_${sp}_map`, `assets/mexi/${sp}_map.png`);
   L.image('src_sit', 'assets/mexi/sit_all.png');
+  for (const sp of MAP_SPECIES) for (const k of ['attack', 'win']) L.image(`mx_${sp}_${k}`, `assets/mexi/${sp}_${k}.png`);
+  for (const t of TRAINER_ART) L.image('trb_' + t, `assets/battle/tr/${t}.png`);
   L.image('src_anim_a', 'assets/anim_a.png');
   for (const n of FX_FILES) L.image('bfx_' + n, `assets/battle/${n}.png`);
   for (const n of ['pet1', 'pet2', 'pet3', 'eat1', 'eat2', 'eat3', 'happy1', 'happy2', 'happy3', 'sleep1', 'sleep2', 'sleep3']) L.image('ia_' + n, `assets/ui/ia_${n}.png`);

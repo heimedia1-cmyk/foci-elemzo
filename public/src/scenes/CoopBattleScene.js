@@ -229,13 +229,14 @@ export class CoopBattleScene extends Phaser.Scene {
         case 'party': break;
         case 'ball': {
           const from = this.pos[ev.ref], to = this.pos[ev.target], tgt = this.spr[ev.target];
-          const ball = this.add.image(from.x, from.y - 30 * this.sc, 'ball_' + ev.itemId).setDepth(25); ball.setScale((14 * this.sc) / ball.width);
+          const ball = this.add.image(from.x, from.y - 30 * this.sc, (this.textures.exists('ico_ball_' + String(ev.itemId).replace('_labda', '')) ? 'ico_ball_' + String(ev.itemId).replace('_labda', '') : 'ball_' + ev.itemId)).setDepth(25); ball.setScale((14 * this.sc) / ball.width);
           Sfx.play('throw');
           await tween(this, { targets: ball, x: to.x, y: to.y - 20 * this.sc, duration: 450 });
           if (tgt) { tgt.setTintFill(0xffffff); await tween(this, { targets: tgt, scale: 0, duration: 300 }); }
           for (let k = 0; k < ev.shakes; k++) { Sfx.play('shake'); await tween(this, { targets: ball, angle: k % 2 ? 25 : -25, yoyo: true, duration: 140 }); await wait(this, 250); }
-          if (ev.caught) { Sfx.play('catch'); await this.fx(['c_ok1', 'c_ok2', 'c_ok3'], ball.x, ball.y, 36 * this.sc, 150); ball.destroy(); }
-          else { ball.destroy(); Sfx.play('escape'); if (tgt) { tgt.clearTint(); this.fx(['c_esc1', 'c_esc2'], tgt.x, tgt.y - 14 * this.sc, 36 * this.sc, 140); await tween(this, { targets: tgt, scale: 0.2 * this.sc, duration: 260 }); } }
+          const bk = String(ev.itemId).replace('_labda', ''), own = this.textures.exists(`bfx_cb_${bk}_ok`);
+          if (ev.caught) { Sfx.play('catch'); await this.fx(own ? [`cb_${bk}_ok`] : ['c_ok1', 'c_ok2', 'c_ok3'], ball.x, ball.y, 36 * this.sc, 150); ball.destroy(); }
+          else { ball.destroy(); Sfx.play('escape'); if (tgt) { tgt.clearTint(); this.fx(own ? [`cb_${bk}_esc`] : ['c_esc1', 'c_esc2'], tgt.x, tgt.y - 14 * this.sc, 36 * this.sc, 140); await tween(this, { targets: tgt, scale: 0.2 * this.sc, duration: 260 }); } }
           break; }
         case 'end': Sfx.play(ev.result === 'lose' ? 'lose' : ev.result === 'run' ? 'run' : 'win'); break;
       }

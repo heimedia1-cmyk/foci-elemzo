@@ -190,7 +190,9 @@ export class BattleScene extends Phaser.Scene {
     this.meSpr = null; this.foeSpr = null;
     await introBars(this);
     if (o.isTrainer) {
-      const tr = this.add.sprite(this.foePos.x, this.foePos.y, o.trainerSprite, 0).setOrigin(0.5, 1).setScale(this.sc * 1.1).setAlpha(0);
+      const art = this.textures.exists('trb_' + o.trainerId);
+      const tr = (art ? this.add.image(this.foePos.x, this.foePos.y + 4 * this.sc, 'trb_' + o.trainerId) : this.add.sprite(this.foePos.x, this.foePos.y, o.trainerSprite, 0)).setOrigin(0.5, 1).setAlpha(0);
+      tr.setScale(art ? (66 * this.sc) / tr.height : this.sc * 1.1);
       await tween(this, { targets: tr, alpha: 1, x: { from: this.scale.width + 100, to: this.foePos.x }, duration: 500 });
       await this.say(`${o.trainerName} kihívott egy Mexi-csatára!`);
       await tween(this, { targets: tr, x: this.scale.width + 120, alpha: 0, duration: 400 });
@@ -207,8 +209,21 @@ export class BattleScene extends Phaser.Scene {
       if (e.fm.shiny) { this.fx(['c_shiny1', 'c_shiny2', 'c_shiny3', 'c_shiny2', 'c_shiny3'], this.foePos.x, this.foePos.y - 24 * this.sc, 50 * this.sc, 140); await this.say('✨ Csillog! Ez egy SHINY Mexi! ✨'); }
       await this.say(`Egy vad ${displayName(e.fm)} jelent meg!`);
     }
-    this.meSpr = this.add.sprite(-100, this.mePos.y, this.texFor(e.pm, true)).setOrigin(0.5, 1).setScale(this.sc * 0.27);
-    await tween(this, { targets: this.meSpr, x: this.mePos.x, duration: 450, ease: 'Cubic.out' });
+    const pk = 'trb_player_' + (G.state.player.gender === 'lany' ? 'lany' : 'fiu');
+    if (this.textures.exists(pk)) {
+      const pl = this.add.image(-80, this.mePos.y + 8 * this.sc, pk).setOrigin(0.5, 1).setDepth(5);
+      pl.setScale((74 * this.sc) / pl.height);
+      await tween(this, { targets: pl, x: this.mePos.x - 34 * this.sc, duration: 380, ease: 'Cubic.out' });
+      Sfx.play('throw');
+      await tween(this, { targets: pl, x: -pl.displayWidth, duration: 420, ease: 'Cubic.in' });
+      pl.destroy();
+      this.meSpr = this.add.sprite(this.mePos.x, this.mePos.y, this.texFor(e.pm, true)).setOrigin(0.5, 1).setScale(0);
+      enterFlash(this, this.meSpr);
+      await tween(this, { targets: this.meSpr, scale: this.sc * 0.27, duration: 320, ease: 'Back.out' });
+    } else {
+      this.meSpr = this.add.sprite(-100, this.mePos.y, this.texFor(e.pm, true)).setOrigin(0.5, 1).setScale(this.sc * 0.27);
+      await tween(this, { targets: this.meSpr, x: this.mePos.x, duration: 450, ease: 'Cubic.out' });
+    }
     this.renderInfo('p');
     await this.say(`Rajta, ${displayName(e.pm)}!`);
     if (o.tutorial) {
@@ -398,18 +413,20 @@ export class BattleScene extends Phaser.Scene {
 
   async ballAnim(itemId, shakes, caught) {
     const size = 16 * this.sc;
-    const ball = this.add.image(this.mePos.x, this.mePos.y - 30 * this.sc, 'ball_' + itemId).setDepth(25);
+    const ball = this.add.image(this.mePos.x, this.mePos.y - 30 * this.sc, (this.textures.exists('ico_ball_' + itemId.replace('_labda', '')) ? 'ico_ball_' + itemId.replace('_labda', '') : 'ball_' + itemId)).setDepth(25);
     ball.setScale(size / ball.width);
     const tx = this.foePos.x, ty = this.foePos.y - 20 * this.sc;
     const sx = ball.x, sy = ball.y;
-    const trail = this.add.image(sx, sy, 'bfx_c_fly2').setDepth(24).setAlpha(0.8);
+    const bk = itemId.replace('_labda', ''), own = this.textures.exists(`bfx_cb_${bk}_open`);
+    const B = (k, def) => own ? [`cb_${bk}_${k}`] : def;
+    const trail = this.add.image(sx, sy, own ? `bfx_cb_${bk}_fly` : 'bfx_c_fly2').setDepth(24).setAlpha(0.8);
     trail.setScale((size * 1.6) / trail.width);
     Sfx.play('throw');
     await tween(this, { targets: { t: 0 }, t: 1, duration: 550, onUpdate: (tw, obj) => { const t = obj.t; ball.x = sx + (tx - sx) * t; ball.y = sy + (ty - sy) * t - Math.sin(t * Math.PI) * 90 * (this.sc / 2); ball.angle = t * 720; trail.setPosition(ball.x - 8, ball.y); } });
     trail.destroy();
     // a labda kinyílik, a Mexi bekerül
     ball.setVisible(false); Sfx.play('ball_open');
-    const fxP = this.fx(['c_open1', 'c_open2', 'c_beam1', 'c_beam2'], tx, ty, 34 * this.sc, 120, 26);
+    const fxP = this.fx(own ? [`cb_${bk}_open`, `cb_${bk}_open`, `cb_${bk}_beam`, `cb_${bk}_beam`] : ['c_open1', 'c_open2', 'c_beam1', 'c_beam2'], tx, ty, 34 * this.sc, 120, 26);
     this.foeSpr.setTintFill(0xffffff);
     await tween(this, { targets: this.foeSpr, scale: 0, y: ty, duration: 420 });
     await fxP;
@@ -417,7 +434,7 @@ export class BattleScene extends Phaser.Scene {
     await tween(this, { targets: ball, y: this.foePos.y - 6 * this.sc, duration: 350, ease: 'Bounce.out' });
     for (let i = 0; i < shakes; i++) {
       await wait(this, 300);
-      this.fx([i % 2 ? 'c_wob2' : 'c_wob1'], ball.x, ball.y, 26 * this.sc, 280, 26);
+      this.fx(B('wob', [i % 2 ? 'c_wob2' : 'c_wob1']), ball.x, ball.y, 26 * this.sc, 280, 26);
       Sfx.play('shake');
       await tween(this, { targets: ball, angle: i % 2 ? 25 : -25, yoyo: true, duration: 140 });
       this.msg.textContent = '.'.repeat(i + 1);
@@ -425,12 +442,12 @@ export class BattleScene extends Phaser.Scene {
     await wait(this, 350);
     if (caught) {
       Sfx.play('catch'); vibrate('catch');
-      await this.fx(['c_ok1', 'c_ok2', 'c_ok3'], ball.x, ball.y, 40 * this.sc, 160, 26);
+      await this.fx(B('ok', ['c_ok1', 'c_ok2', 'c_ok3']), ball.x, ball.y, 40 * this.sc, own ? 480 : 160, 26);
       ball.setTint(0xbbbbbb);
       this._caughtBall = ball;
     } else {
       ball.destroy(); Sfx.play('escape');
-      this.fx(['c_esc1', 'c_esc2'], tx, this.foePos.y - 14 * this.sc, 40 * this.sc, 140, 26);
+      this.fx(B('esc', ['c_esc1', 'c_esc2']), tx, this.foePos.y - 14 * this.sc, 40 * this.sc, own ? 280 : 140, 26);
       this.foeSpr.clearTint().setPosition(this.foePos.x, this.foePos.y);
       await tween(this, { targets: this.foeSpr, scale: this.sc / 4, duration: 300, ease: 'Back.out' });
     }

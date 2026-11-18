@@ -452,7 +452,7 @@ export class WorldScene extends Phaser.Scene {
     for (const m of s.party) { const to = canEvolve(m); if (to && m.hp > 0) { const old = displayName(m); const pend = evolve(m, to); s.dex.seen[to] = s.dex.caught[to] = true; this.cameras.main.flash(500); Sfx.play('evolve'); await dialog(`Mi történik?! ${old} fejlődött: ${MEXIS[to].name}! 🌟`); for (const mv of pend) await offerMove(m, mv); } }
     if (r.result === 'lose' || r.result === 'draw') {
       await dialog(r.result === 'draw' ? 'Döntetlen! Mindkét oldal utolsó Mexije egyszerre esett ki. Visszasiettél gyógyulni.' : 'Mindkettőtök Mexijei kidőltek... Visszasiettél gyógyulni.');
-      for (const m of s.party) healFull(m);
+      for (const m of [...s.party, ...(s.storage || [])]) healFull(m);
       s.map = s.lastHeal.map; s.pos = { x: s.lastHeal.x, y: s.lastHeal.y, dir: 'down' }; if (s.lastHeal.ret) s.returnTo = s.lastHeal.ret;
       save(); this.cutscene = false; this.scene.restart(); return;
     }
@@ -794,7 +794,7 @@ export class WorldScene extends Phaser.Scene {
       const lost = res === 'draw' ? 0 : Math.floor(s.money * 0.1); // döntetlennél nincs pénzveszteség
       s.money -= lost;
       await dialog([res === 'draw' ? 'Döntetlen lett – a Mexijeid kimerültek, de pénzt nem vesztettél.' : `Minden Mexid kimerült... Elvesztettél ${lost} érmét.`, 'Gyorsan visszasiettél a gyógyítóállomásra.']);
-      for (const m of s.party) healFull(m);
+      for (const m of [...s.party, ...(s.storage || [])]) healFull(m);
       s.map = s.lastHeal.map; s.pos = { x: s.lastHeal.x, y: s.lastHeal.y, dir: 'down' }; if (s.lastHeal.ret) s.returnTo = s.lastHeal.ret;
       save();
       this.cutscene = false;
@@ -858,7 +858,7 @@ export class WorldScene extends Phaser.Scene {
     const top = Math.max(...G.state.party.map(m => m.level));
     const team = n.tr.team.map(([sp, lv], i) => createMexi(sp, rematch ? Math.min(CONFIG.maxLevel, Math.max(lv, top - 2 + (i === n.tr.team.length - 1 ? 1 : 0))) : lv, { shiny: false }));
     team.forEach(m => markSeen(m.species));
-    this.launchBattle({ foeParty: team, isTrainer: true, trainerName: n.tr.name, trainerSprite: n.sprite.texture.key, trainerNpc: n, rematch });
+    this.launchBattle({ foeParty: team, isTrainer: true, trainerName: n.tr.name, trainerSprite: n.sprite.texture.key, trainerId: n.trainer, trainerNpc: n, rematch });
   }
 
   // ---------------- NPC-k mozgása ----------------
@@ -930,7 +930,7 @@ export class WorldScene extends Phaser.Scene {
       this.cutscene = true;
       this.cameras.main.fadeOut(400, 0, 0, 0);
       await new Promise(r => this.time.delayedCall(700, r));
-      for (const m of G.state.party) healFull(m);
+      for (const m of [...G.state.party, ...(G.state.storage || [])]) healFull(m);
       G.state.lastHeal = { map: this.mapKey, x: this.player.x, y: this.player.y, ret: G.state.returnTo || null };
       this.cameras.main.fadeIn(400, 0, 0, 0);
       await dialog('Kipihented magad. A Mexijeid is teljesen meggyógyultak! 💤');
@@ -947,11 +947,11 @@ export class WorldScene extends Phaser.Scene {
     if (c === 1) { await moveReminder(who); this.updateHud(); this.cutscene = false; return; }
     if (c !== 0) { this.cutscene = false; return; }
     await dialog('Add ide a Mexijeidet, mindegyiket meggyógyítom...', who);
-    for (const m of s.party) healFull(m);
+    for (const m of [...s.party, ...(s.storage || [])]) healFull(m);
     Sfx.play('heal');
     this.cameras.main.flash(400, 255, 200, 220);
     s.lastHeal = { map: this.mapKey, x: this.player.x, y: this.player.y, ret: G.state.returnTo || null };
-    await dialog(`Kész! Mind a(z) ${s.party.length} Mexid újra teljesen egészséges. Gyere vissza bármikor!`, who);
+    await dialog(`Kész! Mind a(z) ${s.party.length} Mexid – és a tárolóban pihenők is – újra teljesen egészségesek. Gyere vissza bármikor!`, who);
     save(); this.updateHud(); this.cutscene = false;
   }
 
@@ -982,7 +982,7 @@ export class WorldScene extends Phaser.Scene {
     if (n.talk === 'mom') {
       this.cutscene = true;
       await dialog(['Anya: Szia kincsem! Pihenj egy kicsit...', '(A Mexijeid kipihenték magukat.)']);
-      for (const m of G.state.party) healFull(m);
+      for (const m of [...G.state.party, ...(G.state.storage || [])]) healFull(m);
       G.state.lastHeal = { map: this.mapKey, x: this.player.x, y: this.player.y, ret: G.state.returnTo || null };
       save(); this.cutscene = false; return;
     }
@@ -1044,7 +1044,7 @@ export class WorldScene extends Phaser.Scene {
     const out = () => { this.player.y += 1; this.setFacing(this.player, 'down'); this.placeSprite(this.player); s.pos = { x: this.player.x, y: this.player.y, dir: 'down' }; };
     if (b.action === 'heal') {
       await dialog(['Üdv a Mexi-gyógyítóállomáson! 💖', 'Meggyógyítom a Mexijeidet...'], 'Nővér Mancsi');
-      for (const m of s.party) healFull(m);
+      for (const m of [...s.party, ...(s.storage || [])]) healFull(m);
       this.cameras.main.flash(400, 255, 200, 220);
       s.lastHeal = { map: this.mapKey, x: b.door.x, y: b.door.y };
       await dialog('Kész! A Mexijeid újra teljesen egészségesek. Gyere vissza bármikor!', 'Nővér Mancsi');
@@ -1053,7 +1053,7 @@ export class WorldScene extends Phaser.Scene {
       await openShop();
     } else if (b.action === 'home') {
       await dialog(['Anya: Szia! Pihenj egy kicsit...', '(A Mexijeid kipihenték magukat.)']);
-      for (const m of s.party) healFull(m);
+      for (const m of [...s.party, ...(s.storage || [])]) healFull(m);
       s.lastHeal = { map: this.mapKey, x: b.door.x, y: b.door.y };
     } else if (b.action === 'lab') {
       await dialog(s.flags.starter ? 'A laborban gőzerővel folyik a kutatás. A professzor kint van a téren.' : 'A labor zárva. A professzor kint van a téren, a labor előtt!');
