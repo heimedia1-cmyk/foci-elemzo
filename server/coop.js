@@ -4,6 +4,7 @@ import { WebSocketServer } from 'ws';
 import crypto from 'node:crypto';
 import { CoopBattle, coopLevelCap } from '../public/src/systems/coopBattle.js';
 import { createMexi, randInt, rand } from '../public/src/systems/mexi.js';
+import { findById } from '../public/src/data/fieldItems.js';
 import { MEXIS } from '../public/src/data/mexis.js';
 import { sanitizeCoopParty, sanitizeInventory, sanitizeAction, serverEncounterTable } from './validate.js';
 import { verifyToken, readSave } from './auth.js';
@@ -164,6 +165,17 @@ export function attachCoop(server) {
         case 'pos': {
           c.pos = { map: String(msg.map).slice(0, 30), x: msg.x | 0, y: msg.y | 0, dir: ['up', 'down', 'left', 'right'].includes(msg.dir) ? msg.dir : 'down', lead: typeof msg.lead === 'object' && msg.lead && MEXIS[msg.lead.species] ? { species: msg.lead.species, shiny: !!msg.lead.shiny } : null };
           if (p) for (const sid of p.members) if (sid !== c.sid) send(clients.get(sid), { t: 'partner_pos', pid: c.pid, name: c.name, gender: c.gender, pos: c.pos });
+          break;
+        }
+        case 'party_find': {
+          // duó: amit az egyik játékos talál, a társa is megkapja (a tárgy adatai a szerver saját térképadataiból)
+          if (!p || p.members.length < 2) break;
+          const map = String(msg.map || '').slice(0, 40), id = String(msg.id || '').slice(0, 60);
+          const it = findById(map, id);
+          if (!it || c.pos?.map !== map) break;
+          p.gifts ??= new Set(); const gk = c.sid + '|' + id;
+          if (p.gifts.has(gk)) break; p.gifts.add(gk);
+          for (const sid of p.members) if (sid !== c.sid) send(clients.get(sid), { t: 'party_gift', map, id, item: it.item, qty: it.qty, from: c.name });
           break;
         }
         case 'coop_encounter': {

@@ -1,6 +1,8 @@
 // WorldScene – felfedezés: térkép, mozgás, NPC-k, találkozások, szimatolás, napszak.
 import { MAPS, SOLID, TRAINERS, isSolidCh } from '../data/maps.js';
 import { biomeFrame, isWaterFrame, BIOMES } from '../data/world2.js';
+import { fieldItems } from '../data/fieldItems.js';
+import { ITEM_ICON } from '../data/items.js';
 import { MEXIS } from '../data/mexis.js';
 import { ITEMS } from '../data/items.js';
 import { CONFIG } from '../data/config.js';
@@ -46,6 +48,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.buildMap();
     this.buildBuildings();
+    this.buildFieldItems();
     this.buildNpcs();
     this.buildRoamers();
 
@@ -379,6 +382,7 @@ export class WorldScene extends Phaser.Scene {
       Net.on('partner_pos', () => this.drawPartner()),
       Net.on('party_state', () => { this.drawPartner(); this.updateHud(); }),
       Net.on('toast', (m) => toast(m.text)),
+      Net.on('party_gift', (m) => this.onPartyGift(m)),
       Net.on('coop_request', (m) => {
         const ok = this.canControl() && !this.inBattle && G.state.party.some(x => x.hp > 0);
         Net.send({ t: 'coop_party', ok, party: G.state.party, inventory: G.state.inventory });
@@ -695,6 +699,10 @@ export class WorldScene extends Phaser.Scene {
     // ajtó?
     const door = this.doors.find(d => d.door.x === p.x && d.door.y === p.y);
     if (door) { await this.enterBuilding(door); return; }
+
+    // látható tárgy a földön?
+    const fi = this.fieldSprites?.find(f => f.it.x === p.x && f.it.y === p.y);
+    if (fi) { await this.pickField(fi); }
 
     // eseményzóna
     for (const tr of this.map.triggers) {
@@ -1155,7 +1163,57 @@ export class WorldScene extends Phaser.Scene {
     s.foundItems.push(h.id);
     s.inventory[h.item] = (s.inventory[h.item] || 0) + h.qty;
     this.sniffMarks.forEach(m => m.destroy()); this.sniffMarks = [];
-    await dialog(`${displayName(this.follower.mon)} kiásott valamit! Találtál: ${h.qty}× ${ITEMS[h.item].name}!`);
+    const shared = this.shareFind(h.id);
+    await dialog(`${displayName(this.follower.mon)} kiásott valamit! Találtál: ${h.qty}× ${ITEMS[h.item].name}!` + (shared ? ' A társad is kapott egyet! 🤝' : ''));
+    save(); this.updateHud();
+  }
+
+  /** Látható tárgyak a földön (rálépve felvehetők). */
+  buildFieldItems() {
+    this.fieldSprites = [];
+    for (const it of fieldItems(this.mapKey)) {
+      if (G.state.foundItems.includes(it.id)) continue;
+      const key = 'ico_' + (ITEM_ICON[it.item] || 'ball_sima');
+      if (!this.textures.exists(key)) continue;
+      const x = this.px(it.x), y = this.py(it.y) - 10;
+      const sh = this.add.ellipse(x, this.py(it.y) - 3, 14, 5, 0x000000, 0.25).setDepth(this.py(it.y) - 2);
+      const spr = this.add.image(x, y, key).setDepth(this.py(it.y) - 1);
+      spr.setScale(16 / spr.width);
+      this.tweens.add({ targets: spr, y: y - 3, yoyo: true, repeat: -1, duration: 700, ease: 'Sine.inOut' });
+      this.fieldSprites.push({ it, spr, sh });
+    }
+  }
+  async pickField(f) {
+    const s = G.state; const it = f.it;
+    if (s.foundItems.includes(it.id)) return;
+    s.foundItems.push(it.id);
+    s.inventory[it.item] = (s.inventory[it.item] || 0) + it.qty;
+    this.removeFieldSprite(it.id);
+    Sfx.play('item');
+    const shared = this.shareFind(it.id);
+    await dialog(`Találtál: ${it.qty}× ${ITEMS[it.item].name}!` + (shared ? ' A társad is kapott! 🤝' : ''));
+    save(); this.updateHud();
+  }
+  removeFieldSprite(id) {
+    const i = (this.fieldSprites || []).findIndex(f => f.it.id === id);
+    if (i >= 0) { const f = this.fieldSprites[i]; this.tweens.killTweensOf(f.spr); f.spr.destroy(); f.sh.destroy(); this.fieldSprites.splice(i, 1); }
+  }
+  /** Duóban: a talált tárgyat a társ is megkapja (a szerver ellenőrzi). Igaz, ha van online társ. */
+  shareFind(id) {
+    const partner = Net.party?.members?.find(m => m.pid !== Net.pid && m.online);
+    if (!partner || !Net.online) return false;
+    Net.send({ t: 'party_find', map: this.mapKey, id });
+    return true;
+  }
+  /** A társ talált valamit → mi is megkapjuk. */
+  onPartyGift(m) {
+    const s = G.state;
+    if (!m?.id || s.foundItems.includes(m.id) || !ITEMS[m.item]) return;
+    s.foundItems.push(m.id);
+    s.inventory[m.item] = (s.inventory[m.item] || 0) + (m.qty | 0);
+    if (this.mapKey === m.map) this.removeFieldSprite(m.id);
+    Sfx.play('item');
+    toast(`🤝 ${m.from} talált valamit – te is kaptál: ${m.qty}× ${ITEMS[m.item].name}!`);
     save(); this.updateHud();
   }
 
