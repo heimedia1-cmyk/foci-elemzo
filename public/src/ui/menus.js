@@ -118,6 +118,7 @@ export function openMainMenu(world) {
         b([el('img', { class: 'mico', src: 'assets/ui/m_party.png' }), 'Csapat (P)'], () => openParty()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_bag.png' }), 'Táska (I)'], () => openBag()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_map.png' }), 'Mexi-tároló'], () => openStorage()),
+        b([el('img', { class: 'mico', src: 'assets/ui/m_map.png' }), '🚶 Séta mód'], () => { w.close(); import('../go/goMode.js').then(m => m.openGoMode(world)); }),
         b([el('img', { class: 'mico', src: 'assets/ui/m_party.png' }), 'Barátok (party)'], () => openPartyMenu()),
         b([el('img', { class: 'mico', src: 'assets/ui/m_save.png' }), 'Mentés'], () => { save() ? toast('Játék elmentve!') : toast('Mentés sikertelen'); }),
         b([el('img', { class: 'mico', src: 'assets/ui/m_settings.png' }), `Hang: ${Math.round(Sfx.volume * 100)}%`], () => openSound()),

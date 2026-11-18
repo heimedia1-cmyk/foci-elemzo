@@ -34,6 +34,7 @@ export class TitleScene extends Phaser.Scene {
     const saveExists = hasSave();
     const btns = [];
     if (saveExists) btns.push(el('button', { class: 'btn primary', onclick: () => this.continueGame() }, '▶ Folytatás'));
+    if (saveExists) btns.push(el('button', { class: 'btn', onclick: () => { window.MEXI_OPEN_GO = true; this.continueGame(); } }, '🚶 Séta mód'));
     btns.push(el('button', { class: 'btn' + (saveExists ? '' : ' primary'), onclick: () => this.newGameForm() }, '✨ Új játék'));
     const acct = Account.current;
     const bar = window.MEXI_PREVIEW

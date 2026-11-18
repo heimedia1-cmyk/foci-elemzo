@@ -88,6 +88,7 @@ export class WorldScene extends Phaser.Scene {
 
     this.buildHud();
     this.setupNet();
+    if (window.MEXI_OPEN_GO) { window.MEXI_OPEN_GO = false; this.time.delayedCall(500, () => import('../go/goMode.js').then(m => m.openGoMode(this))); }
     this.events.on('resume', () => this.onResume());
     this.events.once('shutdown', () => this.cleanup());
 
