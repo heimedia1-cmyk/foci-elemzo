@@ -41,7 +41,7 @@ jobs:
       - run: npx cap sync android
       - name: APK építése
         working-directory: android
-        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee ../gradle-build.log; exit ${PIPESTATUS[0]}
       - uses: actions/upload-artifact@v4
         with: { name: '${{ env.APK_NAME }}', path: android/app/build/outputs/apk/debug/app-debug.apk }
       - name: APK a letöltési ágra (a másik változat APK-ja megmarad)
@@ -55,3 +55,12 @@ jobs:
           cp ../android/app/build/outputs/apk/debug/app-debug.apk "$APK_NAME"
           git add -A && git commit -qm "$APK_NAME ${VERSION_NAME} (${GITHUB_SHA::7})"
           git push -f "$REMOTE" HEAD:mexiverse-apk
+      - name: Hibanapló közzététele (csak hiba esetén)
+        if: failure()
+        env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
+        run: |
+          mkdir logout && cd logout && git init -q -b mexiverse-buildlog
+          git config user.name "mexiverse-bot"; git config user.email "mexiverse-bot@users.noreply.github.com"
+          tail -c 60000 ../gradle-build.log > build.log || echo "nincs napló" > build.log
+          git add -A && git commit -qm "build log ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:mexiverse-buildlog
