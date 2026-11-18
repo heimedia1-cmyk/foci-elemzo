@@ -40,3 +40,25 @@ console.log(`✓ közös harc: ${total} szimuláció, győzelmi arány ${Math.ro
   assert.equal(ra.inventory.sima_labda, 1); assert.equal(rb.inventory.profi_labda, 0);
   console.log('✓ közös dobás: mindketten megkapják');
 }
+
+// ha egy játékos Mexije a körben kidől, a helyére beküldött Mexi abban a körben még nem támad
+{
+  const weak = createMexi('alap', 3); weak.hp = 1;
+  const b = new CoopBattle({ players: [{ id: 'a', name: 'A', party: [createMexi('alap', 30)], inventory: {} }, { id: 'b', name: 'B', party: [weak, createMexi('lang', 30)], inventory: {} }], foes: [createMexi('lavakiraly', 40)], cap: 50 });
+  // a lassú gyenge Mexi biztosan kidől, mielőtt sorra kerül
+  b.allies[1].party[0].stats.spe = 1;
+  b.submit('a', { type: 'move', index: 0, target: 0 });
+  let ev = null;
+  for (let tries = 0; tries < 20 && !ev?.some?.(x => x.t === 'faint' && x.ref === 'a1'); tries++) {
+    const bb = new CoopBattle({ players: [{ id: 'a', name: 'A', party: [createMexi('alap', 30)], inventory: {} }, { id: 'b', name: 'B', party: [Object.assign(createMexi('alap', 3), { hp: 1 }), createMexi('lang', 30)], inventory: {} }], foes: [createMexi('lavakiraly', 40)], cap: 50 });
+    bb.allies[1].party[0].stats.spe = 1;
+    bb.submit('a', { type: 'move', index: 0, target: 0 });
+    ev = bb.submit('b', { type: 'move', index: 0, target: 0 });
+    if (ev?.some(x => x.t === 'faint' && x.ref === 'a1')) {
+      const i = ev.findIndex(x => x.t === 'faint' && x.ref === 'a1');
+      const after = ev.slice(i).filter(x => x.t === 'anim' && x.ref === 'a1');
+      assert.equal(after.length, 0, 'a beküldött Mexi nem támadhat ugyanabban a körben');
+    }
+  }
+  console.log('✓ kidőlés után a beküldött Mexi nem támad ugyanabban a körben');
+}

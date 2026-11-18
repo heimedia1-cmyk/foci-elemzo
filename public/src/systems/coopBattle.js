@@ -119,7 +119,7 @@ export class CoopBattle {
       if (act.type === 'switch') this.doSwitch(i, act.index, ev);
       else if (act.type === 'item') this.useItem(i, act, ev);
       else if (act.type === 'ball') { this.throwBall(i, act, ev); if (this.checkEnd(ev)) return this.done(ev); }
-      else if (act.type === 'move') acts.push({ ref: 'a' + i, index: act.index, target: act.target });
+      else if (act.type === 'move') acts.push({ ref: 'a' + i, index: act.index, target: act.target, mon: a.party[a.active] });
     }
     // 3) vad Mexik célpontot választanak
     for (const fi of this.livingFoes()) {
@@ -135,6 +135,8 @@ export class CoopBattle {
     for (const act of acts) {
       const m = this.monOf(act.ref);
       if (!m || m.hp <= 0) continue;
+      // ha a lépést választó Mexi közben kidőlt és a helyére új jött, az új ebben a körben még nem támad
+      if (act.mon && act.mon !== m) continue;
       if (act.ref[0] === 'f' && this.foes[+act.ref[1]].gone) continue;
       // célpont újraválasztása, ha az eredeti már nincs
       let tRef;
