@@ -43,7 +43,7 @@ export async function openGoMode(world) {
 
   // ---------- felület ----------
   const mapDiv = el('div', { class: 'go-map' + (isNight(Date.now()) ? ' night' : '') });
-  const kmEl = el('span'), ballEl = el('span'), buddyEl = el('button', { class: 'go-chip', onclick: () => pickBuddy() });
+  const accEl = el('span', { class: 'go-acc' }), kmEl = el('span'), ballEl = el('span'), buddyEl = el('button', { class: 'go-chip', onclick: () => pickBuddy() });
   const statusEl = el('div', { class: 'go-status' });
   const nearby = el('div', { class: 'go-nearby' });
   const top = el('div', { class: 'go-top' },
@@ -55,7 +55,7 @@ export async function openGoMode(world) {
     el('button', { class: 'go-round', title: 'Saját pozícióm', onclick: () => S.pos && map.setView([S.pos.lat, S.pos.lng], 17) }, '◎'),
     el('button', { class: 'go-round big', title: 'Mexik a közelben', onclick: () => nearby.classList.toggle('open') }, '🐾'),
     el('button', { class: 'go-round', title: 'Táska', onclick: () => showBag() }, '🎒'));
-  root.append(mapDiv, top, statusEl, nearby, pad, bottom);
+  root.append(mapDiv, top, statusEl, nearby, pad, bottom, accEl);
 
   const map = L.map(mapDiv, { zoomControl: false, attributionControl: true, minZoom: 15, maxZoom: 19 }).setView([DEMO_START.lat, DEMO_START.lng], 17);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> közreműködők' }).addTo(map);
@@ -88,11 +88,13 @@ export async function openGoMode(world) {
       }
     }
     S.pos = p;
+    me.setOpacity(1); range.setStyle({ opacity: 1, fillOpacity: 0.06 });
     me.setLatLng([p.lat, p.lng]); range.setLatLng([p.lat, p.lng]);
     if (!S.centered) { map.setView([p.lat, p.lng], 17); S.centered = true; } else if (!map.getBounds().pad(-0.25).contains([p.lat, p.lng])) map.panTo([p.lat, p.lng]);
     refreshWorld();
   };
   const startDemo = (why) => {
+    if (S.lastReal) return;
     S.demo = true; pad.classList.remove('hidden');
     statusEl.textContent = `🧪 Kipróbáló mód (${why}) – a nyilakkal sétálhatsz. A sétatárs-csont csak valódi sétával jár.`;
     setPos({ ...DEMO_START, t: Date.now(), acc: 5 }, false);
@@ -111,36 +113,51 @@ export async function openGoMode(world) {
   };
   window.addEventListener('keydown', S.keys, true);
 
+  // Valódi GPS: a natív app (háttérben is) és a böngésző helymeghatározása párhuzamosan fut;
+  // a pontosabb / frissebb jel nyer. Ha kipróbáló módban vagy, az első valódi jel azonnal átvált.
+  const realFix = (lat, lng, acc, t, src) => {
+    if (S.closed || acc == null || acc > 150) return;              // túl pontatlan jel (pl. csak cellainfó)
+    if (S.lastReal && src !== S.lastReal.src && t - S.lastReal.t < 4000 && acc > S.lastReal.acc + 5) return; // a másik forrás épp jobb
+    S.lastReal = { src, t, acc };
+    if (S.demo) { S.demo = false; S.pos = null; S.centered = false; pad.classList.add('hidden'); toast('📡 Megvan a GPS – a valódi helyedet mutatjuk!'); }
+    accEl.textContent = `📡 ±${Math.round(acc)} m`; accEl.className = 'go-acc ' + (acc <= 15 ? 'good' : acc <= 40 ? 'ok' : 'bad');
+    statusEl.textContent = acc > 40 ? '📡 Pontatlan a GPS – menj szabad ég alá, pár másodperc múlva pontosabb lesz.' : '';
+    setPos({ lat, lng, acc, t: t || Date.now() }, true);
+  };
+  const waitMsg = () => {
+    if (S.pos || S.demo || S.closed) return;
+    statusEl.replaceChildren('📡 GPS jelre várunk... (szabad ég alatt gyorsabb) ',
+      el('button', { class: 'go-chip', style: 'pointer-events:auto;margin-left:6px', onclick: () => startDemo('kézi') }, 'Kipróbáló mód'));
+  };
+  me.setOpacity(0); range.setStyle({ opacity: 0, fillOpacity: 0 });
   const BG = window.Capacitor?.isNativePlatform?.() && window.Capacitor.Plugins?.BackgroundGeolocation;
   if (window.MEXI_GO_DEMO) startDemo('teszt');
-  else if (BG) {
-    // Android app: pontos GPS, ami a háttérben (kikapcsolt képernyővel) is számolja a sétát
-    statusEl.textContent = '📡 GPS keresése...';
-    const fallback = setTimeout(() => { if (!S.pos) startDemo('nem jött GPS-jel'); }, 20000);
-    BG.addWatcher({ backgroundTitle: 'MexiVerse – séta mód', backgroundMessage: 'Számoljuk a sétádat, és figyeljük a közeli Mexiket 🐾', requestPermissions: true, stale: false, distanceFilter: 4 },
-      async (loc, err) => {
-        if (err) {
-          clearTimeout(fallback);
-          if (err.code === 'NOT_AUTHORIZED' && !S.pos) {
-            const c = await choose(['Beállítások megnyitása', 'Kipróbáló mód'], { question: 'A séta módhoz engedélyezd a helymeghatározást (pontos hely).' });
-            if (c === 0) BG.openSettings();
-          }
-          if (!S.pos) startDemo('nincs engedély');
-          return;
-        }
-        if (!loc || S.demo) return;
-        clearTimeout(fallback); statusEl.textContent = '';
-        setPos({ lat: loc.latitude, lng: loc.longitude, acc: loc.accuracy ?? 10, t: loc.time || Date.now() }, true);
-      }).then((id) => { S.bgId = id; if (S.closed) BG.removeWatcher({ id }); });
-  } else if (!navigator.geolocation) startDemo('nincs GPS');
   else {
     statusEl.textContent = '📡 GPS keresése...';
-    const fallback = setTimeout(() => { if (!S.pos) startDemo('nem jött GPS-jel'); }, 12000);
-    S.watch = navigator.geolocation.watchPosition(
-      (gp) => { clearTimeout(fallback); if (S.demo) return; statusEl.textContent = ''; setPos({ lat: gp.coords.latitude, lng: gp.coords.longitude, acc: gp.coords.accuracy, t: gp.timestamp }, true); },
-      (err) => { clearTimeout(fallback); if (!S.pos) startDemo(err.code === 1 ? 'a helymeghatározás nincs engedélyezve' : 'nincs GPS-jel'); },
-      { enableHighAccuracy: true, maximumAge: 3000, timeout: 20000 });
-    if (/Android/i.test(navigator.userAgent)) setTimeout(() => { if (!S.closed && !S.demo) toast('Tipp: az Android appban a séta kikapcsolt képernyővel is számol!'); }, 4000);
+    setTimeout(waitMsg, 8000);
+    if (BG) {
+      try {
+        BG.addWatcher({ backgroundTitle: 'MexiVerse – séta mód', backgroundMessage: 'Számoljuk a sétádat, és figyeljük a közeli Mexiket 🐾', requestPermissions: true, stale: false, distanceFilter: 3 },
+          async (loc, err) => {
+            if (err) {
+              if (err.code === 'NOT_AUTHORIZED' && !S.permAsked) {
+                S.permAsked = true;
+                const c = await choose(['Beállítások megnyitása', 'Később'], { question: 'A séta módhoz engedélyezd a „Pontos hely” helymeghatározást a MexiVerse-nek.' });
+                if (c === 0) BG.openSettings();
+              }
+              return;
+            }
+            if (loc) realFix(loc.latitude, loc.longitude, loc.accuracy, loc.time, 'app');
+          }).then((id) => { S.bgId = id; if (S.closed) BG.removeWatcher({ id }); }).catch(() => {});
+      } catch { /* a böngészős helymeghatározás továbbra is fut */ }
+    }
+    if (navigator.geolocation) {
+      S.watch = navigator.geolocation.watchPosition(
+        (gp) => realFix(gp.coords.latitude, gp.coords.longitude, gp.coords.accuracy, gp.timestamp, 'web'),
+        (err) => { if (err.code === 1 && !BG && !S.pos) statusEl.textContent = '📡 A helymeghatározás nincs engedélyezve a böngészőben. Engedélyezd, vagy használd a kipróbáló módot.'; waitMsg(); },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+    } else if (!BG) startDemo('nincs GPS');
+    if (!BG && /Android/i.test(navigator.userAgent)) setTimeout(() => { if (!S.closed && !S.demo) toast('Tipp: az Android appban a séta kikapcsolt képernyővel is számol!'); }, 6000);
   }
 
   // ---------- séta, sétatárs ----------
@@ -254,7 +271,7 @@ export async function openGoMode(world) {
     map.remove(); root.remove(); save();
     if (world) { world.cutscene = false; world.scene.resume(); world.updateHud?.(); world.refreshFollower?.(); }
   }
-  S.close = close; S.spin = spinStop;
+  S.close = close; S.spin = spinStop; S.realFix = realFix;
   window.MEXI_GO = S;
 }
 

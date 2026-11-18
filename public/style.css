@@ -188,3 +188,7 @@ table.stats td { padding: 3px 6px; border-bottom: 1px solid #e0d2b0; }
 .go-ballsel { position: absolute; left: 12px; bottom: 16px; } .go-run { position: absolute; right: 12px; top: 12px; }
 .go-catch .go-chip { display: inline-flex; background: rgba(255,250,240,.94); border: 3px solid #3a2a4a; border-radius: 12px; padding: 6px 10px; font-weight: 800; }
 .go-hint { position: absolute; bottom: 2%; left: 0; right: 0; text-align: center; color: #fff; font-size: 12px; text-shadow: 0 1px 2px #000; }
+#go .go-acc { position: absolute; left: 10px; bottom: 96px; z-index: 600; font-size: 12px; font-weight: 800; padding: 3px 8px; border-radius: 10px; background: rgba(255,250,240,.9); border: 2px solid #3a2a4a; }
+#go .go-acc:empty { display: none; }
+#go .go-acc.good { color: #1a7a2a; } #go .go-acc.ok { color: #a07000; } #go .go-acc.bad { color: #c02020; }
+#go .go-status button { font-size: 12px; text-shadow: none; }
