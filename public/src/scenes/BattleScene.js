@@ -64,6 +64,7 @@ export class BattleScene extends Phaser.Scene {
 
   create() {
     const s = G.state;
+    this.dispHp = null; // új harc: a kijelzett HP a valódi állapotból indul (a jelenet-példány újrahasznosul!)
     this.engine = new BattleEngine({
       playerParty: s.party, foeParty: this.opts.foeParty, isTrainer: this.opts.isTrainer,
       trainerName: this.opts.trainerName, inventory: s.inventory, guaranteeCatch: !!this.opts.tutorial,

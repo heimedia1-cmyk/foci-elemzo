@@ -232,7 +232,9 @@ export function registerArt(scene) {
   // fejlődési alakok: saját harci képek (elöl, hátul, shiny elöl); a térképen az alapfaj színváltozata
   const ev = img(scene, 'src_evo');
   Object.entries(EVO_BASE).forEach(([evo, [base, deg]], col) => {
-    const f = crop(ev, col * 192, 0, 192, 192), b = crop(ev, col * 192, 192, 192, 192), fs = crop(ev, col * 192, 384, 192, 192);
+    const f = crop(ev, col * 192, 0, 192, 192), fs = crop(ev, col * 192, 384, 192, 192);
+    // a hátulnézetet tükrözzük, hogy (a többi Mexihez hasonlóan) az ellenfél felé, jobbra forduljon
+    const b = cv(192, 192); { const g = b.getContext('2d'); g.translate(192, 0); g.scale(-1, 1); g.drawImage(crop(ev, col * 192, 192, 192, 192), 0, 0); }
     addCanvas(scene, 'mf_' + evo, f); addCanvas(scene, 'mf_' + evo + '_s', fs);
     addCanvas(scene, 'mb_' + evo, b); addCanvas(scene, 'mb_' + evo + '_s', hueCanvas(b, 150));
     urlCache[evo] = f.toDataURL(); urlCache[evo + '_s'] = fs.toDataURL();
