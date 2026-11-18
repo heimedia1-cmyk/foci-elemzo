@@ -255,3 +255,8 @@ body.tc-on.tc-lefty .choices { right: auto; left: calc(232px + env(safe-area-ins
   .moves .btn { min-height: 48px; }
   .bbox .acts .btn { min-height: 46px; }
 }
+/* érintős módban a HUD ne lógjon a menügomb alá; a menügomb legyen jól látható */
+body.tc-on #hud { right: calc(76px + env(safe-area-inset-right, 0px)); flex-wrap: wrap; gap: 6px; }
+body.tc-on.tc-lefty #hud { left: calc(76px + env(safe-area-inset-left, 0px)); right: calc(10px + env(safe-area-inset-right, 0px)); }
+.tc-btn.menu { background: #4a7ad8 !important; color: #fff; border-color: #1a2a5a; opacity: 1 !important; box-shadow: 0 4px 0 rgba(0,0,0,.35), 0 0 0 3px rgba(255,255,255,.7); }
+@media (orientation: portrait) { body.tc-on #hud .chip { font-size: 12px; padding: 3px 7px; } }
